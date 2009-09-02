@@ -1,0 +1,241 @@
+#include "i.h"
+
+double
+create_hann_window(double *window, uint32_t n_window) {
+	double squared_window_coefficients = 0;
+	for (int k = 0; k < n_window; k++) {
+		window[k] = 0.5*(1-cos(2*M_PI*(k+0.5)/n_window));
+		squared_window_coefficients += window[k]*window[k];
+		dp(35, "window[%d]=%g\n", k, window[k]);
+	}
+	return squared_window_coefficients;
+}
+
+double
+create_hann_window_fp(uint32_t *window, uint32_t n_window) {
+	double squared_window_coefficients = 0;
+	for (int k = 0; k < n_window; k++) {
+		double d = 0.5*(1-cos(2*M_PI*(k+0.5)/n_window));
+		window[k] = double_to_fixed_point(d);
+		squared_window_coefficients += d*d;
+	}
+	return squared_window_coefficients;
+}
+
+double
+create_square_window(double *window, uint32_t n_window) {
+	for (int k = 0; k < n_window; k++)
+		window[k] = 1;
+	return n_window;
+}
+
+void
+extract_power_phase(sample_t samples[], index_t length, index_t fft_length, int do_windowing, power_t *power, phase_t *phase) {
+	fft_t f = {0};
+	f.n_steps = 1;
+	f.window_size = length;
+	f.step_size  = f.window_size; // unneeded
+	f.fft_size = fft_length;
+	f.n_bins = (f.fft_size+1)/2;
+	if (!do_windowing) {
+		f.window = salloc(f.window_size*sizeof (double));
+		create_square_window(f.window, f.window_size);
+		f.window_correction = 1.0/f.n_bins;
+	}
+	short_time_power_phase(samples, &f, (void *)power, (void *)phase);
+	free_fft(&f);
+}
+
+void
+short_time_power_phase(sample_t samples[], fft_t *f, power_t power[f->n_steps][f->n_bins], phase_t phase[f->n_steps][f->n_bins]) {
+	if (!f->window) {
+		f->window = salloc(f->window_size*sizeof (double));
+		double squared_window_coefficients = create_hann_window(f->window, f->window_size);
+		f->window_correction = f->window_size/(squared_window_coefficients*f->n_bins);
+	}
+	assert(f->n_steps > 0);
+	assert(f->window_size > 0 && f->window_size <= f->fft_size);
+	assert(f->step_size > 0 && f->step_size <= f->window_size);
+	assert(samples && power && f->fft_size > 0);
+	if (param_get_integer("spectral_analysis", "use_fftw"))
+		fftw_short_time_power_phase(samples, f, power, phase);
+	else
+		kiss_short_time_power_phase(samples, f, power, phase);
+}
+
+void
+free_fft(fft_t *f) {
+	if (f->window) g_free(f->window);
+	if (param_get_integer("spectral_analysis", "use_fftw")) {
+#ifdef USE_FFTW
+		if (f->in) {
+			fftw_destroy_plan(f->state);
+			fftw_free(f->in);
+		}
+		if (f->out) fftw_free(f->out);
+#endif
+	} else {
+#ifdef USE_KISS_FFT
+		if (f->in) g_free(f->in);
+		if (f->out) g_free(f->out);
+#endif
+	}
+}
+
+void
+fftw_short_time_power_phase(sample_t samples[], fft_t *f, power_t power[f->n_steps][f->n_bins], phase_t phase[f->n_steps][f->n_bins]) {
+#ifndef USE_FFTW
+	die("fftw not compiled in");
+#else
+	if (!f->window) {
+		f->window = salloc(f->window_size*sizeof (double));
+		double squared_window_coefficients = create_hann_window(f->window, f->window_size);
+		f->window_correction = f->window_size/(squared_window_coefficients*f->n_bins);
+	}
+	if (!f->in) {
+		f->in = fftw_malloc(f->fft_size*sizeof (double));
+		dp(25, "fftw_malloc(%d)\n", (f->window_size+2)*sizeof (fftw_complex));
+		f->out = fftw_malloc((f->n_bins+2)*sizeof (fftw_complex));  // valgrind complains without the +2`
+		dp(28, "fftw_plan_dft_r2c_1d(%d, %p, %p, FFTW_ESTIMATE)\n", f->window_size, f->in, f->out);
+		f->state = fftw_plan_dft_r2c_1d(f->fft_size, f->in, f->out, FFTW_ESTIMATE);
+	}
+	double * restrict in = f->in;
+	fftw_complex * restrict out = f->out;
+	fftw_plan plan = f->state;
+	for (int step = 0; step < f->n_steps; step++) {
+		for (int k = 0; k < f->window_size; k++)
+			in[k] = ((double *)f->window)[k]*sample_t_to_double(samples[k+step*f->step_size]);
+		for (int k = f->window_size; k < f->fft_size; k++)
+			in[k] = 0;
+		dp(30, "fftw_execute(%x)\n", (unsigned)f->state);
+		fftw_execute(plan);
+		dp(31, "fftw_execute returns\n");
+		for (int k = 0; k < f->n_bins; k++) {
+			double real = out[k][0];
+			double imaginary = out[k][1];
+			power[step][k] = double_to_power_t(f->window_correction*(real*real + imaginary*imaginary));
+//			dp(1, "%d real=%g imaginary=%g %g\n", k, real, imaginary, power[step][k]);
+			if (phase)
+				phase[step][k] = double_to_phase_t(M_PI/2+atan2(imaginary,real));
+		}	
+		power[step][0] /= 2;
+		if (verbosity >= 29) {
+			for (int k = 0; k < f->n_bins; k++)
+				fprintf(debug_stream, "%g ", power_t_to_double(power[step][k]));
+			fprintf(debug_stream, "\n");
+		}
+	}
+#endif
+}
+
+void
+kiss_short_time_power_phase(sample_t samples[], fft_t *f, power_t power[f->n_steps][f->n_bins], phase_t phase[f->n_steps][f->n_bins]) {
+#ifndef USE_KISS_FFT
+	die("KISS FFT not compiled in");
+#else
+	if (!f->in) {
+		f->in = salloc((f->fft_size+2)*sizeof (kiss_fft_scalar));
+		f->out = salloc(f->fft_size*sizeof (kiss_fft_cpx));
+		f->state = kiss_fftr_alloc(f->fft_size, 0, 0, 0);
+	}
+    kiss_fft_scalar *rin = f->in;
+    kiss_fft_cpx *rout = f->out;
+	kiss_fftr_cfg kiss_fftr_state = f->state;
+	double correction = f->window_correction*f->fft_size*f->fft_size;
+	for (int step = 0; step < f->n_steps; step++) {
+		for (int k = 0; k < f->window_size; k++)
+			rin[k] = double_to_fixed_point(((double *)f->window)[k]*sample_t_to_double(samples[k+step*f->step_size]));
+		for (int k = f->window_size; k < f->fft_size; k++)
+			rin[k] = 0;
+		kiss_fftr(kiss_fftr_state, rin, rout);
+		for (int k = 0; k < f->n_bins; k++) {
+			double real = fixed_point_to_double(rout[k].r);
+			double imaginary = fixed_point_to_double(rout[k].i);
+			power[step][k] = double_to_power_t(correction*(real*real + imaginary*imaginary));
+//			dp(1, "%d real=%g imaginary=%g %g\n", k, real, imaginary, power[step][k]);
+			if (phase)
+				phase[step][k] = double_to_phase_t(M_PI/2+atan2(imaginary,real));
+		}	
+		power[step][0] /= 2;
+		if (verbosity >= 29) {
+			for (int k = 0; k < f->n_bins; k++)
+				fprintf(debug_stream, "%g ", power_t_to_double(power[step][k]));
+			fprintf(debug_stream, "\n");
+		}
+	}
+#endif
+}
+
+#ifdef OLD
+/*
+ * power of signal returned in static buffers
+ */
+power_t *
+power_phase(sample_t * restrict buffer, index_t length, index_t fft_length, int do_windowing, phase_t *phase) {
+	static index_t buffer_size = 0;
+	static double * restrict in = NULL;
+	static power_t * restrict power_spectrum = NULL;
+	static phase_t * restrict phase_buffer = NULL;
+	static double * restrict window = NULL;
+	static index_t current_window_length = 0, current_plan_length = 0;
+	static double window_correction = 0;
+	static fftw_plan plan;
+	static fftw_complex * restrict out = NULL;
+	int n_bins = (fft_length + 1)/2;
+	dp(31, "length=%d, fft_length=%d\n", length, fft_length);
+	if (fft_length < length)
+		fft_length = length;
+	if (fft_length > buffer_size) {
+		if (in != NULL)
+			fftw_free(in);
+		in = fftw_malloc((fft_length+2)*sizeof *in);
+		if (out != NULL)
+			fftw_free(out);
+		out = fftw_malloc((fft_length+2)*sizeof *out);
+		window = g_realloc(window, length*sizeof *window);
+		power_spectrum = g_realloc(power_spectrum, n_bins*sizeof power_spectrum[0]);
+		phase_buffer = g_realloc(phase_buffer, (fft_length/2+1)*sizeof phase_buffer[0]);
+		buffer_size = fft_length;
+	}
+	if (fft_length != current_plan_length) {
+		if (current_plan_length != 0)
+			fftw_destroy_plan(plan);
+			
+		dp(27, "fftw_plan_dft_r2c_1d(%d, %x, %x, FFTW_ESTIMATE)\n", fft_length, (unsigned)in, (unsigned)out);
+		plan = fftw_plan_dft_r2c_1d(fft_length, in, out, FFTW_ESTIMATE);
+		dp(35, "plan=%x\n", (unsigned)plan);
+		current_plan_length = fft_length;
+	}
+	if (do_windowing && length != current_window_length) {
+		window_correction = create_hann_window(window, length);
+		current_window_length = length;
+	}
+	if (do_windowing)
+		for (int k = 0; k < length; k++)
+			in[k] = window[k]*buffer[k];
+	else
+		for (int k = 0; k < length; k++)
+			in[k] = buffer[k];
+	for (int k = length; k < fft_length; k++)
+		in[k] = 0;
+	
+	dp(33, "fftw_execute(plan)\n");
+	fftw_execute(plan);
+	dp(33, "fftw_execute(plan) returns\n");
+
+	double correction = 1.0/n_bins;
+	if (do_windowing)
+		correction *= length/window_correction;
+	dp(33, "length=%d window_correction=%g correction=%g\n", length, window_correction, correction);
+	for (int k = 0; k < n_bins; k++) { 
+		double real = out[k][0];
+		double imaginary = out[k][1];
+		power_spectrum[k] = correction*(real*real + imaginary*imaginary);
+		if (phase != NULL)
+			phase[k] = M_PI/2+atan2(imaginary,real);
+	}
+	power_spectrum[0] /= 2;
+	
+	return power_spectrum;
+}
+#endif

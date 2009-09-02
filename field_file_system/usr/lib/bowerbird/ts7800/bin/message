@@ -1,0 +1,5 @@
+#!/bin/sh
+. /etc/bowerbird/config/global_variables
+message="$*"
+tolcd "$message" "`date '+%a %H:%M'` `cat $status_dir/*.message`"
+logger  "$message"

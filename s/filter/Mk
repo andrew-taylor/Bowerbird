@@ -1,0 +1,12 @@
+GLOBAL_FUNCTIONS = comb_filter.c
+LOCAL_FUNCTIONS = 
+APPLICATIONS = filter.c
+EXTERNAL_LIBS += 
+
+comb_filter:$T/comb_filter $T/comb_filter-debug $T/comb_filter-profile
+	comb_filter -V30 test_sound_files/ground_parrot_calls.wav /tmp/comb.wav
+#	comb_filter '-ospectral_analysis:use_fftw=0' test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wv /tmp/silence.wav
+	@rm -f gprof.out
+	comb_filter-profile test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wv /tmp/silence.wav
+	gprof $T/comb_filter-profile 
+	@rm -f gprof.out

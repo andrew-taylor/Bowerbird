@@ -1,0 +1,119 @@
+
+#
+# glib
+#
+
+{
+   glib g_slice_alloc
+   Memcheck:Leak
+   fun:calloc
+   fun:g_malloc0
+}
+
+{
+   glib memalign
+   Memcheck:Leak
+   fun:memalign
+   fun:posix_memalign
+}
+
+
+{
+   glib param stuff 2
+   Memcheck:Leak
+   fun:malloc
+   fun:realloc
+   fun:g_realloc
+}
+
+{
+   glib param stuff 3
+   Memcheck:Leak
+   fun:realloc
+   fun:g_realloc
+}
+
+{
+   glib param stuff
+   Memcheck:Leak
+   fun:malloc
+   fun:g_malloc
+}
+
+{
+   glib bigtest
+   Memcheck:Leak
+   obj:*libglib-2.0.so.0
+}
+
+{
+   param_initialize 1
+   Memcheck:Leak
+   fun:*
+   fun:*
+   fun:*
+   fun:*
+   fun:*
+   fun:*
+   fun:*
+   fun:*
+   fun:param_initialize
+}
+{
+   param_initialize 1
+   Memcheck:Leak
+   fun:*
+   fun:*
+   fun:*
+   fun:*
+   fun:*
+   fun:*
+   fun:*
+   fun:param_initialize
+}
+
+{
+   invalid read in malloc
+   Memcheck:Addr4
+   fun:malloc
+}
+
+{
+sdf
+  Memcheck:Leak
+  fun:memalign
+  fun:fftw_kernel_malloc
+}
+
+
+
+{
+fds
+  Memcheck:Cond
+  fun:__muldc3
+  fun:crosspower_spectrum
+}
+
+{
+dfsf
+   Memcheck:Leak
+   fun:*
+   fun:*
+   fun:fopen
+   fun:write_result
+}
+
+{
+dfsfa
+   Memcheck:Leak
+   fun:*
+   fun:*
+   fun:fopen
+   fun:write_kml
+}
+
+{
+fffff
+   Memcheck:Addr4
+   obj:/lib/ld-2.6.1.so
+}

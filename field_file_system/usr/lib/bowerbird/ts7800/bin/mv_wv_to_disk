@@ -1,0 +1,65 @@
+#!/bin/sh
+trap ''  1 2 3 7 13 15
+. /etc/bowerbird/config/global_variables
+
+#set -x
+mkdir -p $data_dir
+cd /
+
+while true
+do
+	details_files=`ls -rt $sound_file_dir/*.details 2>/dev/null`
+	if test -n "$details_files"
+	then
+		for details in $details_files
+		do
+			name=`cat "$details"`
+			case "$name" in
+			[0-9]*);;
+			*) continue
+			esac
+			d=`date '+%Y_%m_%d'`
+			flash_subdir=$data_dir/$d
+			while test -r $status_dir/disk_temporarily_unmounted; do sleep 1; done
+			if test ! -d $flash_subdir
+			then
+				rm -f $data_dir/*/done
+				rmdir $data_dir/* 2>/dev/null
+				for dir in $data_dir/*
+				do
+					test -d $dir &&	touch $dir/done
+				done
+				mkdir $flash_subdir
+			fi
+			wv=$sound_file_dir/`basename "$details" .details`.wv
+			flash_file="$flash_subdir/$name.wv"
+			for attempt in 1 2 3
+			do
+				while test -r $status_dir/disk_temporarily_unmounted; do sleep 1; done
+				if test -d "$flash_subdir"
+				then
+						if mv "$wv" "$flash_file"
+						then
+							rm -f "$wv" "$details"
+							message 'sound saved to disk'
+							touch $status_dir/flash_copy_done
+							break 
+						else
+							rm -f "$flash_file"
+							sleep 1
+						fi
+				fi
+			done
+			if test -r "$sw"
+			then
+				test -r $status_dir/testing && sleep 100000
+				sleep 300
+#				logger -t $0 reboot
+#				ts7800_reboot
+			fi
+		done
+		sleep 1
+	else
+		sleep 15
+	fi
+done

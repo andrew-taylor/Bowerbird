@@ -1,0 +1,31 @@
+#!/usr/bin/perl -w
+chdir '/bowerbird' or die;
+$maximum_bytes = ($ARGV[0] || 100)*1000000;
+$global_variable{hostname} = 'parry-lagoons';
+if (open F, "/u/config/global_variables") {
+	while (<F>) {
+		chomp;
+		/^([^=]+)=(.*)$/;
+		$global_variable{$1} = $2;
+	}
+	close F;
+}
+my %skip = ();
+my $total_bytes = 0;
+while ($total_bytes <$maximum_bytes) {
+	foreach $day (reverse glob '[0-9][0-9][0-9][0-9]_[0-9][0-9]_[0-9][0-9]') {
+		my @files = reverse glob "$day/[0-9]*.wv";
+		next if !@files;
+		my @transfer = ();
+		foreach $file (@files) {
+			next if $skip{$file}++;
+			push @transfer, $file;
+			$total_bytes += -s $file;
+			last if @transfer > 5;
+		}
+		system "rsync -aP @transfer root\@glebe.homelinux.org:/raid/data/$global_variable{hostname}/ --whole-file --relative --remove-source-files";
+		printf "%.6fMb transfered (will stop at %.6fMb)\n", $total_bytes/1000000, $maximum_bytes/1000000;
+		last;
+	}
+}
+		

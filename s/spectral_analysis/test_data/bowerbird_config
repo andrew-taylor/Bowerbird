@@ -1,0 +1,25 @@
+[spectral_analysis]
+use_fftw=1
+# changed appropriately when files read
+sampling_rate=16000
+fft_points=1024
+fft_window=128
+fft_overlap=0.5
+# hz/second
+max_frequency_delta=8000
+# seconds
+min_track_length = 0.05
+# seconds
+max_gap_size = 0.005
+# hertz
+peak_radius = 265
+# FIXME should be DB?
+peak_min_height = 0.0001
+# hertz
+relative_relief_inside_radius = 150
+# hertz
+relative_relief_outside_radius = 265
+# minimum ratio of peak to bins between inside and outside radius
+min_relative_relief = 5
+# minimum relative power of non-peaks incorporated into tracks
+min_power_between_track_bins = 0.2

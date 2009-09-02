@@ -1,0 +1,51 @@
+#!/bin/sh
+trap ''  1 2 3 7 13 15
+set -x
+#exec >>/tmp/rc_local.output 2>&1
+
+mac_address=`ifconfig eth0|sed 's/ *$//;s/.* //;s/://g;q'|tr a-z A-Z`
+test -e /etc/bowerbird/board_configs/$mac_address/global_variables &&
+	mount -o rbind /u/board_configs/$mac_address /etc/bowerbird/
+. /etc/bowerbird/config/global_variables
+
+
+PATH=$PATH:/usr/lib/bowerbird/ts7800/bin/
+
+if ping -c 1 -q 192.168.1.1 
+then
+	if ping -c 1 -q 192.168.1.254
+	then
+		mkdir -p /raid
+		mount 192.168.1.1:/raid /raid
+		mount -o rbind /raid/home /home
+		route add default gw 192.168.1.254
+	else
+		mkdir -p /mnt/assa
+		mount 192.168.1.1:/ /mnt/assa
+		mount -o rbind /mnt/assa/home /home
+		route add default gw 192.168.1.1
+	fi
+	# ntpd doesn't make large adjustment, so make coarse adjustment with ntpdate first
+	/etc/init.d/ntp stop
+	ntpdate 192.168.1.1
+	/etc/init.d/ntp start
+	exit
+fi
+mkdir -p $status_dir
+mkdir -p $data_dir
+rm -f $status_dir/*
+message 'bowerbird starting'
+
+set_power audio on
+set_power nextg on
+set_power usb0 on
+set_power usb1 on
+
+setsid ppp_daemon &
+setsid disk_space_daemon  &
+setsid run_sound_capture  &
+
+lsusb
+#/sbin/getty -L ttyS0 115200 vt100 &
+# -v40 seems necessary to avoid some strange bug
+ts7200_watchdog -ofiles:$network_alive_file:100000

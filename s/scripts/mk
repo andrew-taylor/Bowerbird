@@ -1,0 +1,9 @@
+#!/bin/sh
+test -d ../scripts && cd ..
+test -x scripts/mk || (echo mk run from inappropriate directory; exit 1)
+PWD=`pwd`
+PATH=$PWD/scripts:$PATH export PATH
+build_makefile "$@" > Makefile
+TARGET=`make echo_target`
+PATH=$PWD/$TARGET:$PATH export PATH
+make -j5 "$@"

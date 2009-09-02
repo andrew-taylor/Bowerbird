@@ -1,0 +1,5 @@
+INPUT=.
+RECURSIVE=YES
+EXCLUDE_PATTERNS=*/includes/*_name_mapping.h */includes/*_prototypes.h
+EXCLUDE_SYMLINKS=YES
+EXTRACT_ALL=YES

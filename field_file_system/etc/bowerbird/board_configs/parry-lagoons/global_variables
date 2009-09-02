@@ -1,0 +1,13 @@
+hostname=peachester
+external_hostname=$hostname.homelinux.org
+remote_server=glebe.homelinux.org
+remote_account=$hostname@$remote_server
+log_dir=/var/log/bowerbird
+network_alive_file=$log_dir/network_up
+sound_file_dir=/tmp/s
+data_dir=/var/lib/bowerbird/data
+status_dir=/var/lib/bowerbird/status
+PATH=/usr/lib/bowerbird/ts7800/bin/:/usr/lib/bowerbird/common/bin/:/bin:/sbin:/usr/bin:/usr/sbin
+ip=192.168.1.93
+ts7800=1
+ppp_name=nextg0option

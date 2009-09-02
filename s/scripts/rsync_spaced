@@ -1,0 +1,48 @@
+#!/usr/bin/perl -w
+chdir '/bowerbird' or die;
+$period_seconds = $ARGV[0] || 16 * 3600;
+$maximum_bytes = ($ARGV[1] || 0)*1000000;
+$global_variable{hostname} = $ARGV[1] || 'peachester';
+if (open F, "/etc/bowerbird/config/global_variables") {
+	while (<F>) {
+		chomp;
+		/^([^=]+)=(.*)$/;
+		$global_variable{$1} = $2;
+	}
+	close F;
+}
+my %skip = ();
+my $total_bytes = 0;
+while ($period_seconds) {
+	foreach $day (glob '[0-9][0-9][0-9][0-9]_[0-9][0-9]_[0-9][0-9]') {
+		my @files = glob "$day/[0-9]*\@[0-9][0-9].wv";
+		next if !@files;
+		my 	$first_file = shift @files;
+		my $first_date = $first_file;
+		$first_date =~ s/\@.*//;
+		$first_date =~ s/.*\///;
+		my $periods = 1;
+		my @transfer = ();
+#		print "day=$day first_date=$first_date\n";
+		foreach $file (@files) {
+			$next_date = $file;
+			$next_date =~ s/\@.*//;
+			$next_date =~ s/.*\///;
+#			print "next_date=$next_date periods=$periods\n";
+			next if $next_date < $first_date+$periods*$period_seconds;
+#			print "transfering $file\n";
+			push @transfer, $file;
+			$total_bytes += -s $file;
+			$periods += 2;
+			$p = int (($next_date - $first_date) / ($periods*$period_seconds));
+			$p++ if $p % 2 == 0;
+			$periods = $p if $p > $periods;
+		}
+		@transfer = ($first_file) if !@transfer;
+		system "rsync -a @transfer bowerbird\@glebe.homelinux.org::bowerbird/$global_variable{hostname}/ --whole-file --relative --remove-source-files --password-file /etc/rsyncd.password";
+		printf "$day($period_seconds) done %.6fMb transfered (will stop at %.6fMb)\n", $total_bytes/1000000, $maximum_bytes/1000000;
+		last if $maximum_bytes > 0 && $total_bytes > $maximum_bytes;
+	}
+	$period_seconds = int ($period_seconds / 2);
+}
+		

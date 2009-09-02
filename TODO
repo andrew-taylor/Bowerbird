@@ -1,0 +1,52 @@
+
+
+1) set up a framework for documentation of the system on
+bioacoustics@cse.unsw.edu.au, and add to it when working on particular
+bits.  It should be web accesisble.
+
+Maybe doxygen+wiki?  There is an empty wiki
+available here: http://bioacoustics.cse.unsw.edu.au/cgi-bin/twiki/view
+
+2) Set up an appropriate git repository on bioacoustics@cse.unsw.edu.au
+
+Just FYI Peter Gammie is doing some wiki/git development stuff on
+bioacoustics.cse.unsw.edu.au which you might come across (its needs to
+be kept separate - but that shouldn't be an issue)
+
+And adding web stuff to bioacoustics.cse.unsw.edu.au might entail adding
+a rewrite rule to the apache config at: /etc/apache2/conf.d/rewrite
+
+3) See up a bug/issue tracking system, trac I guess on
+bioacoustics@cse.unsw.edu.au
+
+4) Move the "sound_capture" program into the same framework as programs
+in the "s" directory.
+
+5) Change the "sound_capture" program to do wavpack compression rather
+than fork "/usr/bin/wavpack".  This can be done simple by calling
+functions in s/util/sound_io.c (also see sound_io_test.c)
+
+6) Change the "sound_capture" program to write sound directly to
+/var/lib/bowerbird/data/<date/<time>.wv creating directories as necessary.
+
+7) Add functionality (python to the web interface) so a naive user
+can via web interface configure sound_capture to occur for specified
+intervals per day.  e.g. daily 5:00-7:00 & 18:00-21:00
+
+8) A very desirable feature is allow specification relative to
+sunset/sunrise - e.g. capture sound for  an hour before dawn to an
+hour after.  If the user specifies lat/long should be possible to infer
+sunrise/sunset for a given date  to within 5/10 minutes.  "sound_capture"
+has a special purpose code to this end for one location - but this won't
+be useful.
+
+9)The C programs in "s" read configuration parameters from a file named
+bowerbird config s/util/parameter.c.  It may be appropriate to be changed
+to work well with the (python) web interface.  It may be appropriate to
+abandon the use of glibc here.
+
+10) Integrate the processing code into the system be either to be
+done in real-time with the sound-capture or later (MORE DETAIL NEEDED)
+
+11) Add smart functionality for transfer of captured sound or other details.
+(MORE DETAIL NEEDED)

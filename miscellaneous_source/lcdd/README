@@ -1,0 +1,56 @@
+
+12th Jan 2007
+                                                        Version 0.4ANSI
+
+lcdd - a user space driver for HD44780 based char. lcds 
+       ANSI version - obeys a subset of ANSI terminal commands
+       in so far as it can :-)  
+
+Initial ANSI code from a patch set from Yan Seiner  <yan@seiner.com>
+
+Software specific to Technologics TS72x0 ARM SBCs
+
+see    
+
+  http://www.embeddedx86.com/   
+  
+for board details.
+
+The latest version of this program can be got from....
+
+ http://www.comp.leeds.ac.uk/jj/linux/lcdd.tgz
+
+It is provided under the terms of the GNU General Public License - see the
+file COPYING for details.
+
+Compiling
+---------
+
+Makefile is setup to use the Technologic Systems provided Cross compilation 
+tool chain. See 
+  
+  http://embeddedx86.com/downloads/Linux/ARM/crosstool-linux.tar.bz2
+
+Edit the Makefile for your setup.
+
+compilation should be fairly simple just type "make".
+
+Installation is a little complex in cross-compiling environments.
+In the Makefile there is an install rule - ensure you edit the Makefile
+to install in the correct place for your system, or simply copy the executable
+"lcdd" to the right place.
+
+The man page is not done. There is info on the program in the file
+lcdd.txt which explains the command line options.
+
+The ts72x0 specific routines are in the file ts7200io.c with header file
+ts7200io.h (only a prototype at moment). These routines can be used in other
+programs. At the moment you'll have to read the source files for more info.
+Sorry.
+
+Jim Jackson
+<jj@franjam.org.uk>
+http://www.comp.leeds.ac.uk/jj
+http://www.comp.leeds.ac.uk/jj/linux/arm-sbc.html
+
+

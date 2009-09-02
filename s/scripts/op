@@ -1,0 +1,6 @@
+#!/bin/sh
+su1 opcontrol --reset
+su1 opcontrol --start '--vmlinux=/home/andrewt/w/ts7800/linux-2.6.21-oct102008/vmlinux'
+"$@"
+su1 opcontrol --shutdown
+opreport -lt1

@@ -1,0 +1,20 @@
+PATH=/u/scripts:/u/bin:/bin:/sbin:/usr/bin:/usr/sbin
+ramfs_size=18m
+hostname=barren_grounds1
+ip=192.168.1.50
+flash_mount_point=/mnt/flash0
+flash_cache_dir=$flash_mount_point/origma/
+base_station=192.168.1.93
+client_stations="192.168.1.90 192.168.1.91 192.168.1.92"
+disk_dir=/mnt/disk0/origma/
+sound_file_dir=/tmp/s
+wireless_essid=origma
+wireless_channel=5
+wireless_mode=Ad-Hoc
+wireless_key=off
+wireless_ap=42:42:42:42:42:42
+beep=0
+wireless=1
+lcd=1
+rc=run_sound_capture
+

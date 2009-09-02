@@ -1,0 +1,10 @@
+#!/bin/sh
+test -x /usr/bin/valgrind && exec /usr/bin/valgrind "$@"
+while true
+do
+	case "$1" in
+	-*) shift;continue;;
+	esac
+	break
+done  
+exec "$@"

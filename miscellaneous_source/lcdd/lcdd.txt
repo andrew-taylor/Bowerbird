@@ -1,0 +1,83 @@
+lcdd: (version 0.4ANSI) 12Jan2007
+
+NAME:
+        lcdd  -  Simple userspace daemon which acts as an ANSI driver for
+                 HD44780 based char LCDs parallel connected to the
+                 "LCD" port of the TS72x0 board.
+
+SYNOPSIS:
+
+        lcdd [-v] [-s LxCC] [named_pipe]
+
+DESCRIPTION:
+
+lcdd implements a simple userspace daemon that acts as a driver for
+HD44780 character based LCD modules attached to a Technologics TS72x0
+SBC via the "LCD" interface.
+
+This version supports a subset of the ANSI terminal control sequences.
+
+lcdd creates, opens and reads a named pipe (by default /dev/lcd),
+initialises the lcd device, and sits a loop waiting for data on the
+named pipe and writing it to the lcd device.
+
+By default the size of the lcd is assumed to be 2 rows of 16 characters.
+This can be changed by using the "-s" option.
+
+Command line options & Flags:
+
+ -v       verbose output, also prevents the program from detaching from 
+          console and backgrounding. This is useful when debugging.
+          the verbose output and any errors are output to stderr.
+
+ -g LxCC  set the size of the lcd to L rows each of CC characters
+          the default is 2x16
+
+ANSI SUPPORT:
+
+The following ANSI commands are supported:
+
+   ESC D   Scroll Down
+   ESC M   Scroll Up
+
+   ESC [ n J  erase screen - n='0' erase to end of screen   (deafult)
+                             n='1' erase to start of screen
+			     n='2' erase all screen
+
+   ESC [ n K  erase line   - n='0' erase to end of line     (deafult)
+                             n='1' erase to start of line
+			     n='2' erase all screen
+
+   ESC [ X    underline cursor
+   ESC [ Y    block cursor
+   ESC [ Z    hide cursor
+
+   ESC [ n A  cursor up    n times (default 1)
+   ESC [ n B  cursor down  n times (default 1)
+   ESC [ n C  cursor right n times (default 1)
+   ESC [ n D  cursor left  n times (default 1)
+
+   ESC [ r ; c H  cursor position at row r, column c
+                  (counting from 1 up) default is 1;1 - top left
+
+A non-standard Command is also supported:
+
+   ESC [ n E  set shift and display entry mode 
+              for n=4,5,6 or 7
+	      This is sent as a direct lcd command to the lcd device
+	      see HD44780 documentation.
+
+
+BUGS:
+
+Of course! This is beta s/w knocked together in my free time (precious
+little). 
+
+Not enough diagnostics.
+
+Let me know if you use this software.  Any bugs, questions,
+suggestions or problems, etc. should be sent to
+
+ANSI initial patch from Yan Seiner <yan@seiner.com>
+
+Jim Jackson   <jj@franjam.org.uk>

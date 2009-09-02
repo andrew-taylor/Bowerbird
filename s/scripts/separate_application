@@ -1,0 +1,40 @@
+#!/usr/bin/perl -w
+$binaries_dir = "binaries/x86/standard/";
+$application = shift @ARGV;
+$destination_dir = shift @ARGV;
+system "mkdir -p $destination_dir";
+#print STDERR "cat $binaries_dir*\@$application.dependencies\n";
+my $dependencies = `cat $binaries_dir*\@$application.dependencies`;
+$dependencies =~ s/$binaries_dir//g; 
+$dependencies =~ s/\.o\b/.c/g; 
+$dependencies =~ s/@/\//g; 
+my ($main) = glob "*/$application.c";
+#@c_source = split /\s+/, $dependencies;
+system "cp -p $dependencies $destination_dir";
+system "grep -v call_catalog $main >$destination_dir/main.c";
+$files = $dependencies;
+$dirs = $dependencies;
+$files =~ s/\S+\///g;
+$dirs =~ s/\/\S+//g;
+$dirs{$_}++ foreach split /\s+/, $dirs;
+@dirs = sort keys %dirs;
+@i = map "$_/i.h", @dirs;
+system "cat @i|sort|uniq|grep -v call_catalog >$destination_dir/i.h";
+$i{$_}++ foreach split /\s+/,  `cat @i|grep call_catalog/|sed 's/\" *\$//;s/.*\"//;s/^/includes\\//'`;
+$i{"includes/types.h"}++;
+for $i ( keys %i) {
+	system "cat $i |egrep -v 'CC_|call_catalog|endif|ifndef|name_mapping|prototypes|M_PI' >>$destination_dir/i.h";
+}
+open F,"Makefile";
+close F;
+open M, ">$destination_dir/Makefile";
+print M <<eof;
+$application: $files
+	gcc '-std=gnu99' -o $application main.c $files -lm -lglib-2.0 -lfftw3 -lsndfile -lgsl -lgslcblas  -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include
+
+eof
+close M;
+@c =  map "$destination_dir/$_", (split /\s+/, $files);
+system "scripts/extract_C_prototypes -p - $destination_dir/main.c @c >>$destination_dir/i.h";
+chdir $destination_dir;
+system "make";

@@ -1,0 +1,293 @@
+#!/usr/bin/perl -w
+
+#$debug = 1;
+sub parse_makefile($$);
+sub parse_text($@);
+sub evaluate(@);
+sub value(@);
+sub add_patterns_and_prototypes($);
+sub output();
+sub extract_prototypes($);
+
+while ($arg = shift @ARGV) {
+	if ($arg eq '-d') {
+		$debug = 1;
+	} elsif ($arg =~ /=/) {
+		parse_text('', $arg);
+	}
+}
+
+parse_makefile "", "Mk";
+@global_prototypes = ();
+foreach $subdirectory (split /\s+/, evaluate '$(SUB_DIRECTORIES)') {
+	parse_makefile $subdirectory, "$subdirectory/Mk";
+	add_patterns_and_prototypes $subdirectory;
+}
+my $prototypes_file = evaluate '$(PROTOTYPES_FILE)';
+my $dir = $prototypes_file;
+$dir =~ s/[^\/]*$//;
+system "mkdir -p $dir" if !-d $dir;
+open F, ">$prototypes_file" or die "Can not open prototypes file: '$prototypes_file'\n";
+print F join("\n", @global_prototypes), "\n";
+close F;
+
+foreach $function (keys %function_defined_in_file) {
+	my $definition_file = $function_defined_in_file{$function};
+	foreach $file (keys %{$function_used_in_file{$function}}) {
+		next if $file eq $definition_file;
+		my $target = $file;
+		$target =~ s/\.c$/.o/;
+		$dependency{$file} .= " ".$definition_file;
+		print STDERR "dependency{$file} .=  $definition_file\n" if $debug;
+	}
+}
+
+output();
+#build $_ foreach @targets;
+exit 0;
+
+sub output() {
+	foreach $v (@variables) {
+		my $name = $v;
+		$name =~ s/^\///;
+		$name =~ s/\//__/g;
+		print "$name = $variable{$v}\n";
+	}
+	foreach $t (@targets) {
+		my $target = $t;
+		$target =~ s/^\///;
+		print "\n$target: $dependency{$t}\n";
+		print "$generate{$t}" if $generate{$t};
+	}
+}
+
+sub add_patterns_and_prototypes($) {
+	my ($subdirectory) = @_;
+	print STDERR "add_dependencies(@_)\n" if $debug;
+	my @applications = split(/\s+/, (value("APPLICATIONS", $subdirectory)||""));
+	my @local_functions = split(/\s+/, (value("LOCAL_FUNCTIONS", $subdirectory)||""));
+	my @global_functions = split(/\s+/, (value("GLOBAL_FUNCTIONS", $subdirectory)||""));
+	my @unit_tests = ();
+	foreach (@local_functions,@global_functions) {
+		my $unit_test = $_;
+		$unit_test =~ s/\.c$/_test.c/;
+		push @unit_tests, $unit_test if -r "$subdirectory/$unit_test";
+	}
+	foreach $c_source_file (@local_functions , @global_functions,@unit_tests, @applications) {
+		my $basename = $c_source_file;
+		$basename =~ s/\.\w+$//;
+ 		my $pattern = $pattern{"%.o"};
+ 		$pattern =~ s/\$\*/$basename/g;
+ 		$pattern =~ s/\$S/$subdirectory/g;
+ 		parse_text("", split("\n", $pattern));
+	} 
+	foreach $c_source_file (@global_functions) {
+		push(@global_prototypes, $_) foreach extract_prototypes("$subdirectory/$c_source_file");
+	}
+	my @local_prototypes;
+	foreach $c_source_file (@local_functions,@unit_tests, @applications) {
+		push(@local_prototypes, $_) foreach extract_prototypes("$subdirectory/$c_source_file");
+	}
+	my $prototypes_file = value 'LOCAL_PROTOTYPES_FILE';
+ 	$prototypes_file =~ s/\$S/$subdirectory/g;
+ 	$prototypes_file = evaluate $prototypes_file, $subdirectory;
+	my $dir = $prototypes_file;
+	$dir =~ s/[^\/]*$//;
+	system "mkdir -p $dir" if !-d $dir;
+	open F, ">$prototypes_file" or die "Can not open prototypes file: '$prototypes_file'\n";
+	print F join("\n", @local_prototypes), "\n";
+	close F;
+	foreach $c_source_file (@local_functions , @global_functions) {
+		my $basename = $c_source_file;
+		$basename =~ s/\.\w+$//;
+ 		my $pattern = $pattern{"FUNCTIONS"};
+ 		$pattern =~ s/\$\*/$basename/g;
+ 		$pattern =~ s/\$S/$subdirectory/g;
+ 		parse_text("", split("\n", $pattern));
+	}
+	foreach $c_source_file (@unit_tests) {
+		my $basename = $c_source_file;
+		$basename =~ s/\.\w+$//;
+ 		my $pattern = $pattern{"TEST_PROGRAMS"};
+ 		$pattern =~ s/\$\*/$basename/g;
+ 		$pattern =~ s/\$S/$subdirectory/g;
+ 		parse_text("", split("\n", $pattern));
+	}
+	foreach $c_source_file (@applications) {
+		my $basename = $c_source_file;
+		$basename =~ s/\.\w+$//;
+ 		my $pattern = $pattern{"APPLICATIONS"};
+ 		$pattern =~ s/\$\*/$basename/g;
+ 		$pattern =~ s/\$S/$subdirectory/g;
+ 		parse_text("", split("\n", $pattern));
+	}
+}
+
+
+sub parse_makefile($$) {
+	my ($context,$filename) = @_;
+	print STDERR "parse_makefile($context,$filename)\n" if $debug;
+	open MAKEFILE, $filename or die "Can not open $filename: $!";
+	parse_text($context,<MAKEFILE>);
+	close MAKEFILE;
+}
+
+sub parse_text($@) {
+	my ($context,@lines) = @_;
+	print STDERR "parse_text($context)\n" if $debug;
+	our(%variable, %generate, %dependency, $first_target);
+  	$variable{"$context/SUB_DIRECTORY"} = $context;
+	print STDERR "lines='@lines'\n" if $debug;
+	while (defined ($_ = shift @lines)) {
+		chomp;
+		print STDERR "_='$_'\n" if $debug;
+		if (/^(\S+)\s*->/) {
+			my ($key) = ($1);
+			my $p = "";
+			while ($_ = shift @lines) {
+				print STDERR "pattern _='$_'\n" if $debug;
+		     	last if /^\s*$/;
+				$p .= "\n" if /^\S/;
+				$p .= $_;
+			}
+			$p =~ s/^\n//;
+			$pattern{$key} = $p;
+          	print STDERR "pattern{$key} = '$p'\n" if $debug;
+			next;
+		}
+       	s/#.*//; # remove comments
+        if (/^(\w+)\s*([\?\+]?)=\s*(.*)/) {
+        	my ($var, $op, $value) = ($1, $2, $3);
+ #       	$value = evaluate $value, $context;
+        	my $previous_context =  variable_context($var, $context);
+        	if ($op eq '+' && defined $previous_context) {
+        		$variable{"$previous_context/$var"} .= " ".$value;
+        	} elsif  ($op eq '?' && defined $previous_context) {
+        	} elsif  (defined $previous_context) {
+        		push @variables, "$context/$var" if $previous_context ne "$context/$var";
+    	    	$variable{"$context/$var"} = $value; # store variable value
+ 	      	} else {
+        		push @variables, "/$var";
+    	    	$variable{"/$var"} = $value;
+	          	print STDERR "variable{/$var} = $value\n" if $debug;
+        	}
+          	next;
+        }
+		if (/^(\S+)\s*:\s*(.*)/) {
+			my ($target, $dependencies) = ("$context/$1",$2);
+#			$target = evaluate $target, $context; # dependencies evaluated later
+			$first_target = $target if !$first_target;
+			push @targets, $target;
+			$dependency{$target} = $dependencies;
+			print STDERR "dependency{$target} = $dependencies\n" if  $debug;
+			while ($_ = shift @lines) {
+ 				chomp;
+		     	last if /^\s*$/;
+		     	s/#.*//; # remove comments
+		     	next if /^\s*$/;
+				$generate{$target} .= "$_\n";
+			}
+			print STDERR "generate{$target}='$generate{$target}'\n" if $debug;
+			next;
+		}
+		warn "$context: unparsed line '$_'" if $_;
+	}
+	close(MAKEFILE);
+}
+
+sub evaluate(@) {
+	my ($expression,$context) = (@_,"");
+	local($_);
+	$_ = $expression;
+	# quick hack;
+	while (1) {
+		next if s/\$\(shell ([^\)\$]*)\)/{my $a = `$1`;chomp $a;$a}/e;
+		next if s/\$([\w\*])/value($1,$context)/e;
+		next if s/\$\((\w+)\)/value($1,$context)/e;
+		last;
+	}
+	print STDERR "evaluate($expression,$context) -> $_\n" if  $debug;
+	return $_;
+}
+
+sub value(@) {
+	my ($variable,$context) = (@_,"");
+	my $c = variable_context($variable,$context);
+	warn "Undefined variable '$variable' in context '$context'\n" if !defined $c;
+	return "" if !defined $c;
+	return $variable{"$c/$variable"};
+}
+
+sub variable_context(@) {
+	my ($variable,$context) = (@_,"");
+	while (1) {
+		$context =~ s/\/*$//;
+		my $v = $variable{"$context/$variable"};
+		print STDERR "variable_context($variable,$context) -> $context\n" if  $debug && defined $v;
+		return $context if defined $v;
+		return undef if !$context;
+		$context =~ s/\/*[^\/]*$//;
+	}
+}
+
+sub extract_prototypes($) {
+	my ($file) = @_;
+	print STDERR "extract_prototypes(@_)\n" if  $debug;
+	our ($first_attribute);
+	my ($line,$attribute);
+	my @prototypes;
+	push @prototypes, "\n/* $file */\n";
+	my $last_line = "";
+	open F, "<$file" or die "Can not read '$file'\n";
+	while (<F>) {
+		chomp;
+		my $line = $_;
+		if (/^\s*#\s*(if|els|end)/) {
+			push @prototypes, $_;
+			next;
+		}	
+	
+		if (/^\w[\w_\s\*\[\]]*[=;]/) {
+			next if /\b(static|typedef)\b/;
+			s/\s*=.*/;/;
+			push @prototypes, "extern $_";
+			/([a-zA-Z_][a-zA-Z0-9_]+)\s*(;\s*$|[=[])/ or die "$0: $file:$. Unexpected C syntax: '$_'\n";
+			next;
+		}
+		# gcc attribute
+		if (/^\/\/\s*(__attribute__.*)/) {
+			$first_attribute++ or push @prototypes, "#ifndef __GNUC__\n#define __attribute__()\n#endif";
+			$attribute .= $1;
+			$attribute =~ s/;\s*$//;
+			next;
+		}
+		if (/^(unsigned\s*)?\w[\w_\s\*\[\]]*\(.{2,}\)([^;]*|\s*{.*}|s*)$/) {
+			$last_line =~ s/^\s*#.*//;
+			$last_line =~ s?.*\*/??;
+			$last_line =~ s/.*}//;
+			my $proto = "$last_line $_";
+#			print STDERR "proto='$proto'\n";
+			$proto =~ s/[{};].*//g;
+			$proto =~ s/^\s+//g;
+			$proto =~ s/\s+$//g;
+			$proto =~ s/\s+/ /g;
+			$proto =~ s/\* /\*/g;
+			
+			next if $proto =~ /\b(static|main)\b/;
+			$proto =~ /([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/ or die "$0:  $file:$. Unexpected C syntax, expected function start found:'$proto'\n";
+			$function_defined_in_file{$1} = $file;
+			print STDERR "function_defined_in_file{$1} = $file\n" if $debug;
+			$proto .= " ".$attribute if $attribute;
+			$attribute = "";
+			push @prototypes, "$proto;";
+		}
+		$last_line = $line;
+		next if !/^\s/;
+		while ($line =~ s/\b([a-zA-Z_][a-zA-Z0-9_]*)\(//) {
+			$function_used_in_file{$1}{$file}++;
+			print STDERR "function_used_in_file{$1}{$file}++\n" if $debug;
+		}
+	}
+	close F;
+	return @prototypes;
+}

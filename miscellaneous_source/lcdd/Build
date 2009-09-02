@@ -1,0 +1,8 @@
+export CC=arm-linux-gcc
+
+make clean
+
+make \
+&& cp lcdd $ROOTDIR/$PLATFORM/bin  \
+&& arm-linux-strip $ROOTDIR/$PLATFORM/bin/lcdd
+

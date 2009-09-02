@@ -1,0 +1,18 @@
+[localization]
+base_dir	= /store/work/newdata2
+base_dir	= /raid/data/barren_grounds/
+date_dir	= 2008_03_19
+station0_dir	= barren_grounds0
+station1_dir	= barren_grounds1
+station2_dir	= barren_grounds2
+breathing_space = 0.1
+station0_position = S34 40.521250658394003 E150 42.541497945786006
+station1_position = S34 40.588880601453603 E150 42.648518085480006
+station2_position = S34 40.622232015313799 E150 42.528945207595797
+result_file      = result.succinct
+click_threshold  = 0.2
+compress_clicktracks = 0
+kml_file         = new.kml
+kml_name	 = Ground Parrot Localization
+kml_desc	 = More information at http://bioacoustics.cse.unsw.edu.au
+

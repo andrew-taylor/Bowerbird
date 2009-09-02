@@ -1,0 +1,17 @@
+hostname=koongarra
+external_hostname=$hostname.homelinux.org
+remote_server=129.94.172.235
+remote_account=$hostname@$remote_server
+sound_file_dir=/tmp/s
+rc=ts7800_run_station
+flash_cache_dir=/bowerbird
+PATH=/u/scripts:/u/bin:/bin:/sbin:/usr/bin:/usr/sbin
+ip=192.168.1.93
+wireless_essid=origma
+wireless_channel=5
+wireless_mode=Ad-Hoc
+wireless_key=off
+wireless_ap=42:42:42:42:42:42
+wireless=1
+ts7800=1
+ppp_name=nextg0

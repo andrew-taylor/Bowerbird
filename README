@@ -1,0 +1,51 @@
+The directories "field_system" contains the current files used to run a
+TS7800-based field system, These have evolved from previous systems an
+are in a confused and incomplete state.
+
+The script: "field_file_system/usr/lib/bowerbird/ts7800/bin/rc.local"
+is run after the system boots from  /etc/rc.local
+
+It launches scripts which capture audio, compress it and saved it to
+disk but not otherwise processed.  Scripts also maintain nextg connection
+and remove files when disk becomes full.
+
+The script
+"field_file_system/usr/lib/bowerbird/ts7800/bin/run_sound_capture"
+sets up audio and runs the binary: "sound_capture"
+The source for this simple program is in miscellaneous_source/sound_capture/
+"sound_capture" runs wavpack as a separate process to compress sound.
+It leaves the sound in one minute segments into /tmp/s
+
+A script "mv_wv_to_disk" moves the sound
+from /tmp/s to /var/lib/bowerbird/data
+This setup exists for largely historical reasons.
+ 
+The directory "s" contains source which processes the sound in various ways
+and will be integrated into the field systems.
+
+The configuration is non-obvious "s/makefile" is built by a custom
+Perl script "scripts/mk" from files named "Mk" in "s" and its
+sub-directories.  You should be able to say scripts/mk target just like
+make and if dependencies don't change, make can be used.
+
+cd /home/bowerbird/s
+mk test    # generates Makefile and runs make test
+
+One of the binaries it builds "silence_removal" would be a useful test
+program.  It reads a sound file and outputs it with any sections not
+containing animal calls zero'ed (saves a lot of space in compressed formats)
+This does FFTs and some of the operation I'm interested in.
+
+cd /home/bowerbird/s
+mk binaries-x86/silence_removal
+binaries-x86/silence_removal test_sound_files/WEM1.wav /tmp/silence.wav
+audacity  test_sound_files/WEM1.wav /tmp/silence.wav
+
+or to using fixed_point FFT
+binaries-x86/silence_removal '-ospectral_analysis:use_fftw=0' test_sound_files/WEM1.wav /tmp/silence.wav
+
+Note it and other programs in the s directory read parameters froma file
+name bowerbird_config, which it looks for in the current directory and a
+number of standard locations: "$BOWERBIRD_HOME", g_get_user_data_dir(),
+g_get_user_config_dir(), "$HOME", "$home",  "../..","..","."
+(s/util/parameter.c)

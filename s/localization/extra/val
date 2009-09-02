@@ -1,0 +1,4 @@
+#!/bin/bash
+
+valgrind --tool=memcheck --leak-check=full --leak-resolution=high --show-reachable=yes --suppressions=glib.supp ./localization list
+

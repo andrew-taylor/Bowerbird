@@ -1,0 +1,109 @@
+#ARCH=armel
+#COMPILER = /usr/bin/arm-ep9312-linux-gnueabi-gcc -I/usr/include
+#SUB_DIRECTORIES = util spectral_analysis localization filter
+SUB_DIRECTORIES = util spectral_analysis localization
+COMPILE_TYPE ?= standard
+ARCH ?= $(shell uname -m|sed 's/^arm.*/arm/;s/.*86/x86/')
+T = binaries-$(ARCH)
+SVN_REPOSITORY=/home/andrewt/w/a/call_catalog/svn
+SCRIPTS_DIR = scripts
+LIB = $T/libcall_catalog.a
+LIB_DEBUG = $T/libcall_catalog-debug.a
+LIB_PROFILE = $T/libcall_catalog-profile.a
+PROTOTYPES_FILE = $T/prototypes.h
+LOCAL_PROTOTYPES_FILE = $T/$S-prototypes.h
+INCLUDES_PATH = -Iincludes -I$T -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include -I/usr/include
+COMMON_DEPENDENCIES=includes/bowerbird.h Mk
+
+COMPILER ?= gcc
+CC_COMMON_OPTS = '-std=gnu99' -fargument-noalias-global -Wall -Wstrict-prototypes -Werror $(INCLUDES_PATH) -DUSE_FFTW -DUSE_SQLITE -DUSE_KISS_FFT -DFIXED_POINT=32
+CC = $(COMPILER) -O3 -g  -funroll-loops $(CC_COMMON_OPTS)
+CC_DEBUG = $(COMPILER) -g -ggdb -fmudflap $(CC_COMMON_OPTS) -DNO_G_SLICE 
+CC_PROFILE = $(COMPILER) -O3 -pg $(CC_COMMON_OPTS)
+
+LINK_COMMON_OPTS = $(LIB)
+LINK_FLAGS = $(LINK_COMMON_OPTS)
+LINK_FLAGS_DEBUG = -lmudflap $(LINK_COMMON_OPTS)
+LINK_FLAGS_PROFILE = -pg $(LINK_COMMON_OPTS)
+
+EXTERNAL_LIBS= -lm -lglib-2.0
+
+
+LOCAL_FUNCTIONS=
+GLOBAL_FUNCTIONS=
+APPLICATIONS=
+TEST_PROGRAMS=
+
+default: all all_debug all_profile
+
+all: $(LIB) $(TEST_PROGRAMS) $(APPLICATIONS)
+
+all_debug: $(LIB_DEBUG) $(TEST_PROGRAMS_DEBUG) $(APPLICATIONS_DEBUG)
+
+all_profile: $(LIB_PROFILE) $(TEST_PROGRAMS_PROFILE) $(APPLICATIONS_PROFILE)
+
+$(LIB): $(LIB_MEMBERS)
+	ar rvs $@ $?
+	
+$(LIB_DEBUG): $(LIB_MEMBERS_DEBUG)
+	ar rvs $@ $?
+	
+$(LIB_PROFILE): $(LIB_MEMBERS_PROFILE)
+	ar rvs $@ $?
+	
+doxygen:
+	doxygen lib/doxygen_config
+	
+commit:
+	svn commit
+
+test: all util/test spectral_analysis/test
+
+clean: clobber
+	@$(MAKE) all
+	
+clobber:
+	cd $T && ls|grep -v prototypes.h|xargs rm -f 
+
+global: Mk $T
+
+$T:
+	mkdir $T
+
+echo_target:
+	@echo $T
+	
+%.o ->
+$T/$S-$*.o: $S/$*.c $(COMMON_DEPENDENCIES)
+	$(CC) -c $< -o $@ 
+$T/$S-$*-debug.o: $S/$*.c $(COMMON_DEPENDENCIES)
+	$(CC_DEBUG) -c $< -o $@ 
+$T/$S-$*-profile.o: $S/$*.c $(COMMON_DEPENDENCIES)
+	$(CC_PROFILE) -c $< -o $@ 
+
+FUNCTIONS ->
+LIB_MEMBERS += $T/$S-$*.o
+LIB_MEMBERS_DEBUG += $T/$S-$*-debug.o
+LIB_MEMBERS_PROFILE += $T/$S-$*-profile.o
+	
+TEST_PROGRAMS ->
+$T/$S-$*: $T/$S-$*.o $(LIB)
+	$(CC) $< -o $@ $(LIB) $(LINK_FLAGS) $(EXTERNAL_LIBS)
+TEST_PROGRAMS += $T/$S-$*
+$T/$S-$*-debug: $T/$S-$*-debug.o $(LIB_DEBUG)
+	$(CC_DEBUG) $< -o $@ $(LIB_DEBUG) $(LINK_FLAGS_DEBUG) $(EXTERNAL_LIBS)
+TEST_PROGRAMS_DEBUG += $T/$S-$*-debug
+$T/$S-$*-profile: $T/$S-$*-profile.o $(LIB_PROFILE)
+	$(CC_PROFILE) $< -o $@ $(LIB_PROFILE) $(LINK_FLAGS_PROFILE) $(EXTERNAL_LIBS)
+TEST_PROGRAMS_PROFILE += $T/$S-$*-profile
+	
+APPLICATIONS ->
+$T/$*: $T/$S-$*.o $(LIB)
+	$(CC) $< -o $@ $(LIB) $(LINK_FLAGS) $(EXTERNAL_LIBS)
+APPLICATIONS += $T/$*
+$T/$*-debug: $T/$S-$*-debug.o $(LIB_DEBUG)
+	$(CC_DEBUG) $< -o $@ $(LIB_DEBUG) $(LINK_FLAGS_DEBUG) $(EXTERNAL_LIBS)
+APPLICATIONS_DEBUG += $T/$*-debug
+$T/$*-profile: $T/$S-$*-profile.o $(LIB_PROFILE)
+	$(CC_PROFILE) $< -o $@ $(LIB_PROFILE) $(LINK_FLAGS_PROFILE) $(EXTERNAL_LIBS)
+APPLICATIONS_PROFILE += $T/$*-profile

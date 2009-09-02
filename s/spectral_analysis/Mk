@@ -1,0 +1,95 @@
+GLOBAL_FUNCTIONS = power.c estimate_sinusoid_parameters.c track_sinusoids.c sinusoid.c peaks.c track.c
+LOCAL_FUNCTIONS = kiss_fft.c kiss_fftr.c
+APPLICATIONS = extract_calls.c sound_to_image.c silence_removal.c score_calls.c
+EXTERNAL_LIBS += -lfftw3 -lgsl -lgslcblas -lsqlite3
+
+score_calls:$T/score_calls $T/score_calls-debug $T/score_calls-profile
+	@rm -f gprof.out
+	$T/score_calls-profile test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wav test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wav test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wav test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wav test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wav test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wav test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wav test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wav test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wav test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wav test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wav test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wav test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wav test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wav test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wav
+#	gprof $T/score_calls-profile |more
+	@rm -f gprof.out
+
+score_calls-profile:$T/score_calls $T/score_calls-debug $T/score_calls-profile
+	@rm -f gmon.out
+	$T/score_calls-profile test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wav 
+	gprof $T/score_calls-profile |more
+	@rm -f gmon.out
+
+score_calls-oprofile:$T/score_calls
+	sudo opcontrol --start
+	sudo opcontrol --separate=library
+	sudo opcontrol --reset
+	$T/score_calls test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wav 
+	opcontrol --dump
+	opannotate --source --output-dir=/tmp $T/score_calls
+	opreport -g -l $T/score_calls 
+
+silence_removal:$T/silence_removal $T/silence_removal-debug $T/silence_removal-profile
+	silence_removal -V30 test_sound_files/ground_parrot_calls.wav /tmp/silence.wav
+#	silence_removal '-ospectral_analysis:use_fftw=0' test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wv /tmp/silence.wav
+	@rm -f gprof.out
+	silence_removal-profile test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wv /tmp/silence.wav
+	gprof $T/silence_removal-profile 
+	@rm -f gprof.out
+	
+test: spectral_analysis/unit_tests spectral_analysis/extract_calls_test
+
+unit_tests: spectral_analysis/unit_tests0 spectral_analysis/unit_tests1
+
+unit_tests0: all all_debug
+	@for p in peaks_test power_test estimate_sinusoid_parameters_test track_sinusoids_test ; \
+	do \
+#		vg -q --error-exitcode=1 $T/spectral_analysis-$$p  || exit 1;\
+		$T/spectral_analysis-$$p  || exit 1;\
+#		$T/spectral_analysis-$$p $$f || exit 1;\
+	done
+
+unit_tests1: all all_debug
+	@for p in power_test estimate_sinusoid_parameters_test track_sinusoids_test ; \
+	do \
+#		vg -q --error-exitcode=1 $T/spectral_analysis-$$p  '-ospectral_analysis:use_fftw=0' || exit 1; \
+		$T/spectral_analysis-$$p  '-ospectral_analysis:use_fftw=0' || exit 1; \
+#		$T/spectral_analysis-$$p-debug $$f  '-ospectral_analysis:use_fftw=0' || exit 1; \
+	done
+		
+extract_calls_test: $T/extract_calls $T/extract_calls-debug
+	@dir=/tmp/testdir$$$$; \
+	mkdir -p $$dir; \
+	C="$T/extract_calls -V1 -C spectral_analysis/test_data/bowerbird_config -ocall:output_directory:$$dir test_sound_files/ground_parrot_calls.wav"; \
+	echo $$C; \
+	$$C; \
+	exit 0; \
+# FIXME code below needs to be update
+	diff call.html ../test_data/ground_parrot_calls.wav.call.html || exit 1; \
+	rm -f *.html call0*.*; \
+	echo $T/extract_calls -V0 ../test_sound_files/ground_parrot_calls.wv; \
+	$T/extract_calls -V0 ../../test_sound_files/ground_parrot_calls.wv; \
+	diff call.html ../test_data/ground_parrot_calls.wav.call.html || exit 1; \
+	rm -f *.html call0*.*; \
+	echo valgrind -q --error-exitcode=1 extract_calls -V0 test_sound_files/ground_parrot_calls.wv; \
+	valgrind -q --error-exitcode=1 extract_calls -V0 ../../test_sound_files/ground_parrot_calls.wv; \
+	diff call.html ../test_data/ground_parrot_calls.wav.call.html || exit 1; \
+	rm -f *.html call0*.*; \
+	echo $T/extract_calls-debug -V0 '-ospectral_analysis:use_fftw=0' ../test_sound_files/ground_parrot_calls.wv; \
+	$T/extract_calls-debug -V0 '-ospectral_analysis:use_fftw=0' ../../test_sound_files/ground_parrot_calls.wv; \
+	diff call.html ../test_data/ground_parrot_calls.wav.call.html || exit 1; \
+	rm -f *.html call0*.*; \
+	cp ../test_data/bowerbird_config1 bowerbird_config; \
+	echo $T/extract_calls -V0 test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wv; \
+	$T/extract_calls -V0 ../../test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wv; \
+	diff call.html ../test_data/barren_grounds0_2008_03_19_1205915224.787271@90.wv.call.html || exit 1; \
+	cd ..; \
+	rm -r $$dir;
+	@echo /spectral_analysis/extract_calls extract_calls: OK
+	
+extract_calls_profile: $T/extract_calls-profile
+	@dir=../testdir$$$$; \
+	mkdir -p $$dir; \
+	cd $$dir; \
+	cp ../test_data/bowerbird_config .; \
+	extract_calls-profile -V1 ../../test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wv; \
+	gprof ../../$T/extract_calls-profile;  \
+	diff call.html ../test_data/barren_grounds0_2008_03_19_1205915224.787271@90.wv.call.html; \
+	rm -f *.html call0*.*; \
+	cd ..; \
+	rm -r $$dir
