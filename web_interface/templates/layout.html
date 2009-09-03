@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:xi="http://www.w3.org/2001/XInclude"
+      xmlns:py="http://genshi.edgewall.org/" py:strip="">
+
+<?python from urllib import quote ?>
+
+  <py:match path="head" once="true">
+    <head py:attrs="select('@*')">
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+      <title py:with="title = list(select('title/text()'))">
+        Bowerbird<py:if test="title">: ${title}</py:if>
+      </title>
+      <link rel="stylesheet" href="${url('/media/layout.css')}" type="text/css" />
+      <script type="text/javascript" src="${url('/media/jquery.js')}"></script>
+      ${select('*[local-name()!="title"]')}
+    </head>
+  </py:match>
+
+  <py:match path="body" once="true">
+  <body py:attrs="select('@*')">
+	  <div id="wrap">
+        <div id="header">
+          <a href="/"><img src="${url('/media/logo.jpg')}" width="100px"
+			  height="50px" alt="sonogram?" /></a>
+          <h1 py:with="heading = list(select('h1/text()'))">
+            Bowerbird<py:if test="heading">: ${heading}</py:if>
+          </h1>
+        </div>
+	    <div id="menu">
+          <xi:include href="menu.html" />
+        </div>
+        <div id="content">
+          ${select('*[local-name()!="h1"]|text()')}
+        </div>
+        <div id="footer">
+		  <p>Copyright &copy; 2009 Andrew Taylor</p>
+        </div>
+	  </div>
+    </body>
+  </py:match>
+
+  <!--! created as a template function because it's used in 2 places -->
+  <table py:def="call_table(calls, sort, sort_order)" class="calls" border="1">
+	  <thead>
+	  <!--! The keys of this dictionary should be the database column
+		  names to sort on -->
+	  <tr py:with="headings=(('date_and_time','Time'), ('label','Label'),
+			  ('category','Category'), ('length','Length'), 
+			  ('frequency','Frequency'), ('harmonics','Harmonics'), 
+			  ('AM','AM'), ('FM','FM'), ('bandwidth','Bandwidth'), 
+			  ('energy','Energy'))">
+		  <th py:for="key,heading in headings" py:choose="">
+			  <a py:when="key == sort and sort_order=='asc'"
+				  href="${url('?sort=%s&amp;sort_order=desc' % key)}">
+				  /\<br/>${heading}</a>
+			  <a py:when="key == sort and sort_order=='desc'"
+				  href="${url('?sort=%s&amp;sort_order=asc' % key)}">
+				  ${heading}<br/>\/</a>
+			  <a py:otherwise=""
+				  href="${url('?sort=%s' % key)}">
+				  ${heading}</a>
+		  </th>
+	  </tr>
+	  </thead>
+	  <tbody>
+	  <tr py:for="call in calls">
+		  <td><a href="${url('/call/%s' % call['filename'])}">
+				  ${call['date_and_time']}</a></td>
+		  <td>${call['label']}</td>
+		  <td>${call['category']}</td>
+		  <td>${call['length']}s</td>
+		  <td>${call['frequency']}Hz</td>
+		  <td>${call['harmonics']}</td>
+		  <td>${call['AM']}</td>
+		  <td>${call['FM']}</td>
+		  <td>${call['bandwidth']}Hz</td>
+		  <td>${call['energy']}db</td>
+	  </tr>
+  </tbody>
+  </table>
+</html>

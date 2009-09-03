@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:xi="http://www.w3.org/2001/XInclude"
+      xmlns:py="http://genshi.edgewall.org/">
+  <xi:include href="layout.html" />
+  <head>
+	  <title>Category Browser</title>
+  </head>
+  <body class="index">
+	  <h1>Category Browser</h1>
+
+	  <py:if test="categories">
+	  <table class="categories" border="1">
+		  <thead>
+		  <!--! The keys of this dictionary should be the database column
+			  names to sort on -->
+		  <tr py:with="headings=(('label','Label'), ('calls','Calls'),
+				  ('length','Length'), ('frequency','Frequency'), 
+				  ('harmonics_min','Harm -onics'), ('AM','AM'), ('FM','FM'), 
+				  ('bandwidth','Bandwidth'), ('energy','Energy'), 
+				  ('time_of_day_start','Time of Day'))">
+			  <th py:for="key,heading in headings" py:choose="">
+				  <a py:when="key == sort and sort_order=='asc'"
+					  href="${url('?sort=%s&amp;sort_order=desc' % key)}">
+					  /\<br/>${heading}</a>
+				  <a py:when="key == sort and sort_order=='desc'"
+					  href="${url('?sort=%s&amp;sort_order=asc' % key)}">
+					  ${heading}<br/>\/</a>
+				  <a py:otherwise=""
+					  href="${url('?sort=%s' % key)}">
+					  ${heading}</a>
+			  </th>
+		  </tr>
+		  </thead>
+		  <tbody>
+		  <tr py:for="category in categories">
+			  <td><a href="${url('/category/%s' % quote(category['label']))}">
+					  ${category['label']}</a></td>
+			  <td>${category['calls']}</td>
+			  <td>${category['length']}&#177;${category['length_stddev']}s</td>
+			  <td>${category['frequency']}&#177;${category['frequency_stddev']}Hz</td>
+			  <td>${category['harmonics_min']}
+				  <py:if test="category['harmonics_min'] 
+					  != category['harmonics_max']">
+				  	- ${category['harmonics_max']}
+				  </py:if>
+			  </td>
+			  <td>${category['AM']}</td>
+			  <td>${category['FM']}</td>
+			  <td>${category['bandwidth']}&#177;${category['bandwidth_stddev']}Hz</td>
+			  <td>${category['energy']}&#177;${category['energy_stddev']}db</td>
+			  <td>${category['time_of_day_start']} 
+				  - ${category['time_of_day_finish']}
+			  </td>
+		  </tr>
+	  </tbody>
+	  </table>
+	  <p>
+	  Click on category label to go to category web page. 
+	  This page contains more detailed information including example 
+	  audio and sonagrams. You label or modify the category from this page.
+	  </p>
+	  </py:if>
+	  <h2 py:if="not categories" class="categories">No categories found</h2>
+  </body>
+</html>

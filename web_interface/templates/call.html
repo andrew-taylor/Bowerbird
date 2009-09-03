@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:xi="http://www.w3.org/2001/XInclude"
+      xmlns:py="http://genshi.edgewall.org/">
+  <xi:include href="layout.html" />
+  <head>
+	  <xi:include href="autocomplete.html" />
+	  <script type="text/javascript">
+		  // ajax (ajah really) updates for sonogram
+	  	  function reloadSonogram(button) {
+			  var data = button.parent().find("select.sonogram, input.sonogram").serialize()
+				  + "&amp;update_sonogram=True";
+			  $.post(window.location.pathname, data, function(html_fragment) {
+					  $("div#sonogram").html(html_fragment);
+			  }, "html");
+		  }
+
+		  // jquery callback for DOM ready
+		  $(document).ready(function() {
+			  // autocomplete support
+			  var categories = "${categories}".split(",");
+			  $("#category").autocomplete(categories);
+
+			  // ajah label/category updating
+			  $('#update_details').click(function(event){
+				  event.preventDefault();
+				  data = $(this).parents("form").find("input, ").serialize()
+				  		+ "&amp;update_details=True";
+				  $.post(window.location.pathname, data);
+			  });
+
+			  // ajah sonogram updates
+			  $('#update_sonogram').click(function(event){
+				  event.preventDefault();
+				  reloadSonogram($(this));
+			  });
+		  });
+
+		  // navigation callbacks
+		  function goTo(new_url){
+			  window.location = new_url;
+		  }
+		  function showCallPreview(time, label, category){
+			  document.getElementById('preview').innerHTML = "<table><tr><th>Time</th><td>" + time + "</td></tr><tr><th>Label</th><td>" + label + "</td></tr><tr><th>Category</th><td>" + category + "</td></tr></table>";
+		  }
+		  function resetCallPreview(){ 
+			  document.getElementById('preview').innerHTML = '<span class="preview_explanation">Mouse over the buttons to the left to preview information about the next &amp; previous calls</span>';
+		  }
+	  </script>
+	  <title>Call Viewer</title>
+  </head>
+  <body class="call" onload="resetCallPreview();">
+	  <h1>Call Viewer</h1>
+	  
+	  <py:if test="call">
+	  <form action="" method="post">
+	  <table class="call">
+		  <tr>
+			  <th>File:</th>
+			  <td><a href="${url('/media/calls/%s' % quote(call['filename']))}">
+					  ${call['filename']}</a></td>
+		  </tr>
+		  <tr>
+			  <th>Call Recorded:</th>
+			  <td>${call['date_and_time']}</td>
+		  </tr>
+		  <tr>
+			  <th>Label:</th>
+			  <td>
+				  <input name="label" type="text" value="${call['label']}" />
+			  </td>
+			  <td><input type="checkbox" name="example" checked="${call['example']}" />Use as example</td>
+		  </tr>
+		  <tr>
+			  <th><a href="${url('/category/%s' % quote(call['category']))}">Category</a>:</th>
+			  <td>
+				  <input id="category" name="category" type="text"
+						  value="${call['category']}" />
+			  </td>
+			  <td>
+				  <input id="update_details" name="update_details" type="submit" 
+				  		value="Update Details" />
+			  </td>
+		  </tr>
+	  </table>
+	  </form>
+
+	  <hr />
+
+	  <xi:include href="_sonogram.html" />
+	  <form target="" method="post">
+		  <input type="hidden" name="frequency_scale" value="Linear" />
+		  <!--! removed until we can do a log sonogram
+		  Frequency scale:
+		  <select class="sonogram" name="frequency_scale">
+			  <py:for each="scale in frequency_scales">
+			  <option py:if="scale == frequency_scale" selected="true" value="${scale}">${scale}</option>
+			  <option py:if="scale != frequency_scale" value="${scale}">${scale}</option>
+			  </py:for>
+		  </select>
+		  -->
+		  FFT step size:
+		  <input class="sonogram" type="text" name="fft_step" value="${fft_step}" />ms
+		  <input id="update_sonogram" type="submit" name="update_sonogram" value="Update Sonogram" />
+	  </form>
+
+	  <hr />
+
+	  <div>
+		  <form>
+		  <table class="call_navigation">
+			  <td py:def="nav_button(display_text,destination_call)">
+				  <input py:if="destination_call" type="button" value="${display_text}" class="call_navigation"
+				  	onclick="goTo(&#34;${url('/call/%s' % quote(destination_call['filename']))}&#34;);"
+					onmouseover="showCallPreview(&#34;${destination_call['date_and_time']}&#34;,&#34;${destination_call['label']}&#34;,&#34;${destination_call['category']}&#34;);"
+					onmouseout="resetCallPreview();" />
+				  <input py:if="not destination_call" type="button" value="${display_text}" class="call_navigation" disabled="true" />
+			  </td>
+
+			  <tr>
+				  ${nav_button("Previous Call in Category",prev_next_files['prev_in_cat'])}
+				  ${nav_button("Next Call in Category",prev_next_files['next_in_cat'])}
+				  <td rowspan="2" id="preview" />
+			  </tr>
+			  <tr>
+				  ${nav_button("Previous Call",prev_next_files['prev'])}
+				  ${nav_button("Next Call",prev_next_files['next'])}
+			  </tr>
+		  </table>
+		  </form>
+	  </div>
+	  </py:if>
+
+	  <py:if test="not call">
+	  <h2 class="call">No call specified.</h2>
+	  <a href="${url('/calls')}">Go Back</a>.
+	  </py:if>
+  </body>
+</html>

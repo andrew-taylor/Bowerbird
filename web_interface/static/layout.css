@@ -1,0 +1,100 @@
+body {
+	background-color:#7a7bff;
+}
+
+a {
+	text-decoration:none
+}
+
+#wrap {
+	background-color:aqua;
+	margin: 0px;
+	border:thick ridge  blue;
+	padding: 0px;
+	width: 90%;
+	min-width: 400px;
+	position: absolute;
+	left: 5%
+}
+
+#header h1 {
+	display: inline;
+}
+
+#header {
+	clear: left;
+	margin: 0px;
+	padding: 0.5em;
+	background-color:#c3dfff; /* delete once position sorted */
+	border-bottom: thick ridge blue;
+}
+
+#menu {
+	float: left;
+	clear: left;
+	margin:0px;
+	padding-right: 1em;
+	width: 120px;
+}
+
+#content {
+	margin-left: 130px;
+	padding: 10px;
+	border-left: thick ridge blue;
+	min-height: 100px;
+	background-color: white
+}
+
+#footer {
+	background-color:#c3dfff; /* delete once position sorted */
+	text-align: right;
+	clear: left;
+	margin: 0px;
+	border-top: thick ridge blue;
+	padding-right: 1.5em;
+	padding-bottom: 0.01px
+}
+
+input.config {
+	text-align: right
+}
+
+input.sonogram[type="text"] {
+	width: 3em;
+	text-align: right
+}
+
+
+table.categories, table.calls {
+	border-collapse: separate;
+	border-width: 3px;
+	border-color:#bac2fd;
+	text-align: center;
+	background-color:#b6dcff
+}
+
+table.call th {
+	text-align: right
+}
+
+table.categories, table.calls, table.call td {
+	text-align: center;
+	padding: 3px
+}
+
+table.call_navigation {
+	height: 5.00em
+}
+
+table.call_navigation td {
+	text-align: center
+}
+
+input.call_navigation {
+	width: 180px
+}
+
+.preview_explanation {
+	font-size: x-large;
+	color: navy
+}

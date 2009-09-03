@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:xi="http://www.w3.org/2001/XInclude"
+      xmlns:py="http://genshi.edgewall.org/">
+<xi:include href="layout.html" />
+<head>
+  <title>Configuration</title>
+</head>
+
+<body>
+<h1>Configuration</h1>
+
+<form action="" method="post">
+
+<div py:if="desc_errors" class="error">
+	<h3>Errors in Configuration Description</h3>
+	<h4>File: "${desc_file}"</h4>
+	<ul>
+		<li py:for="error in desc_errors">${error}</li>
+	</ul>
+	<hr />
+</div>
+
+<div py:if="errors" class="error">
+	<h3>Errors in Configuration</h3>
+	<h4>File: "${file}"</h4>
+	<ul>
+		<li py:for="error in errors">${error}</li>
+	</ul>
+	<hr />
+</div>
+
+<py:for each="section in desc.keys()">
+<h4>${section}</h4>
+<table>
+	<tbody>
+		<py:for each="name in desc[section].keys()">
+		<tr py:for="i, subname in enumerate(desc[section][name].keys())">
+		<td py:if="i==0"
+					width="200pt" rowspan="${len(desc[section][name].keys())}">
+				${name}</td>
+			<td width="100pt">${subname}</td>
+			<td	py:with="input_id, input_type, units = desc[section][name][subname]">
+				<input class="config" id="${input_id}" name="${input_id}" 
+					type="text" value=""/>${units}
+			</td>
+		</tr>
+		</py:for>
+	</tbody>
+</table>
+</py:for>
+
+<p>
+<input name="load_defaults" value="Load Defaults" type="submit" />
+<input name="cancel" value="Cancel" type="submit" />
+<input name="apply" value="Apply Changes" type="submit" /> 
+</p>
+
+</form>
+</body>
+</html>
