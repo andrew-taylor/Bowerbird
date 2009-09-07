@@ -4,7 +4,7 @@ SOURCE=$(MAIN_BINARY).c alsa.c ts7200.c option.c util.c sunrise.c
 OBJECTS=$(SOURCE:%.c=$(TARGET)/%.o)
 INCLUDES=$(MAIN_BINARY).h
 FILES=Makefile $(SOURCE) watchdog.c $(INCLUDES) prototypes.h i.h    
-INCLUDE_PATH = $(EXTRA_INCLUDES) 
+INCLUDE_PATH = $(EXTRA_INCLUDES)
 
 CC=$(CROSS_COMPILE)gcc
 COMMON_CC_OPTS='-std=gnu99' -Wall -Wstrict-prototypes -Wmissing-prototypes $(LIB_PATH) $(INCLUDE_PATH)
