@@ -67,7 +67,11 @@ void pyplotpointdata(point2d_t *points,int num_points, int blocking)
 	fclose(fp);
 	if (blocking == BLOCKING)
 	{
-		system("python pyplotpoints.py");
+		if (system("python pyplotpoints.py"))
+		{
+			printf("python pyplotpoints.py failed");
+			exit(1);
+		}
 	}
 	else
 	{

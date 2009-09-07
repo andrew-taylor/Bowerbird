@@ -238,9 +238,17 @@ void write_waveform(char *file, double *waveform, index_t nsamples, int compress
 	{
 		soundfile_write_entire_double("/tmp/clicktocompress.wav",nsamples,1,SAMPLING_RATE,waveform);
 		char line[MAX_PATH_LEN];
-		system("wavpack -y /tmp/clicktocompress.wav 2>/dev/null");
+		if (system("wavpack -y /tmp/clicktocompress.wav 2>/dev/null"))
+		{
+			printf("wavpack command failed for file '%s'\n", file);
+			exit (1);
+		}
 		sprintf(line,"mv /tmp/clicktocompress.wv %s",file);
-		system(line);
+		if (system(line)) 
+		{
+			printf("failed to move compressed file to '%s'\n", file);
+			exit(1);
+		}
 		/*
 		printf("Writing compressed files isn't implemented yet!\n");
 		exit(1);

@@ -77,7 +77,7 @@ param_add_config_file(char *pathname, int ignore_missing) {
   	dp(2, "Loading configuration information from %s\n", pathname);
   	GError *error = NULL;
 	if (!g_key_file_load_from_file(keyfile, pathname, flags, &error))
-		die(error->message);
+		die("config file '%s' load failed: %s", pathname, error->message);
 	g_array_append_val(keyfiles, keyfile);
 }
 

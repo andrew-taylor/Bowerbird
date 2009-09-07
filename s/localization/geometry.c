@@ -557,7 +557,11 @@ void locate_point_in_plane(double TDOA_01,double TDOA_12,double TDOA_20,point2d_
 		char line[1024];
 		sprintf(line,"python pyplotgeometry.py %lf %lf %lf %lf %lf %lf %lf %lf %lf > /dev/null\n",stations[0].x,stations[0].y,stations[1].x,stations[1].y,stations[2].x,stations[2].y,TDOA_01,TDOA_12,TDOA_20);
 		printf("line = '%s'\n",line);
-		system(line);
+		if (system(line))
+		{
+			printf("failed\n");
+			exit(1);
+		}
 		printf("done\n");
 	}
 

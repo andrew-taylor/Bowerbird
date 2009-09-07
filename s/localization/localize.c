@@ -488,7 +488,7 @@ int main(int argc, char **argv) {
 	simple_option_parsing(argc, argv, usage);
 
 	if (argc-optind < 1  || argc-optind > 2)
-		die(usage);
+		die("%s", usage);
 	
 	/* these must be called before most other things */
 	load_config();
