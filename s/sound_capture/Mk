@@ -1,0 +1,12 @@
+LOCAL_FUNCTIONS = alsa.c sunrise.c ts7200.c
+EXTERNAL_LIBS += -lm -lasound
+APPLICATIONS = sound_capture.c
+
+#test: $T/localize
+#	mkdir -p /tmp/clicktracks/
+#	$T/localize localization/extra/listall
+#	../binaries/x86/standard/applications/localize -V5 extra/listall
+#	valgrind --tool=memcheck --leak-check=full --leak-resolution=high --show-reachable=yes --suppressions=extra/glib.supp ../binaries/x86/standard/applications/localize -V24 1205911325.4  5.8
+#	../binaries/x86/debug/applications/localize -V24 1205911325.4  5.8
+#	valgrind --tool=memcheck ../binaries/x86/standard/applications/localize -V20 1205911325.4  5.8
+#	../binaries/x86/standard/applications/localize listall
