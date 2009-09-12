@@ -1,4 +1,4 @@
-#include "sound_capture.h"
+#include "i.h"
 
 static void usage(void) {
 	fprintf(stderr, "Usage %s [-V] [-v verbosity] <commands> \n", myname);
@@ -92,7 +92,9 @@ void run(void) {
 	
 //	int beep_done = 0;
 	unsigned int file_count = 0;
-	for (;;) {
+	dp(30, "starting loop\n");
+	for (int i = 0;;++i) {
+		dp(30, "loop %d\n", i);
 		const int length = alsa_readi(buffer, buffer_frames);
 		gettimeofday(&tv, NULL);
 		time_t t = time(NULL);
@@ -132,7 +134,11 @@ write_data(int16_t *buffer, int n_channels, int n_frames, int sampling_rate, cha
 	default:
 		return;
 	}
-	nice(10);
+	// nice returns -1 on failure, but also when nice value is -1, 
+	// so we check errno as well.
+	errno = 0;
+	if (nice(10) == -1 && errno != 0)
+		die("nice failed");
 	dp(1,"child starts\n");
 	for (int i=3; i < 30;i++)
 		close(i);
@@ -148,15 +154,18 @@ write_data(int16_t *buffer, int n_channels, int n_frames, int sampling_rate, cha
 		dp(1, "command='%s'\n", command);
 		FILE *f = popen(command, "w");
 		assert(f);
-		fwrite(wav_header, sizeof wav_header, 1, f);
+		if (fwrite(wav_header, sizeof wav_header, 1, f))
+			die("fwrite header failed");
 		if (fwrite(buffer, sizeof *buffer, n_channels*n_frames, f) != n_channels*n_frames) 
-			die("fwrite failed\n");
+			die("fwrite data failed");
 		fclose(f);
 	} else {
 		int fd = open(pathname, O_WRONLY|O_CREAT, 0666);
 		assert(fd >= 0);
-		write(fd, wav_header, sizeof wav_header);
-		write(fd, buffer, n_channels*n_frames*sizeof *buffer);
+		if (write(fd, wav_header, sizeof wav_header))
+			die("write header failed");
+		if (write(fd, buffer, n_channels*n_frames*sizeof *buffer))
+			die("write data failed");
 		close(fd);
 	}	
 	FILE *fp = fopen(details_pathname, "w");

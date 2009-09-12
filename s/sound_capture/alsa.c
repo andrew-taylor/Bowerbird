@@ -1,6 +1,6 @@
 #include <alsa/asoundlib.h>
 #undef assert
-#include "sound_capture.h"
+#include "i.h"
 
 static snd_pcm_t *pcm_handle;
 
@@ -12,7 +12,8 @@ alsa_close(void) {
 int 
 alsa_readi(int16_t *data, int n_frames) {
     dp(30, "n_frames=%d\n", n_frames);
-    while (1) {
+    for(int j = 0;;++j) {
+		dp(30, "loop %d\n", j);
 	    for (int i = 0; i < 10; i++) {
 			int rc = snd_pcm_readi(pcm_handle, data, n_frames);
 			if (rc > 0)
@@ -131,10 +132,15 @@ alsa_init(void) {
     /* Set buffer size (in frames). The resulting latency is given by */
     /* latency = periodsize * periods / (rate * bytes_per_frame)     */
 //    if (snd_pcm_hw_params_set_buffer_size(pcm_handle, hwparams, (periodsize * periods)>>2) < 0) {
-    if (snd_pcm_hw_params_set_buffer_size(pcm_handle, hwparams, get_option_int("alsa_buffer_size")) < 0) {
+   	snd_pcm_uframes_t desired_buffer_size, buffer_size;
+    desired_buffer_size = buffer_size = get_option_int("alsa_buffer_size");
+    if (snd_pcm_hw_params_set_buffer_size_near(pcm_handle, hwparams, &buffer_size) < 0) {
       fprintf(stderr, "Error setting buffersize.\n");
       return(-1);
     }
+	if (desired_buffer_size != buffer_size) {
+		fprintf(stderr, "Asked for buffer size %ld, got %ld, should be okay...\n", desired_buffer_size, buffer_size);
+	}
     /* Apply HW parameter settings to */
     /* PCM device and prepare device  */
     if (snd_pcm_hw_params(pcm_handle, hwparams) < 0) {

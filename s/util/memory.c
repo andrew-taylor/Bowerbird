@@ -1,5 +1,6 @@
 #include "i.h"
 
+#ifdef USE_GLIB_MALLOC
 //__attribute__ ((malloc))
 void *
 salloc(gsize n) {
@@ -8,8 +9,9 @@ salloc(gsize n) {
 	memset(m, 0, n);
 	return m;
 }
+#endif // USE_GLIB_MALLOC
 
-#ifdef OLD
+//#ifdef OLD
 //__attribute__ ((malloc))
 void *
 salloc(size_t n) {
@@ -30,7 +32,7 @@ srealloc(void *m, size_t n) {
 
 //__attribute__ ((malloc))
 char *
-g_strdup(char *s) {
+sstrdup(char *s) {
 	void *new;
 	if (s == NULL)
 		return NULL;
@@ -50,4 +52,4 @@ sdup(void *old, size_t n) {
 	memcpy(new, old, n);
 	return new;
 }
-#endif
+//#endif

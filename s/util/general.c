@@ -68,36 +68,26 @@ dprintf_file_line_func(int level, char *file_name, int line_number, const char *
 	vfprintf(debug_stream, format, ap);
 }
 
-//__attribute__ ((malloc))
-void *
-salloc(gsize n) {
-	void *m;
-	m = g_malloc(n);
-	memset(m, 0, n);
-	return m;
-}
+// deprecated. now using #define in bowerbird.h
+//static double  epsilon = 1000*DBL_EPSILON; // sqrt(DBL_EPSILON) would be better
+//
+//void
+//set_epsilon(double x) {
+//	epsilon = x;
+//}
+//
+////__attribute__ ((pure)) 
+//double
+//approximately_zero(double x) {
+//	return -epsilon < x && x < epsilon;
+//}
 
-#ifdef OLD
-static double  epsilon = 1000*DBL_EPSILON; // sqrt(DBL_EPSILON) would be better
-
-//__attribute__ ((pure)) 
-void
-set_epsilon(double x) {
-	epsilon = x;
-}
-
-//__attribute__ ((pure)) 
-double
-approximately_zero(double x) {
-	return -epsilon < x && x < epsilon;
-}
-#endif
-
-void
-usage(void) {
-	fprintf(stderr, "Usage: %s  <wav files>\n", myname);
-    exit(1);
-}
+// not sure where this might be used?
+//void
+//usage(void) {
+//	fprintf(stderr, "Usage: %s  <wav files>\n", myname);
+//    exit(1);
+//}
 
 static char *short_options = "o:V:C:";
 

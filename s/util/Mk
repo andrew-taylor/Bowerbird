@@ -1,4 +1,5 @@
-GLOBAL_FUNCTIONS = general.c gnuplot.c xv.c parameter.c	sound_io.c approximate_log.c
+GLOBAL_FUNCTIONS = general.c gnuplot.c xv.c parameter.c	sound_io.c approximate_log.c option.c memory.c
+LOCAL_FUNCTIONS = 
 EXTERNAL_LIBS += -lsndfile -lwavpack
 
 test: $T/util-sound_io_test $T/util-sound_io_test-debug

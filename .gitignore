@@ -2,3 +2,4 @@
 *.o
 s/binaries-*
 s/util/test_data
+s/Makefile

@@ -6,4 +6,4 @@ PATH=$PWD/scripts:$PATH export PATH
 build_makefile "$@" > Makefile
 TARGET=`make echo_target`
 PATH=$PWD/$TARGET:$PATH export PATH
-make -j5 "$@"
+make -j "$@"

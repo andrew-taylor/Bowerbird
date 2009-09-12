@@ -1,4 +1,4 @@
-#include "sound_capture.h"
+#include "i.h"
 #ifdef TS7200
 #include "regmap.h"
 #include <sys/mman.h>
