@@ -6,4 +6,5 @@ PATH=$PWD/scripts:$PATH export PATH
 build_makefile "$@" > Makefile
 TARGET=`make echo_target`
 PATH=$PWD/$TARGET:$PATH export PATH
-make -j "$@"
+PROCESSES=$((`ls -d /sys/devices/system/cpu/cpu[0-9]* | wc -l`+1))
+make --jobs=$PROCESSES "$@"
