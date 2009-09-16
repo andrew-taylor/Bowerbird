@@ -1,5 +1,7 @@
 .*.swp
 *.o
+*.pyc
 s/binaries-*
 s/util/test_data
 s/Makefile
+web_interface/static/sonograms/*
