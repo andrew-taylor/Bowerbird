@@ -154,7 +154,7 @@ write_data(int16_t *buffer, int n_channels, int n_frames, int sampling_rate, cha
 		dp(1, "command='%s'\n", command);
 		FILE *f = popen(command, "w");
 		assert(f);
-		if (fwrite(wav_header, sizeof wav_header, 1, f))
+		if (fwrite(wav_header, sizeof wav_header, 1, f) != 1)
 			die("fwrite header failed");
 		if (fwrite(buffer, sizeof *buffer, n_channels*n_frames, f) != n_channels*n_frames) 
 			die("fwrite data failed");
@@ -162,9 +162,11 @@ write_data(int16_t *buffer, int n_channels, int n_frames, int sampling_rate, cha
 	} else {
 		int fd = open(pathname, O_WRONLY|O_CREAT, 0666);
 		assert(fd >= 0);
-		if (write(fd, wav_header, sizeof wav_header))
+		size_t write_size = sizeof wav_header;
+		if (write(fd, wav_header, write_size) != write_size)
 			die("write header failed");
-		if (write(fd, buffer, n_channels*n_frames*sizeof *buffer))
+		write_size = n_channels*n_frames*sizeof *buffer;
+		if (write(fd, buffer, write_size) != write_size)
 			die("write data failed");
 		close(fd);
 	}	

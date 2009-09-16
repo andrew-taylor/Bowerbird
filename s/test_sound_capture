@@ -1,0 +1,10 @@
+binaries-arm/sound_capture \
+	-oalsa_pcm_name:hw:1,0 -v40 \
+	-osound_file_dir:/tmp/s \
+	-oalsa_sampling_rate:32000 \
+	-oalsa_periods_size:32000 \
+	-oalsa_n_channels:4 \
+	-oalsa_buffer_size:128000 \
+	-oalsa_n_periods:2
+
+#	-osound_compressor:
