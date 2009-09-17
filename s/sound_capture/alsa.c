@@ -16,9 +16,10 @@ alsa_readi(int16_t *data, int n_frames) {
 		dp(30, "loop %d\n", j);
 	    for (int i = 0; i < 10; i++) {
 			int rc = snd_pcm_readi(pcm_handle, data, n_frames);
-			if (rc > 0)
+			if (rc > 0) {
+				dp(30, "pcm read %d frames\n", rc);
 				return rc;
-			if (rc == -EPIPE) {
+			} else if (rc == -EPIPE) {
 				/* EPIPE means overrun */
 	    		dp(0, "overrun occurred\n");
 				snd_pcm_prepare(pcm_handle);
