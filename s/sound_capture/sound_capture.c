@@ -211,7 +211,7 @@ fork_write_cmd(char *wav_header, int16_t *buffer, int n_channels, int n_frames, 
 	dp(1, "command='%s'\n", command);
 	FILE *f = popen(command, "w");
 	assert(f);
-	if (fwrite(wav_header, sizeof wav_header, 1, f) != 1)
+	if (fwrite(wav_header, WAV_HEADER_SIZE, 1, f) != 1)
 		die("fwrite header failed");
 	if (fwrite(buffer, sizeof *buffer, n_channels*n_frames, f) != n_channels*n_frames) 
 		die("fwrite data failed");
