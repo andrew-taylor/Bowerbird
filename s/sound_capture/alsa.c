@@ -4,6 +4,14 @@
 
 static snd_pcm_t *pcm_handle;
 
+static char *pcm_name;
+static int rate;
+static int n_periods;
+static unsigned long period_size;
+static int n_channels;
+static unsigned long desired_buffer_size;
+
+
 void
 alsa_close(void) {         
 	snd_pcm_close(pcm_handle);
@@ -30,12 +38,35 @@ alsa_readi(int16_t *data, int n_frames) {
 	    }
 	    sleep(1);
 		snd_pcm_close(pcm_handle);
-		do_alsa_init();
+		alsa_init();
 	}
 }
 
+/** \brief Initialise alsa device 
+ * \param pcm_name Name of the PCM device, like plughw:0,0. 
+ * The first number is the number of the soundcard, 
+ * the second number is the number of the device.
+ * \param rate Sample rate
+ * \param n_periods Number of periods (used to be called fragments)
+ * \param period_size Size of the periods (bytes) 
+ * (Currently ignored in favour of desired_buffer_size)
+ * \param n_channels Number of channels
+ * \param desired_buffer_size Can't remember.
+ *
+ * This saves the parameters to static variables,
+ * the calls alsa_init and prints a message if it fails.
+ */
 void    
-do_alsa_init(void) {
+do_alsa_init(char *p_pcm_name, int p_rate, int p_n_periods, unsigned long p_period_size, int p_n_channels, unsigned long p_desired_buffer_size)
+{
+    dp(30, "pcm_name = %s\n", p_pcm_name);
+	pcm_name = p_pcm_name;
+	rate = p_rate;
+	n_periods = p_n_periods;
+	period_size = p_period_size;
+	n_channels = p_n_channels;
+	desired_buffer_size = p_desired_buffer_size;
+	
 	for (int i = 0; i < 1; i++) {
 		if (alsa_init() == 0)
 			return;
@@ -44,6 +75,12 @@ do_alsa_init(void) {
 	die("do_alsa_init failed");
 }
 
+/** \brief Initialise alsa device
+ *
+ * It really just initilises the device. This should only be called directly 
+ * after do_alsa_init has been called. It shouldn't be called by methods outside
+ * this file.
+ */
 int    
 alsa_init(void) {
     /* Playback stream */
@@ -53,21 +90,9 @@ alsa_init(void) {
     /* the hardware and can be used to specify the  */      
     /* configuration to be used for the PCM stream. */ 
     snd_pcm_hw_params_t *hwparams;
-	   
-    /* Name of the PCM device, like plughw:0,0          */
-    /* The first number is the number of the soundcard, */
-    /* the second number is the number of the device.   */
-    char *pcm_name;
-			 
-    /* Init pcm_name. Of course, later you */
-    /* will make this configurable ;-)     */
-    pcm_name = get_option("alsa_pcm_name");
-    dp(30, "pcm_name = %s\n", pcm_name);
-
 
     /* Allocate the snd_pcm_hw_params_t structure on the stack. */
     snd_pcm_hw_params_alloca(&hwparams);
-  
 
 
     /* Open PCM. The last parameter of this function is the mode. */
@@ -86,11 +111,8 @@ alsa_init(void) {
       fprintf(stderr, "Can not configure this PCM device.\n");
       return(-1);
       }
-	int rate = get_option_int("alsa_sampling_rate"); /* Sample rate */
     unsigned int exact_rate;   /* Sample rate returned by */
                       /* snd_pcm_hw_params_set_rate_near */ 
-    int periods = get_option_int("alsa_n_periods");       /* Number of periods */
-//    snd_pcm_uframes_t periodsize = get_option_int("alsa_periods_size"); /* Periodsize (bytes) */
     /* Set access type. This can be either    */
     /* SND_PCM_ACCESS_RW_INTERLEAVED or       */
     /* SND_PCM_ACCESS_RW_NONINTERLEAVED.      */
@@ -120,21 +142,20 @@ alsa_init(void) {
     }
 
     /* Set number of channels */
-    if (snd_pcm_hw_params_set_channels(pcm_handle, hwparams, get_option_int("alsa_n_channels")) < 0) {
+    if (snd_pcm_hw_params_set_channels(pcm_handle, hwparams, n_channels) < 0) {
       fprintf(stderr, "Error setting channels.\n");
       return(-1);
     }
 
     /* Set number of periods. Periods used to be called fragments. */ 
-    if (snd_pcm_hw_params_set_periods(pcm_handle, hwparams, periods, 0) < 0) {
+    if (snd_pcm_hw_params_set_periods(pcm_handle, hwparams, n_periods, 0) < 0) {
       fprintf(stderr, "Error setting periods.\n");
       return(-1);
     }
     /* Set buffer size (in frames). The resulting latency is given by */
-    /* latency = periodsize * periods / (rate * bytes_per_frame)     */
-//    if (snd_pcm_hw_params_set_buffer_size(pcm_handle, hwparams, (periodsize * periods)>>2) < 0) {
-   	snd_pcm_uframes_t desired_buffer_size, buffer_size;
-    desired_buffer_size = buffer_size = get_option_int("alsa_buffer_size");
+    /* latency = period_size * n_periods / (rate * bytes_per_frame)     */
+//    if (snd_pcm_hw_params_set_buffer_size(pcm_handle, hwparams, (period_size * n_periods)>>2) < 0) {
+   	unsigned long buffer_size = desired_buffer_size;
     if (snd_pcm_hw_params_set_buffer_size_near(pcm_handle, hwparams, &buffer_size) < 0) {
       fprintf(stderr, "Error setting buffersize.\n");
       return(-1);

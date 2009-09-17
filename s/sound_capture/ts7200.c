@@ -183,17 +183,15 @@ ts7200_pulse(unsigned long pulse_milliseconds, int gpio, int bit, uint32_t value
 
 void
 beep(int n_beeps, int beep_msec, int inter_beep_msec) {
-	if (get_option_boolean("beep")) {
-		dp(10, "beep(%d, %d, %d)\n", n_beeps, beep_msec, inter_beep_msec);
-		while (n_beeps--) {
+	dp(10, "beep(%d, %d, %d)\n", n_beeps, beep_msec, inter_beep_msec);
+	while (n_beeps--) {
 #ifdef TS7200
-			if (get_option_boolean("active_high"))
-				ts7200_pulse(beep_msec, 1, 1, 1);
-			else
-				ts7200_pulse(beep_msec, 1, 1, 0);
+		if (active_high)
+			ts7200_pulse(beep_msec, 1, 1, 1);
+		else
+			ts7200_pulse(beep_msec, 1, 1, 0);
 #endif
-			if(n_beeps) msleep(inter_beep_msec);
-		}
+		if(n_beeps) msleep(inter_beep_msec);
 	}
 }
 

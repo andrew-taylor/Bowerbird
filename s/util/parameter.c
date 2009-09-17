@@ -95,18 +95,82 @@ param_assignment(char *assignment) {
 
 
 int
+param_get_boolean(char *group, char *key) {
+	return g_key_file_get_boolean(param_get_keyfile(group, key), group, key, NULL);
+}
+
+int
+param_get_boolean_with_default(char *group, char *key, int default_value) {
+	GError *g_error = NULL;
+	int value = g_key_file_get_boolean(param_get_keyfile(group, key), group, key, &g_error);
+	if (!value) {
+		if (g_error->code == G_KEY_FILE_ERROR_INVALID_VALUE) {
+			dp(0, "Config file has invalid value for %s->%s\n", group, key);
+			return default_value;
+		} else if (g_error->code == G_KEY_FILE_ERROR_GROUP_NOT_FOUND
+				|| g_error->code == G_KEY_FILE_ERROR_KEY_NOT_FOUND) {
+			// ignore missing config entries - that's why we have the default
+			return default_value;
+		}
+	}
+
+	return value;
+}
+
+void
+param_set_boolean(char *group, char *key, int i) {
+	g_key_file_set_boolean(param_get_keyfile(group, key), group, key, i);
+}
+
+int
 param_get_integer(char *group, char *key) {
 	return g_key_file_get_integer(param_get_keyfile(group, key), group, key, NULL);
 }
 
+int
+param_get_integer_with_default(char *group, char *key, int default_value) {
+	GError *g_error = NULL;
+	int value = g_key_file_get_integer(param_get_keyfile(group, key), group, key, &g_error);
+	if (value == 0) {
+		if (g_error->code == G_KEY_FILE_ERROR_INVALID_VALUE) {
+			dp(0, "Config file has invalid value for %s->%s\n", group, key);
+			return default_value;
+		} else if (g_error->code == G_KEY_FILE_ERROR_GROUP_NOT_FOUND
+				|| g_error->code == G_KEY_FILE_ERROR_KEY_NOT_FOUND) {
+			// ignore missing config entries - that's why we have the default
+			return default_value;
+		}
+	}
+
+	return value;
+}
+
 void
 param_set_integer(char *group, char *key, int i) {
-	g_key_file_set_double(param_get_keyfile(group, key), group, key, i);
+	g_key_file_set_integer(param_get_keyfile(group, key), group, key, i);
 }
 
 double
 param_get_double(char *group, char *key) {
 	return g_key_file_get_double(param_get_keyfile(group, key), group, key, NULL);
+}
+
+double
+param_get_double_with_default(char *group, char *key, double default_value) {
+	GError *g_error = NULL;
+	double value = g_key_file_get_double(param_get_keyfile(group, key), group, key, &g_error);
+	if (value == 0.0) {
+		if (g_error->code == G_KEY_FILE_ERROR_INVALID_VALUE) {
+			dp(0, "Config file has invalid value for %s->%s\n", group, key);
+			return default_value;
+		} else if (g_error->code == G_KEY_FILE_ERROR_GROUP_NOT_FOUND
+				|| g_error->code == G_KEY_FILE_ERROR_KEY_NOT_FOUND) {
+			// ignore missing config entries - that's why we have the default
+			return default_value;
+		}
+	}
+
+	return value;
 }
 
 void
@@ -120,6 +184,15 @@ param_get_string(char *group, char *key) {
 	char *s = g_key_file_get_string(kf, group, key, NULL);
 //	dp(31, "param_get_string(group=%s,key=%s) -> '%s' (kf=%p)\n", group, key, s, kf);
 	return s;
+}
+
+char *
+param_get_string_with_default(char *group, char *key, char *default_value) {
+	GError *g_error = NULL;
+	char *value = g_key_file_get_string(param_get_keyfile(group, key), group, key, &g_error);
+	if (value == NULL)
+		return default_value;
+	return value;
 }
 
 char *

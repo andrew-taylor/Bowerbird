@@ -74,3 +74,28 @@ compress_clicktracks = 0
 kml_file         = new.kml
 kml_name	 = Ground Parrot Localization
 kml_desc	 = More information at http://bioacoustics.cse.unsw.edu.au
+
+
+[sound_capture]
+sound_buffer_size = 64000
+sound_buffer_frames = 960000
+	
+sound_file_dir = /mnt
+sound_details_name = %s/%d.details
+sound_file_name = %s/%d.wv
+# 0: raw wav, 1: use builtin wavpack, 2: use shellcmd
+sound_compression = 2 
+sound_compressor_shellcmd = /usr/bin/wavpack -q -f - >%s
+	
+alsa_pcm_name = hw:1,0
+alsa_n_channels = 4
+alsa_sampling_rate = 32000
+alsa_periods_size = 32000
+alsa_n_periods = 2
+alsa_buffer_size = 128000
+	
+beep = false
+active_high = false
+	
+sound_n_files = 4
+

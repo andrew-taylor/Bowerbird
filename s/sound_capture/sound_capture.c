@@ -1,100 +1,44 @@
 #include "i.h"
 
+#define CONFIG_GROUP "sound_capture"
+
 #define WAV_HEADER_SIZE 44
 
+#define VERSION "0.1.1"
 
-static void usage(void) {
-	fprintf(stderr, "Usage %s [-V] [-v verbosity] <commands> \n", myname);
-}
-
-char *version = "0.1";
-
-static char *short_options = "o:v:V";
-static struct option long_options[] = {
-	{"option", 1, 0, 'o'},
-	{"verbosity", 1, 0, 'v'},
-	{"version", 0, 0, 'V'},
-	{0, 0, 0, 0}
-};
 
 int main(int argc, char *argv[]) {
-	verbosity = 40;//1;
 	debug_stream = stderr;
-	set_myname(argv);
-	optind = 0;
-	initialize_options();
-	while (1) {
-		int option_index;
-		int c = getopt_long(argc, argv, short_options, long_options, &option_index);
-		if (c == -1)
-			break;
-		opterr = 0;
-		switch (c) {
-		case 'o':
-			parse_option_assignment(optarg);
- 			break;
-		case 'v':
-			verbosity = atoi(optarg);
-  			break;
-		case 'V':
-			printf("%s v%s\n",myname, version);
-  			exit(0);
-		case '?':
-			usage();
- 		}
-	}
-//	char *input_file = get_option("input_file");
-//	if (input_file && strlen(input_file)) {
-//		test_wavpack(input_file);
-//		exit(0);
-//	}
+	initialize(argc, argv, VERSION, "");
+	verbosity = 30;//1;
 	run();
 	return 0;
-}
-
-void
-initialize_options(void) {
-	set_option("input_file", "");
-	set_option_int("sound_buffer_size", 64000);
-	set_option_int("sound_buffer_frames", 60*16000);
-	
-	set_option("sound_file_dir", "/tmp/s");
-	set_option("sound_details_name", "%s/%d.details");
-	set_option("sound_file_name", "%s/%d.wv");
-	set_option_int("sound_compression", 1); // 0: raw wav, 1: use builtin wavpack, 2: use shellcmd
-	set_option("sound_compressor_shellcmd", "/usr/bin/wavpack -q -f - >%s");
-	
-	set_option("alsa_pcm_name", "hw:1,0");
-	set_option_int("alsa_n_channels", 4);
-	set_option_int("alsa_sampling_rate", 32000);
-	set_option_int("alsa_periods_size", 32000);
-	set_option_int("alsa_n_periods", 2);
-	set_option_int("alsa_buffer_size", 128000);
-	
-	set_option_boolean("beep", 0);
-	set_option_boolean("active_high", 0);
-	
-	set_option_int("sound_n_files", 4);
 }
 
 
 void run(void) {
 	struct timeval  tv ;
-	const int n_channels = get_option_int("alsa_n_channels");
-	const int buffer_frames = get_option_int("sound_buffer_frames");
-	const int sampling_rate = get_option_int("alsa_sampling_rate");
-	const char *file_dir = get_option("sound_file_dir");
-	const char *file_name = get_option("sound_file_name");
-	const char *details_name = get_option("sound_details_name");
-	const int n_files = get_option_int("sound_n_files");
+	const int n_channels = param_get_integer(CONFIG_GROUP, "alsa_n_channels");
+	const int buffer_frames = param_get_integer(CONFIG_GROUP, "sound_buffer_frames");
+	const int sampling_rate = param_get_integer(CONFIG_GROUP, "alsa_sampling_rate");
+	const char *file_dir = param_get_string(CONFIG_GROUP, "sound_file_dir");
+	const char *file_name = param_get_string(CONFIG_GROUP, "sound_file_name");
+	const char *details_name = param_get_string(CONFIG_GROUP, "sound_details_name");
+	const int n_files = param_get_integer(CONFIG_GROUP, "sound_n_files");
 
 	int16_t *buffer = salloc(n_channels*buffer_frames*sizeof *buffer); 
     struct sigaction reapchildren = {{0}};
 	reapchildren.sa_flags = SA_NOCLDWAIT;
 	sigaction(SIGCHLD, &reapchildren, 0);
-	do_alsa_init();
-	
-//	int beep_done = 0;
+
+	do_alsa_init(param_get_string(CONFIG_GROUP, "alsa_pcm_name"),
+			param_get_integer(CONFIG_GROUP, "alsa_sampling_rate"),
+    		param_get_integer(CONFIG_GROUP, "alsa_n_periods"),
+			param_get_integer(CONFIG_GROUP, "alsa_periods_size"),
+			param_get_integer(CONFIG_GROUP, "alsa_n_channels"),
+			param_get_integer(CONFIG_GROUP, "alsa_buffer_size"));
+
+//	int beep_enabled = param_get_boolean(CONFIG_GROUP, "beep");
 	unsigned int file_count = 0;
 	dp(30, "starting loop\n");
 	for (int i = 0;;++i) {
@@ -104,13 +48,14 @@ void run(void) {
 		time_t t = time(NULL);
 		if (length <= 0)
 			continue;
-//		if (!beep_done) {
-//			beep_done = 1;
-//			beep(1, 1000, 1);
+//		if (beep_enabled) {
+//			beep_enabled = FALSE;
+//			int active_high = param_get_boolean(CONFIG_GROUP, "active_high");
+//			beep(1, 1000, 1, active_high);
 //			msleep(300);
-//			beep(1, 2000, 1);
+//			beep(1, 2000, 1, active_high);
 //			msleep(300);
-//			beep(1, 3000, 1);
+//			beep(1, 3000, 1, active_high);
 //		}
 		if (file_count >= n_files)
 			file_count = 0;
@@ -134,7 +79,7 @@ write_data(int16_t *buffer, int n_channels, int n_frames, int sampling_rate, cha
 	dp(30, "pathname=%s details_pathname=%s\n", pathname, details_pathname);
 	unlink(details_pathname);
 	unlink(pathname);
-	switch (get_option_int("sound_compression")) {
+	switch (param_get_integer(CONFIG_GROUP, "sound_compression")) {
 		case 0:
 			write_wav_data(wav_header, buffer, n_channels, n_frames, pathname);
 			break;
@@ -145,7 +90,7 @@ write_data(int16_t *buffer, int n_channels, int n_frames, int sampling_rate, cha
 			fork_write_cmd(wav_header, buffer, n_channels, n_frames, pathname);
 			break;
 		default:
-			die("unknown compression type '%d' requested", get_option_int("sound_compression"));
+			die("unknown compression type '%d' requested", param_get_integer(CONFIG_GROUP, "sound_compression"));
 	}
 	FILE *fp = fopen(details_pathname, "w");
 	assert(fp);
@@ -181,7 +126,7 @@ write_wavpack_data(char *wav_header, int16_t *buffer, int n_channels, int n_fram
 void
 fork_write_cmd(char *wav_header, int16_t *buffer, int n_channels, int n_frames, char *pathname)
 {
-	char *compressor = get_option("sound_compressor_shellcmd");
+	char *compressor = param_get_string(CONFIG_GROUP, "sound_compressor_shellcmd");
 	if (!compressor && strlen(compressor) == 0) {
 		dp(1, "external compressor requested, but not configured");
 		return;

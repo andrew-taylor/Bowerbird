@@ -1,5 +1,7 @@
 #include "i.h"
 
+#define VERSION "0.1.1"
+
 void
 sound_to_image(char *sound_file, char *image_file) {
 	soundfile_t	*infile = soundfile_open_read(sound_file);
@@ -67,9 +69,10 @@ sound_to_image(char *sound_file, char *image_file) {
 }
 
 int
-main(int argc, char *argv[]) {
-	int optind = initialize(argc, argv, "<sound files>");
-	if (argc-optind != 2)
+main(int argc, char *argv[])
+{
+	int optind = initialize(argc, argv, VERSION, "<sound files>");
+	if (argc - optind != 2)
 		die("Usage: <sound file> <image file>");
 	sound_to_image(argv[optind], argv[optind + 1]);
 	return 0;
