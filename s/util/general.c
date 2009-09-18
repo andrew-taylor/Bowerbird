@@ -104,6 +104,7 @@ int
 simple_option_parsing(int argc, char *argv[], const char *version, const char *usage) {
 	verbosity = 0;
 	set_myname(argv);
+	param_initialize();
 	errno = 0;  // handy place to clear any previous errno
 	while (1) {
 		int option_index;
@@ -111,7 +112,6 @@ simple_option_parsing(int argc, char *argv[], const char *version, const char *u
 		if (c == -1)
 			break;
 		opterr = 0;
-		param_initialize();
 		switch (c) {
 		case 'o':
 			param_assignment(optarg);
