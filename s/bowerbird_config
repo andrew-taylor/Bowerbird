@@ -84,7 +84,7 @@ sound_file_dir = /mnt
 sound_details_name = %s/%d.details
 sound_file_name = %s/%d.wv
 # 0: raw wav, 1: use builtin wavpack, 2: use shellcmd
-sound_compression = 2 
+sound_compression_type = 2
 sound_compressor_shellcmd = /usr/bin/wavpack -q -f - >%s
 	
 alsa_pcm_name = hw:1,0

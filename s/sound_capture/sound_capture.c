@@ -79,7 +79,7 @@ write_data(int16_t *buffer, int n_channels, int n_frames, int sampling_rate, cha
 	dp(30, "pathname=%s details_pathname=%s\n", pathname, details_pathname);
 	unlink(details_pathname);
 	unlink(pathname);
-	switch (param_get_integer(CONFIG_GROUP, "sound_compression")) {
+	switch (param_get_integer(CONFIG_GROUP, "sound_compression_type")) {
 		case 0:
 			write_wav_data(wav_header, buffer, n_channels, n_frames, pathname);
 			break;
@@ -90,7 +90,7 @@ write_data(int16_t *buffer, int n_channels, int n_frames, int sampling_rate, cha
 			fork_write_cmd(wav_header, buffer, n_channels, n_frames, pathname);
 			break;
 		default:
-			die("unknown compression type '%d' requested", param_get_integer(CONFIG_GROUP, "sound_compression"));
+			die("unknown compression type '%d' requested", param_get_integer(CONFIG_GROUP, "sound_compression_type"));
 	}
 	FILE *fp = fopen(details_pathname, "w");
 	assert(fp);
