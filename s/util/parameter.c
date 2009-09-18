@@ -96,9 +96,7 @@ param_assignment(char *assignment) {
 
 int
 param_get_boolean(char *group, char *key) {
-	int value = g_key_file_get_boolean(param_get_keyfile(group, key), group, key, NULL);
-	dp(30, "%s:%s -> %s\n", group, key, value ? "TRUE" : "FALSE");
-	return value;
+	return param_get_boolean_with_default(group, key, INT_MIN);
 }
 
 int
@@ -129,9 +127,7 @@ param_set_boolean(char *group, char *key, int value) {
 
 int
 param_get_integer(char *group, char *key) {
-	int value = g_key_file_get_integer(param_get_keyfile(group, key), group, key, NULL);
-	dp(30, "%s:%s -> %d\n", group, key, value);
-	return value;
+	return param_get_integer_with_default(group, key, INT_MIN);
 }
 
 int
@@ -162,9 +158,7 @@ param_set_integer(char *group, char *key, int value) {
 
 double
 param_get_double(char *group, char *key) {
-	double value = g_key_file_get_double(param_get_keyfile(group, key), group, key, NULL);
-	dp(30, "%s:%s -> %g\n", group, key, value);
-	return value;
+	return param_get_double_with_default(group, key, DBL_MIN);
 }
 
 double
@@ -195,9 +189,7 @@ param_set_double(char *group, char *key, double value) {
 
 char *
 param_get_string(char *group, char *key) {
-	char *value = g_key_file_get_string(param_get_keyfile(group, key), group, key, NULL);
-	dp(30, "%s:%s -> '%s'\n", group, key, value);
-	return value;
+	return param_get_string_with_default(group, key, "");
 }
 
 char *
