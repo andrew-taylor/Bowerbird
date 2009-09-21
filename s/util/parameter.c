@@ -83,19 +83,17 @@ param_add_config_file(const char *pathname, int ignore_missing) {
 
 void
 param_assignment(const char *assignment, const char *default_group) {
-	char **a = g_regex_split_simple("[:=\\s]+", assignment, 0, 0);
+	char **a = g_regex_split_simple("(([^:=\\s]+) ?: ?)?([^:=\\s]+) ?= ?([^\\s]+)", assignment, 0, 0);
 	dp(30, "split assignment %s into:\n", assignment);
 	for (int i=0; a[i];i++) 
 		dp(30," %d: '%s'\n", i, a[i]);
 	dp(30, "\n");
-	int n = 0;
-	while (a[n++]);
-	if (n == 4)
-		param_set_string(a[0], a[1], a[2]);
-	else if (n == 3)
-		param_set_string(default_group, a[0], a[1]);
+	if (!a[1])
+		die("Can not parse parameter assignment '%s'", assignment);
+	else if (strlen(a[2]))
+		param_set_string(a[2], a[3], a[4]);
 	else
-		die("Can not parse parameter assignment '%s' (n=%d)", assignment, n);
+		param_set_string(default_group, a[3], a[4]);
 	g_strfreev(a);
 }
 

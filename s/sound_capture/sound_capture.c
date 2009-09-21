@@ -7,7 +7,7 @@
 #define FILE_DIR_FORMAT "%d_%02d_%02d" // args are year, month, day
 #define FILE_NAME_FORMAT "%s/%s/%02d_%02d_%02d_%02d.%s" // args are data_dir, file_dir(date), hours, minutes, seconds, microseconds, file extension
 
-#define PARAMETER_PARSING_VERBOSITY 30 // verbosity for parsing cmdline & file parameters
+#define PARAMETER_PARSING_VERBOSITY 20 // verbosity for parsing cmdline & file parameters
 #define PROGRAM_VERBOSITY 30
 
 #define WAV_HEADER_SIZE 44
