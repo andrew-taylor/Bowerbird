@@ -101,7 +101,7 @@ static struct option long_options[] = {
 };
 
 int
-simple_option_parsing(int argc, char *argv[], const char *version, const char *usage) {
+simple_option_parsing(int argc, char *argv[], const char *config_group, const char *version, const char *usage) {
 	set_myname(argv);
 	param_initialize();
 	errno = 0;  // handy place to clear any previous errno
@@ -113,7 +113,7 @@ simple_option_parsing(int argc, char *argv[], const char *version, const char *u
 		opterr = 0;
 		switch (c) {
 		case 'o':
-			param_assignment(optarg);
+			param_assignment(optarg, config_group);
  			break;
 		case 'C':
 			param_add_config_file(optarg, 0);
@@ -140,13 +140,13 @@ testing_initialize(int *argc, char **argv[], const char *usage) {
 	g_setenv("G_SLICE", "always-malloc", 1);
 #endif
 	g_test_init(argc, argv, NULL); 
-	return simple_option_parsing(*argc, *argv, "-1", "");
+	return simple_option_parsing(*argc, *argv, NULL, "-1", "");
 }
 
 int
-initialize(int argc, char *argv[], const char *version, const char *usage) {
+initialize(int argc, char *argv[], const char *config_group, const char *version, const char *usage) {
 #ifdef NO_G_SLICE
 	g_setenv("G_SLICE", "always-malloc", 1);
 #endif
-	return simple_option_parsing(argc, argv, version, usage);
+	return simple_option_parsing(argc, argv, config_group, version, usage);
 }

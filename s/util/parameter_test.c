@@ -8,7 +8,7 @@ main(int argc, char*argv[]) {
 	assert(param_get_double("parameter_test", "nought_point_five") == 0.5);
 	param_set_double("parameter_test", "nought_point_five", 0.49);
 	assert(param_get_double("parameter_test", "nought_point_five") == 0.49);
-	param_assignment("parameter_test:nought_point_five=0.51");
+	param_assignment("parameter_test:nought_point_five=0.51", NULL);
 	assert(param_get_double("parameter_test", "nought_point_five") == 0.51);
 //	param_set_double("parameter_test", "not_existing", 12.34);
 //	assert(param_get_double("parameter_test", "not_existing") == 12.34);

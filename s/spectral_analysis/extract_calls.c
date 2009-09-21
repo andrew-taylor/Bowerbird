@@ -5,7 +5,7 @@
 int
 main(int argc, char *argv[]) 
 {
-	int optind = initialize(argc, argv, VERSION, "<sound files>");
+	int optind = initialize(argc, argv, SPECTRAL_ANALYSIS_GROUP, VERSION, "<sound files>");
 	char *output_directory = param_get_string("call", "output_directory");
 	char *prefix = param_sprintf("call", "pathname_prefix", output_directory);
 	g_free(output_directory);

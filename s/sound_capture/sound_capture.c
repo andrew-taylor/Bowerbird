@@ -1,6 +1,6 @@
 #include "i.h"
 
-#define CONFIG_GROUP "sound_capture"
+#define SOUND_CAPTURE_GROUP "sound_capture"
 #define DATA_ROOT "bowerbird"
 #define DATA_DIR "data"
 #define VERSION "0.1.1"
@@ -17,7 +17,7 @@ int main(int argc, char *argv[])
 {
 	debug_stream = stderr;
 	verbosity = PARAMETER_PARSING_VERBOSITY; 
-	initialize(argc, argv, VERSION, "");
+	initialize(argc, argv, SOUND_CAPTURE_GROUP, VERSION, "");
 	verbosity = PROGRAM_VERBOSITY;
 	
 	run();
@@ -28,12 +28,12 @@ int main(int argc, char *argv[])
 void run(void) 
 {
 	struct timeval  tv ;
-	const int n_channels = param_get_integer(CONFIG_GROUP, "alsa_n_channels");
-	const int buffer_frames = param_get_integer(CONFIG_GROUP, "sound_buffer_frames");
-	const int sampling_rate = param_get_integer(CONFIG_GROUP, "alsa_sampling_rate");
-	const char *file_root_dir = param_get_string(CONFIG_GROUP, "sound_file_root_dir");
-	const char *file_ext = param_get_string(CONFIG_GROUP, "sound_file_ext");
-	const char *details_ext = param_get_string(CONFIG_GROUP, "sound_details_ext");
+	const int n_channels = param_get_integer(SOUND_CAPTURE_GROUP, "alsa_n_channels");
+	const int buffer_frames = param_get_integer(SOUND_CAPTURE_GROUP, "sound_buffer_frames");
+	const int sampling_rate = param_get_integer(SOUND_CAPTURE_GROUP, "alsa_sampling_rate");
+	const char *file_root_dir = param_get_string(SOUND_CAPTURE_GROUP, "sound_file_root_dir");
+	const char *file_ext = param_get_string(SOUND_CAPTURE_GROUP, "sound_file_ext");
+	const char *details_ext = param_get_string(SOUND_CAPTURE_GROUP, "sound_details_ext");
 
 	char *data_dir = initialise_data_storage(file_root_dir);
 
@@ -42,14 +42,14 @@ void run(void)
 	reapchildren.sa_flags = SA_NOCLDWAIT;
 	sigaction(SIGCHLD, &reapchildren, 0);
 
-	do_alsa_init(param_get_string(CONFIG_GROUP, "alsa_pcm_name"),
-			param_get_integer(CONFIG_GROUP, "alsa_sampling_rate"),
-    		param_get_integer(CONFIG_GROUP, "alsa_n_periods"),
-			param_get_integer(CONFIG_GROUP, "alsa_periods_size"),
-			param_get_integer(CONFIG_GROUP, "alsa_n_channels"),
-			param_get_integer(CONFIG_GROUP, "alsa_buffer_size"));
+	do_alsa_init(param_get_string(SOUND_CAPTURE_GROUP, "alsa_pcm_name"),
+			param_get_integer(SOUND_CAPTURE_GROUP, "alsa_sampling_rate"),
+    		param_get_integer(SOUND_CAPTURE_GROUP, "alsa_n_periods"),
+			param_get_integer(SOUND_CAPTURE_GROUP, "alsa_periods_size"),
+			param_get_integer(SOUND_CAPTURE_GROUP, "alsa_n_channels"),
+			param_get_integer(SOUND_CAPTURE_GROUP, "alsa_buffer_size"));
 
-//	int beep_enabled = param_get_boolean(CONFIG_GROUP, "beep");
+//	int beep_enabled = param_get_boolean(SOUND_CAPTURE_GROUP, "beep");
 	dp(30, "starting loop\n");
 	for (int i = 0;;++i) {
 		dp(30, "loop %d\n", i);
@@ -61,7 +61,7 @@ void run(void)
 			continue;
 //		if (beep_enabled) {
 //			beep_enabled = FALSE;
-//			int active_high = param_get_boolean(CONFIG_GROUP, "active_high");
+//			int active_high = param_get_boolean(SOUND_CAPTURE_GROUP, "active_high");
 //			beep(1, 1000, 1, active_high);
 //			msleep(300);
 //			beep(1, 2000, 1, active_high);
@@ -192,7 +192,7 @@ write_data(int16_t *buffer, int n_channels, int n_frames, int sampling_rate, cha
 	dp(30, "pathname=%s details_pathname=%s\n", pathname, details_pathname);
 	unlink(details_pathname);
 	unlink(pathname);
-	switch (param_get_integer(CONFIG_GROUP, "sound_compression_type")) {
+	switch (param_get_integer(SOUND_CAPTURE_GROUP, "sound_compression_type")) {
 		case 0:
 			write_wav_data(wav_header, buffer, n_channels, n_frames, sampling_rate, pathname);
 			break;
@@ -203,7 +203,7 @@ write_data(int16_t *buffer, int n_channels, int n_frames, int sampling_rate, cha
 			fork_write_cmd(wav_header, buffer, n_channels, n_frames, sampling_rate, pathname, write_externally_compressed_data);
 			break;
 		default:
-			die("unknown compression type '%d' requested", param_get_integer(CONFIG_GROUP, "sound_compression_type"));
+			die("unknown compression type '%d' requested", param_get_integer(SOUND_CAPTURE_GROUP, "sound_compression_type"));
 	}
 	FILE *fp = fopen(details_pathname, "w");
 	assert(fp);
@@ -239,7 +239,7 @@ write_wavpack_data(char *wav_header, int16_t *buffer, int n_channels, int n_fram
 void
 write_externally_compressed_data(char *wav_header, int16_t *buffer, int n_channels, int n_frames, int sampling_rate, char *pathname)
 {
-	char *compressor = param_get_string(CONFIG_GROUP, "sound_compressor_shellcmd");
+	char *compressor = param_get_string(SOUND_CAPTURE_GROUP, "sound_compressor_shellcmd");
 	if (!compressor && strlen(compressor) == 0) {
 		dp(1, "external compressor requested, but not configured");
 		return;

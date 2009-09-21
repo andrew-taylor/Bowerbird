@@ -71,7 +71,7 @@ sound_to_image(char *sound_file, char *image_file) {
 int
 main(int argc, char *argv[])
 {
-	int optind = initialize(argc, argv, VERSION, "<sound files>");
+	int optind = initialize(argc, argv, SPECTRAL_ANALYSIS_GROUP, VERSION, "<sound files>");
 	if (argc - optind != 2)
 		die("Usage: <sound file> <image file>");
 	sound_to_image(argv[optind], argv[optind + 1]);

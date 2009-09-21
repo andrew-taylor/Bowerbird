@@ -4,7 +4,7 @@
 
 int
 main(int argc, char *argv[]) {
-	int optind = initialize(argc, argv, VERSION, "<sound files>");
+	int optind = initialize(argc, argv, SPECTRAL_ANALYSIS_GROUP, VERSION, "<sound files>");
 	for (int i = optind; i < argc; i++)
 		score_calls_file(argv[i]);
 	return 0;

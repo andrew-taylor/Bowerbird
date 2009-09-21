@@ -489,7 +489,7 @@ void process_file(char *filename)
 int main(int argc, char **argv)
 {
 	graphing  = 0;
-	int optind = initialize(argc, argv, VERSION, usage);
+	int optind = initialize(argc, argv, LOCALIZATION_PARAM_GROUP, VERSION, usage);
 
 	if (argc - optind < 1  || argc - optind > 2)
 		die("%s", usage);
