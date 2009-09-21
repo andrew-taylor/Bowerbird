@@ -7,14 +7,18 @@
 #define FILE_DIR_FORMAT "%d_%02d_%02d" // args are year, month, day
 #define FILE_NAME_FORMAT "%s/%s/%02d_%02d_%02d_%02d.%s" // args are data_dir, file_dir(date), hours, minutes, seconds, microseconds, file extension
 
+#define PARAMETER_PARSING_VERBOSITY 30 // verbosity for parsing cmdline & file parameters
+#define PROGRAM_VERBOSITY 30
+
 #define WAV_HEADER_SIZE 44
 
 
 int main(int argc, char *argv[]) 
 {
 	debug_stream = stderr;
+	verbosity = PARAMETER_PARSING_VERBOSITY; 
 	initialize(argc, argv, VERSION, "");
-	verbosity = 30;//1;
+	verbosity = PROGRAM_VERBOSITY;
 	
 	run();
 	return 0;
@@ -101,16 +105,16 @@ initialise_data_storage(const char *file_root_dir)
 }
 
 
-// ensure the directory exists and is writable. 
-// return 0 on success
-// return -1 if parent doesn't exist
-// return -2 if parent is not a directory (is a file or fifo or something
-// [symlink to a directory is okay])
-// return -3 if parent is not writable
-// return -4 if mkdir failed (consult errno to see why)
-// return -5 if directory is not writable
-// NOTE: ideally this should have a single parameter (the full pathname), but
-// dirname & basename are troublesome - two versions of basename, etc
+/* ensure the directory exists and is writable. 
+ * return 0 on success
+ * return -1 if parent doesn't exist
+ * return -2 if parent is not a directory (is a file or fifo or something
+ * 	[symlink to a directory is okay])
+ * return -3 if parent is not writable
+ * return -4 if mkdir failed (consult errno to see why)
+ * return -5 if directory is not writable
+ * NOTE: ideally this should have a single parameter (the full pathname), but
+ * dirname & basename are troublesome - two versions of basename, etc */
 int
 ensure_directory_exists(const char *parent, const char *dir_name, int debug_level)
 {

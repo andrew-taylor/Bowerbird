@@ -102,7 +102,6 @@ static struct option long_options[] = {
 
 int
 simple_option_parsing(int argc, char *argv[], const char *version, const char *usage) {
-	verbosity = 0;
 	set_myname(argv);
 	param_initialize();
 	errno = 0;  // handy place to clear any previous errno
@@ -146,7 +145,6 @@ testing_initialize(int *argc, char **argv[], const char *usage) {
 
 int
 initialize(int argc, char *argv[], const char *version, const char *usage) {
-	verbosity = 1;
 #ifdef NO_G_SLICE
 	g_setenv("G_SLICE", "always-malloc", 1);
 #endif
