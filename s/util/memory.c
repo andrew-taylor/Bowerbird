@@ -12,6 +12,7 @@ salloc(gsize n) {
 #endif // USE_GLIB_MALLOC
 
 //#ifdef OLD
+#ifndef USE_GLIB_MALLOC
 //__attribute__ ((malloc))
 void *
 salloc(size_t n) {
@@ -21,6 +22,7 @@ salloc(size_t n) {
 	memset(m, 0, n);
 	return m;
 }
+#endif // USE_GLIB_MALLOC
 
 //__attribute__ ((malloc))
 void *

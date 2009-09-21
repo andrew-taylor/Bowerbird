@@ -80,9 +80,9 @@ kml_desc	 = More information at http://bioacoustics.cse.unsw.edu.au
 sound_buffer_size = 64000
 sound_buffer_frames = 960000
 	
-sound_file_dir = /mnt
-sound_details_name = %s/%d.details
-sound_file_name = %s/%d.wv
+sound_file_root_dir = /mnt/storage
+sound_file_ext = wv
+sound_details_ext = details
 # 0: raw wav, 1: use builtin wavpack, 2: use shellcmd
 sound_compression_type = 2
 sound_compressor_shellcmd = /usr/bin/wavpack -q -f - >%s
