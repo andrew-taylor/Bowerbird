@@ -82,7 +82,10 @@ do_alsa_init(char *p_pcm_name, int p_rate, int p_n_periods, unsigned long p_peri
  * this file.
  */
 int    
-alsa_init(void) {
+alsa_init(void) 
+{
+	int err;
+
     /* Playback stream */
     snd_pcm_stream_t stream = SND_PCM_STREAM_CAPTURE;
 
@@ -102,13 +105,13 @@ alsa_init(void) {
     /* PCM device will return immediately. If SND_PCM_ASYNC is    */
     /* specified, SIGIO will be emitted whenever a period has     */
     /* been completely processed by the soundcard.                */
-    if (snd_pcm_open(&pcm_handle, pcm_name, stream, 0) < 0) {
-      fprintf(stderr, "Error opening PCM device %s\n", pcm_name);
+    if ((err = snd_pcm_open(&pcm_handle, pcm_name, stream, 0)) < 0) {
+      fprintf(stderr, "Error opening PCM device %s. (%s)\n", pcm_name, snd_strerror(err));
       return(-1);
     }
     /* Init hwparams with full configuration space */
-    if (snd_pcm_hw_params_any(pcm_handle, hwparams) < 0) {
-      fprintf(stderr, "Can not configure this PCM device.\n");
+    if ((err = snd_pcm_hw_params_any(pcm_handle, hwparams)) < 0) {
+      fprintf(stderr, "Can not configure this PCM device. (%s)\n", snd_strerror(err));
       return(-1);
       }
     unsigned int exact_rate;   /* Sample rate returned by */
@@ -119,22 +122,22 @@ alsa_init(void) {
     /* There are also access types for MMAPed */
     /* access, but this is beyond the scope   */
     /* of this introduction.                  */
-    if (snd_pcm_hw_params_set_access(pcm_handle, hwparams, SND_PCM_ACCESS_RW_INTERLEAVED) < 0) {
-      fprintf(stderr, "Error setting access.\n");
+    if ((err = snd_pcm_hw_params_set_access(pcm_handle, hwparams, SND_PCM_ACCESS_RW_INTERLEAVED)) < 0) {
+      fprintf(stderr, "Error setting access. (%s)\n", snd_strerror(err));
       return(-1);
     }
   
     /* Set sample format */
-    if (snd_pcm_hw_params_set_format(pcm_handle, hwparams, SND_PCM_FORMAT_S16_LE) < 0) {
-      fprintf(stderr, "Error setting format.\n");
+    if ((err = snd_pcm_hw_params_set_format(pcm_handle, hwparams, SND_PCM_FORMAT_S16_LE)) < 0) {
+      fprintf(stderr, "Error setting format. (%s)\n", snd_strerror(err));
       return(-1);
     }
 
     /* Set sample rate. If the exact rate is not supported */
     /* by the hardware, use nearest possible rate.         */ 
     exact_rate = rate;
-    if (snd_pcm_hw_params_set_rate_near(pcm_handle, hwparams, &exact_rate, 0) < 0) {
-      fprintf(stderr, "Error setting rate.\n");
+    if ((err = snd_pcm_hw_params_set_rate_near(pcm_handle, hwparams, &exact_rate, 0)) < 0) {
+      fprintf(stderr, "Error setting rate. (%s)\n", snd_strerror(err));
       return(-1);
     }
     if (rate != exact_rate) {
@@ -142,22 +145,22 @@ alsa_init(void) {
     }
 
     /* Set number of channels */
-    if (snd_pcm_hw_params_set_channels(pcm_handle, hwparams, n_channels) < 0) {
-      fprintf(stderr, "Error setting channels.\n");
+    if ((err = snd_pcm_hw_params_set_channels(pcm_handle, hwparams, n_channels)) < 0) {
+      fprintf(stderr, "Error setting device to %d channels. (%s)\n", n_channels, snd_strerror(err));
       return(-1);
     }
 
     /* Set number of periods. Periods used to be called fragments. */ 
-    if (snd_pcm_hw_params_set_periods(pcm_handle, hwparams, n_periods, 0) < 0) {
-      fprintf(stderr, "Error setting periods.\n");
+    if ((err = snd_pcm_hw_params_set_periods(pcm_handle, hwparams, n_periods, 0)) < 0) {
+      fprintf(stderr, "Error setting periods. (%s)\n", snd_strerror(err));
       return(-1);
     }
     /* Set buffer size (in frames). The resulting latency is given by */
     /* latency = period_size * n_periods / (rate * bytes_per_frame)     */
 //    if (snd_pcm_hw_params_set_buffer_size(pcm_handle, hwparams, (period_size * n_periods)>>2) < 0) {
    	unsigned long buffer_size = desired_buffer_size;
-    if (snd_pcm_hw_params_set_buffer_size_near(pcm_handle, hwparams, &buffer_size) < 0) {
-      fprintf(stderr, "Error setting buffersize.\n");
+    if ((err = snd_pcm_hw_params_set_buffer_size_near(pcm_handle, hwparams, &buffer_size)) < 0) {
+      fprintf(stderr, "Error setting buffersize. (%s)\n", snd_strerror(err));
       return(-1);
     }
 	if (desired_buffer_size != buffer_size) {
@@ -165,8 +168,8 @@ alsa_init(void) {
 	}
     /* Apply HW parameter settings to */
     /* PCM device and prepare device  */
-    if (snd_pcm_hw_params(pcm_handle, hwparams) < 0) {
-      fprintf(stderr, "Error setting HW params.\n");
+    if ((err = snd_pcm_hw_params(pcm_handle, hwparams)) < 0) {
+      fprintf(stderr, "Error setting HW params. (%s)\n", snd_strerror(err));
       return( -1);
     }
     return 0;
