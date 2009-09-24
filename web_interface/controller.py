@@ -8,6 +8,8 @@ from genshi.filters import HTMLFormFiller
 
 FREQUENCY_SCALES = ['Linear',  'Logarithmic']
 DEFAULT_FFT_STEP = 256 # in milliseconds
+STATION_SECTION_NAME = 'station_information'
+STATION_NAME_KEY = 'name'
 
 sonogram_directory = os.path.join("static", "sonograms")
 
@@ -15,14 +17,21 @@ class Root(object):
 	
 	def __init__(self, db):
 		self.db = db
-		self.config_obj = None
+		self.config_obj = ConfigObj(cherrypy.config['binary_config'])
 		self.config_filename = None
 		self.config_timestamp = 0
+		self.station_name = ""
+		self.update_station_name()
 	
+	def update_station_name(self):
+		if self.config_obj and self.config_obj.has_key(STATION_SECTION_NAME) \
+				and self.config_obj[STATION_SECTION_NAME].has_key(STATION_NAME_KEY):
+			self.station_name = self.config_obj[STATION_SECTION_NAME][STATION_NAME_KEY]
+
 	@cherrypy.expose
 	@template.output('index.html')
 	def index(self, **ignored):
-		return template.render()	
+		return template.render(station=self.station_name)	
 		
 	@cherrypy.expose
 	@template.output('config.html')
@@ -33,13 +42,14 @@ class Root(object):
 			# update config if we have one loaded
 			if self.config_obj:
 				for key in data:
-					section,  option = key.split('.')
+					section, option = key.split('.')
 					self.config_obj[section][option] = data[key]
 				# update file (we have to specify the file object otherwise the defaults file may be written over
 				with open(cherrypy.config['binary_config'],  'w') as save_file:
 					self.config_obj.write(save_file)
+				self.update_station_name()
 			raise cherrypy.HTTPRedirect('/')
-		
+
 		config_desc, config_keys, config_desc_errors = self.parseBinaryConfigDesc()
 		if load_defaults:
 			config_values, config_errors = self.parseBinaryConfig(config_keys,  \
@@ -47,20 +57,24 @@ class Root(object):
 		else:
 			config_values, config_errors = self.parseBinaryConfig(config_keys, \
 					cherrypy.config['binary_config'])
-		return template.render(desc_file=cherrypy.config['binary_config_defaults'], \
+		return template.render(station=self.station_name, \
+				desc_file=cherrypy.config['binary_config_defaults'], \
 				desc=config_desc, desc_errors=config_desc_errors, \
-				file=cherrypy.config['binary_config'], errors=config_errors) | HTMLFormFiller(data=config_values)
+				file=cherrypy.config['binary_config'], \
+				errors=config_errors) | HTMLFormFiller(data=config_values)
 
 	def parseBinaryConfig(self, valid_keys, config_filename):
-		new_config_obj = ConfigObj(config_filename)
 		if self.config_obj:
 			# if already loaded and file hasn't changed (name or timestamp) then use cached value
 			if self.config_filename != config_filename or self.config_timestamp < os.stat(config_filename).st_mtime:
+				new_config_obj = ConfigObj(config_filename)
 				for section in new_config_obj:
 					for option in new_config_obj[section]:
 						self.config_obj[section][option] = new_config_obj[section][option]
+				self.update_station_name()
 		else:
-			self.config_obj = new_config_obj
+			self.config_obj = ConfigObj(config_filename)
+			self.update_station_name()
 		self.config_filename = config_filename
 		self.config_timestamp = os.stat(config_filename).st_mtime
 		values = {}
@@ -104,7 +118,8 @@ class Root(object):
 	@cherrypy.expose
 	@template.output('categories.html')
 	def categories(self, sort='label', sort_order='asc', **ignored):
-		return template.render(categories=self.db.getCategories(sort,  sort_order), 
+		return template.render(station=self.station_name, \
+				categories=self.db.getCategories(sort,  sort_order), 
 				sort=sort, sort_order=sort_order)
 
 	@cherrypy.expose
@@ -119,13 +134,15 @@ class Root(object):
 		call_sonograms = {}
 		for call in calls:
 			call_sonograms[call['filename']] = self.getSonogram(call, FREQUENCY_SCALES[0], DEFAULT_FFT_STEP)
-		return template.render(category=self.db.getCategory(label),
+		return template.render(station=self.station_name, \
+				category=self.db.getCategory(label),
 				calls=calls, call_sonograms=call_sonograms, sort=sort, sort_order=sort_order)
 
 	@cherrypy.expose
 	@template.output('calls.html')
 	def calls(self, sort='date_and_time', sort_order='asc', category=None, **ignored):
-		return template.render(calls=self.db.getCalls(sort,  sort_order,  category), 
+		return template.render(station=self.station_name, \
+				calls=self.db.getCalls(sort,  sort_order,  category), 
 				sort=sort, sort_order=sort_order)
 
 	@cherrypy.expose
@@ -154,7 +171,7 @@ class Root(object):
 					fft_step=fft_step, frequency_scale=frequency_scale,
 					frequency_scales=FREQUENCY_SCALES)
 		else:
-			return template.render(call=call,  
+			return template.render(station=self.station_name, call=call,  
 					categories=",".join(self.db.getCategoryNames()),
 					sonogram_filename=self.getSonogram(call, frequency_scale, fft_step),
 					fft_step=fft_step, frequency_scale=frequency_scale,
