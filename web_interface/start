@@ -1,1 +1,5 @@
+#!/bin/bash
+
+set -e
+
 PYTHON_PATH=. python controller.py
