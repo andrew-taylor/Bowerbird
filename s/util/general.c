@@ -9,7 +9,8 @@
  
 int		verbosity = 0;
 FILE	*debug_stream;
-char *myname;
+char	*myname;
+char	*version;
 
 void
 set_myname(char *argv[]) {
@@ -89,19 +90,20 @@ dprintf_file_line_func(int level, char *file_name, int line_number, const char *
 //    exit(1);
 //}
 
-static char *short_options = "o:V:C:";
+static char *short_options = "o:C:V:v:";
 
 static struct option long_options[] = {
 	{"option", 1, 0, 'o'},
 	{"config-file", 1, 0, 'C'},
-	{"verbosity", 1, 0, 'V'},
+	{"verbosity", 1, 0, 'v'},
+	{"version", 1, 0, 'V'},
 	{0, 0, 0, 0}
 };
 
 int
-simple_option_parsing(int argc, char *argv[], char *usage) {
-	verbosity = 0;
+simple_option_parsing(int argc, char *argv[], const char *config_group, const char *version, const char *usage) {
 	set_myname(argv);
+	param_initialize();
 	errno = 0;  // handy place to clear any previous errno
 	while (1) {
 		int option_index;
@@ -109,19 +111,21 @@ simple_option_parsing(int argc, char *argv[], char *usage) {
 		if (c == -1)
 			break;
 		opterr = 0;
-		param_initialize();
 		switch (c) {
 		case 'o':
-			param_assignment(optarg);
+			param_assignment(optarg, config_group);
  			break;
 		case 'C':
 			param_add_config_file(optarg, 0);
 			break;
-		case 'V':
+		case 'v':
 			verbosity = atoi(optarg);
-			break;
+  			break;
+		case 'V':
+			printf("%s v%s\n",myname, version);
+  			exit(0);
 		case '?':
-			fprintf(stderr, "Usage: %s [-V<verbosity>] [-o<parameter>=<value>] [-C <config-file>] %s\n", myname, usage);
+			fprintf(stderr, "Usage: %s [-v<verbosity>] [-o<parameter>=<value>] [-C <config-file>] %s\n", myname, usage);
 			exit(1);
  		}
  	}
@@ -129,21 +133,20 @@ simple_option_parsing(int argc, char *argv[], char *usage) {
 }
 
 int
-testing_initialize(int *argc, char **argv[], char *usage) {
+testing_initialize(int *argc, char **argv[], const char *usage) {
 	verbosity = 1;
 #ifdef NO_G_SLICE
 //	dp(11, "g_setenv(\"G_SLICE\", \"always-malloc\", 1)\n");
 	g_setenv("G_SLICE", "always-malloc", 1);
 #endif
 	g_test_init(argc, argv, NULL); 
-	return simple_option_parsing(*argc, *argv, "");
+	return simple_option_parsing(*argc, *argv, NULL, "-1", "");
 }
 
 int
-initialize(int argc, char *argv[], char *usage) {
-	verbosity = 1;
+initialize(int argc, char *argv[], const char *config_group, const char *version, const char *usage) {
 #ifdef NO_G_SLICE
 	g_setenv("G_SLICE", "always-malloc", 1);
 #endif
-	return simple_option_parsing(argc, argv, "<sound files>");
+	return simple_option_parsing(argc, argv, config_group, version, usage);
 }

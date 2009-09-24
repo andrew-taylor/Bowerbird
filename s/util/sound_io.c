@@ -134,7 +134,7 @@ soundfile_open_write(const char *path, int n_channels, double sampling_rate) {
   		WavpackConfig config = {0};
 		config.bytes_per_sample = 2;
 		s->bits_per_sample = config.bits_per_sample = 16;
-		config.channel_mask = n_channels == 1 ? 4 : 3;
+		config.channel_mask = n_channels == 1 ? 4 : 3; // Microsoft standard: 4 == mono, 3 == stereo
 		config.num_channels = n_channels;
 		config.sample_rate = sampling_rate;
 		if (!WavpackSetConfiguration(wpc, &config, -1))
@@ -217,6 +217,23 @@ soundfile_read_double(soundfile_t *sf, double *buffer, index_t n_frames) {
 	}
 }
 
+
+void
+soundfile_write_header(soundfile_t *sf, void *header, int h_size) {
+	dp(30, "sf=%p header=%p h_size=%d\n", sf, header, h_size);
+	if (sf->t == sft_wavpack) {
+		WavpackContext *wpc = sf->p;
+		if (!WavpackAddWrapper(wpc, header, h_size)) {
+			sdie(sf->p, "error adding header to wavpack: %s\n", WavpackGetErrorMessage(wpc));
+		}
+	} else if (sf->t == sft_libsndfile) {
+		sdie(sf->p, "can't add header to sndfile with this function");
+	} else {
+		sdie(sf->p, "can't yet add header to %d type files", sf->t);
+	}
+}
+
+
 void
 soundfile_write(soundfile_t *sf, sample_t *buffer, index_t n_frames) {
 	dp(30, "sf=%p buffer=%p n_frames=%d\n", sf, buffer, n_frames);
@@ -228,7 +245,7 @@ soundfile_write(soundfile_t *sf, sample_t *buffer, index_t n_frames) {
 		WavpackContext *wpc = sf->p;
 		int32_t sample_buffer[n_frames*sf->channels];
 		for (int i = 0; i < 10; i++)
-			dp(30, "buffer[%d]=%g\n", i, (double)buffer[i]);
+			dp(30, "buffer[%d]=%d\n", i, buffer[i]);
 		
 		double multiplier = 1L << (sf->bits_per_sample - 1);
 		for (int i = 0; i < n_frames*sf->channels; i++)

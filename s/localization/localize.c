@@ -84,6 +84,10 @@
  *
  */
 
+#define VERSION "0.1.1"
+
+const char *usage = "<start time> <length in seconds> OR <filename>";
+
 
 /* Strange things:
  *  o GCC_PLAIN far outperforms GCC_PHAT in computing cross-correlation. Reason?
@@ -482,19 +486,19 @@ void process_file(char *filename)
 
 
 
-int main(int argc, char **argv) {
-	char *usage = "<start time> <length in seconds> OR <filename>\n";
+int main(int argc, char **argv)
+{
 	graphing  = 0;
-	simple_option_parsing(argc, argv, usage);
+	int optind = initialize(argc, argv, LOCALIZATION_PARAM_GROUP, VERSION, usage);
 
-	if (argc-optind < 1  || argc-optind > 2)
+	if (argc - optind < 1  || argc - optind > 2)
 		die("%s", usage);
 	
 	/* these must be called before most other things */
 	load_config();
 	dataman_scan();
 
-	if (argc-optind == 1)
+	if (argc - optind == 1)
 	{
 		process_file(argv[optind]);
 	}

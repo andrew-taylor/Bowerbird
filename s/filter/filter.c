@@ -1,10 +1,10 @@
 #include "comb_filter.h"
 
+#define VERSION "0.1.1"
+
 static void usage(void) {
 	fprintf(stderr, "Usage %s [-V] [-v verbosity] <commands> \n", myname);
 }
-
-char *version = "0.1";
 
 static char *short_options = "o:v:V";
 static struct option long_options[] = {
@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
 			verbosity = atoi(optarg);
   			break;
 		case 'V':
-			printf("%s v%s\n",myname, version);
+			printf("%s v%s\n",myname, VERSION);
   			exit(0);
 		case '?':
 			usage();

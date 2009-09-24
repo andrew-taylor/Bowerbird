@@ -1,8 +1,11 @@
 #include "i.h"
 
+#define VERSION "0.1.1"
+
 int
-main(int argc, char *argv[]) {
-	int optind = initialize(argc, argv, "<input-sound-file> <output-sound-file>");
+main(int argc, char *argv[]) 
+{
+	int optind = initialize(argc, argv, SPECTRAL_ANALYSIS_GROUP, VERSION, "<input-sound-file> <output-sound-file>");
 	if (argc - optind != 2)
 		die("Usage: <input-sound-file> <output-sound-file>\n");
 	silence_removal_file(argv[optind], argv[optind+1]);

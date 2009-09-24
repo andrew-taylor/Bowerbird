@@ -29,7 +29,6 @@ typedef sqlite3_stmt void; // kludge
 
 // global types
 
-
 typedef uint32_t index_t;  // sufficient to hold length of longest sound handled
 //typedef double sample_t;   // for sound samples SF_READF_SAMPLE_T,SF_WRITEF_SAMPLE_T must match
 typedef short sample_t;   // for sound samples
@@ -207,7 +206,8 @@ typedef struct cm_hmm_t {
 
 #ifndef __GNUC__
 #define __attribute__()
+#endif
 
-#endif
 #include "prototypes.h"
-#endif
+
+#endif // BOWERBIRD_H
