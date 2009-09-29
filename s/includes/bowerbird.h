@@ -24,7 +24,8 @@
 #ifdef USE_SQLITE
 #include <sqlite3.h>
 #else
-typedef sqlite3_stmt void; // kludge
+// kludge
+#define sqlite3_stmt void
 #endif
 
 // global types
@@ -202,6 +203,28 @@ typedef struct cm_hmm_t {
 	mixture_t *mixture;        // [dimension][n_states]
 	double *transition_probability; // [n_states][n_states];
 } cm_hmm_t;
+
+
+// typedefs & structs for dealing with sunrise/set times (util/schedule.c)
+/** Types for day time structs */
+typedef enum { 
+	DAY_TIME_MIDNIGHT,	/**< Absolute day time */
+	DAY_TIME_SUNRISE,	/**< Time relative to sunrise */ 
+	DAY_TIME_SUNSET,	/**< Time relative to sunset */ 
+} DayTimeEvent;
+
+/** A structure to represent a time of day */
+typedef struct day_time {
+	/** The type of time specified */
+	DayTimeEvent type; 
+	/** The number of seconds 
+	 * MIDNIGHT: since midnight - must be positive
+	 * SUNRISE: before (negative) or after sunrise
+	 * SUNSET: before (negative) or after sunset
+	 */
+	int time; 
+} DayTime;
+
 
 
 #ifndef __GNUC__

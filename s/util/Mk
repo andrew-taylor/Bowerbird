@@ -1,4 +1,4 @@
-GLOBAL_FUNCTIONS = general.c gnuplot.c xv.c parameter.c	sound_io.c approximate_log.c option.c memory.c
+GLOBAL_FUNCTIONS = general.c gnuplot.c xv.c parameter.c sound_io.c approximate_log.c option.c memory.c schedule.c
 LOCAL_FUNCTIONS = 
 EXTERNAL_LIBS += -lsndfile -lwavpack
 

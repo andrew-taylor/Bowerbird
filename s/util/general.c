@@ -150,3 +150,26 @@ initialize(int argc, char *argv[], const char *config_group, const char *version
 #endif
 	return simple_option_parsing(argc, argv, config_group, version, usage);
 }
+
+
+double
+bound(double value, double min, double max)
+{
+	double diff = max - min;
+	while (value < min)
+		value += diff;
+	while (value >= max)
+		value -= diff;
+	return value;
+}
+
+
+double
+clamp(double value, double min, double max)
+{
+	if (value < min)
+		return min;
+	if (value > max)
+		return max;
+	return value;
+}

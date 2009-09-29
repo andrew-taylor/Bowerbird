@@ -1,4 +1,4 @@
-binaries-arm/sound_capture \
+../binaries-arm/sound_capture \
 	-oalsa_pcm_name:hw:1,0 -v40 \
 	-osound_file_dir:/tmp/s \
 	-oalsa_sampling_rate:32000 \

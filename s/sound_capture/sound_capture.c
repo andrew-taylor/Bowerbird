@@ -56,7 +56,7 @@ void run(void)
 		const int length = alsa_readi(buffer, buffer_frames);
 		gettimeofday(&tv, NULL);
 		time_t t = time(NULL);
-		struct tm *time = localtime(&t);
+		struct tm *local = localtime(&t);
 		if (length <= 0)
 			continue;
 //		if (beep_enabled) {
@@ -69,14 +69,14 @@ void run(void)
 //			beep(1, 3000, 1, active_high);
 //		}
 		char file_dir[PATH_MAX];
-		snprintf(file_dir, sizeof(file_dir), FILE_DIR_FORMAT, 1900 + time->tm_year, time->tm_mon, time->tm_mday);
+		snprintf(file_dir, sizeof(file_dir), FILE_DIR_FORMAT, 1900 + local->tm_year, local->tm_mon, local->tm_mday);
 		if (ensure_directory_exists(data_dir, file_dir, 0))
 			exit(1);
 
 		char details_pathname[PATH_MAX];
 		char pathname[PATH_MAX];
-		snprintf(details_pathname, sizeof(details_pathname), FILE_NAME_FORMAT, data_dir, file_dir, time->tm_hour, time->tm_min, time->tm_sec, (uint32_t)tv.tv_usec, details_ext);
-		snprintf(pathname, sizeof(pathname), FILE_NAME_FORMAT, data_dir, file_dir, time->tm_hour, time->tm_min, time->tm_sec, (uint32_t)tv.tv_usec, file_ext);
+		snprintf(details_pathname, sizeof(details_pathname), FILE_NAME_FORMAT, data_dir, file_dir, local->tm_hour, local->tm_min, local->tm_sec, (uint32_t)tv.tv_usec, details_ext);
+		snprintf(pathname, sizeof(pathname), FILE_NAME_FORMAT, data_dir, file_dir, local->tm_hour, local->tm_min, local->tm_sec, (uint32_t)tv.tv_usec, file_ext);
 		write_data(buffer, n_channels, length, sampling_rate, pathname, details_pathname, tv.tv_sec, (uint32_t)tv.tv_usec);
 	}
 }
