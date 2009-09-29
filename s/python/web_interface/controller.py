@@ -1,7 +1,7 @@
 import cherrypy,  os,  sys
 from ConfigParser import RawConfigParser
 from lib import storage, ajax, template
-from lib.configobj import ConfigObj
+from bowerbird.configobj import ConfigObj
 from lib.odict import OrderedDict
 from lib.sonogram import generateSonogram
 from genshi.filters import HTMLFormFiller

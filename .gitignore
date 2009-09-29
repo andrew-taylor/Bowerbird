@@ -5,4 +5,4 @@
 s/binaries-*
 s/util/test_data
 s/Makefile
-web_interface/static/sonograms/*
+s/python/web_interface/static/sonograms/*

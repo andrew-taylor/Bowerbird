@@ -1,13 +1,13 @@
 import os
 
-import cherrypy
+import cherrypy, sys
 from genshi.core import Stream
 from genshi.output import encode, get_serializer
 from genshi.template import Context, TemplateLoader
 from lib import ajax
 
 loader = TemplateLoader(
-	os.path.join(os.path.dirname(__file__), '..', 'templates'),
+	os.path.join(os.path.dirname(sys.argv[0]), 'templates'),
 	auto_reload=True
 )
 

@@ -99,3 +99,15 @@ active_high = false
 	
 sound_n_files = 4
 
+
+[scheduled_recordings]
+command = sound_capture
+days_to_schedule = 3
+tz_offset = 10
+latitude = -33.216666
+longitude = 150.83333
+
+monkeys = 9:00-11:00
+bears = 6:00-6:30,8:00-9:30,15:40-19:00
+frogs = R-4:00-R-2:00, S+1:00-S+5:00, 12:00-S-4:00
+badgers = R-8:00-R-5:00
