@@ -14,7 +14,7 @@
 
 <div py:if="desc_errors" class="error">
 	<h3>Errors in Configuration Description</h3>
-	<h4>File: "${desc_file}"</h4>
+	<h4>File: "${file}"</h4>
 	<ul>
 		<li py:for="error in desc_errors">${error}</li>
 	</ul>
@@ -51,11 +51,16 @@
 </py:for>
 
 <p>
-<input name="load_defaults" value="Load Defaults" type="submit" />
+<!--! only show load defaults button if defaults file has been specified -->
+<input py:if="defaults_file" name="load_defaults" value="Load Defaults" type="submit" />
 <input name="cancel" value="Cancel" type="submit" />
 <input name="apply" value="Apply Changes" type="submit" /> 
 </p>
 
+<p py:if="defaults_file">
+To update the defaults, change the values in '${defaults_file}'. Current values
+are in '${file}'.
+</p>
 </form>
 </body>
 </html>
