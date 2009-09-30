@@ -1,6 +1,11 @@
 #include "i.h"
 
+/** all loaded keyfiles are stored here */
 static GArray *keyfiles;
+/** used when parameters are set that aren't in an existing keyfile */
+static GKeyFile *default_keyfile;
+
+
 GKeyFile *
 param_get_keyfile(const char *group, const char *key) {
 	dp(31, "get_keyfile(group=%s, key=%s)\n", group, key);
@@ -13,11 +18,16 @@ param_get_keyfile(const char *group, const char *key) {
 		if (g_key_file_has_key(keyfile, group, key, NULL))
 			return keyfile;
 	}
-	die("No value for parameter %s::%s\n", group, key);
+	dp(31, "No keyfile has parameter %s::%s\n", group, key);
+	if (!default_keyfile)
+		default_keyfile = g_key_file_new();
+	return default_keyfile;
 }
 
 
-
+/** This function doesn't seem to do anything useful - Cam 30/9/9 
+ * 	It may require being updated due to other changes.
+ */
 GKeyFile *
 param_set_keyfile(const char *group, const char *key) {
 	if(!keyfiles)

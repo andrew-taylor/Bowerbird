@@ -28,12 +28,17 @@ int main(int argc, char *argv[])
 void run(void) 
 {
 	struct timeval  tv ;
+	const int duration = param_get_integer_with_default(SOUND_CAPTURE_GROUP, "recording_duration", 0);
 	const int n_channels = param_get_integer(SOUND_CAPTURE_GROUP, "alsa_n_channels");
 	const int buffer_frames = param_get_integer(SOUND_CAPTURE_GROUP, "sound_buffer_frames");
 	const int sampling_rate = param_get_integer(SOUND_CAPTURE_GROUP, "alsa_sampling_rate");
 	const char *file_root_dir = param_get_string(SOUND_CAPTURE_GROUP, "sound_file_root_dir");
 	const char *file_ext = param_get_string(SOUND_CAPTURE_GROUP, "sound_file_ext");
 	const char *details_ext = param_get_string(SOUND_CAPTURE_GROUP, "sound_details_ext");
+
+	// if a duration is given, then set time_limit to (current time + duration), 
+	// otherwise set time_limit to max value of time_t (signed long) so it'll never be reached
+	time_t time_limit = duration ? time(NULL) + duration : LONG_MAX;
 
 	char *data_dir = initialise_data_storage(file_root_dir);
 
@@ -51,7 +56,7 @@ void run(void)
 
 //	int beep_enabled = param_get_boolean(SOUND_CAPTURE_GROUP, "beep");
 	dp(30, "starting loop\n");
-	for (int i = 0;;++i) {
+	for (int i = 0; time(NULL) < time_limit; ++i) {
 		dp(30, "loop %d\n", i);
 		const int length = alsa_readi(buffer, buffer_frames);
 		gettimeofday(&tv, NULL);

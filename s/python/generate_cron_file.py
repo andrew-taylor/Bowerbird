@@ -163,5 +163,6 @@ if start != None:
 	cron_times.append((start, finish))
 
 for start,finish in cron_times:
-	print '%d\t%d\t%d\t%d\t*\t%s\t%s -d %d' % (start.minute, start.hour, 
-			start.day, start.month, user, command, (finish - start).seconds)
+	command_str = command % (finish - start).seconds
+	print '%d\t%d\t%d\t%d\t*\t%s\t%s' % (start.minute, start.hour, 
+			start.day, start.month, user, command_str)

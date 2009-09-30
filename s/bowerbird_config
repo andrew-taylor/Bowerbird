@@ -101,7 +101,7 @@ sound_n_files = 4
 
 
 [scheduled_recordings]
-command = sound_capture
+command = sound_capture -orecording_duration=%s
 days_to_schedule = 3
 tz_offset = 10
 latitude = -33.216666
