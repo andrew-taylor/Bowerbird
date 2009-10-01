@@ -43,13 +43,13 @@ fft_window = 128
 # Maximum Gap Size, , float, seconds
 max_gap_size = 0.005
 # hertz
-peak_radius = 2432432222222211111111111111265
+peak_radius = 265
 # FIXME should be DB?
-peak_min_height = 488564876587650.0001
+peak_min_height = 0.0001
 # hertz
-relative_relief_inside_radius = 875687658765150
+relative_relief_inside_radius = 150
 # hertz
-relative_relief_outside_radius = 9763493922324323265
+relative_relief_outside_radius = 265
 # minimum ratio of peak to bins between inside and outside radius
 min_relative_relief = 5
 # minimum relative power of non-peaks incorporated into tracks
@@ -81,8 +81,8 @@ ignore_channel_bitmap = 2
 
 [database]
 start_cmd = create table if not exists sources (source_id INTEGER PRIMARY KEYname TEXTsampling_rate DOUBLEfft_n_bins INTEGERfft_step_size INTEGERfft_window_size INTEGER);create table if not exists units (unit_id INTEGER PRIMARY KEYsource_id INTEGERchannel INTEGERfirst_frame INTEGERn_frames INTEGERfrequency BLOBamplitude BLOBphase BLOB);create index if not exists unit_source_index on units(source_id);create index if not exists source_name_index on sources(name);begin transaction;
-source_insert = insert into sources values(NULL?????)
-unit_insert = insert into units values(NULL???????)
+source_insert = insert into sources values(NULL, ?, ?, ?, ?, ?)
+unit_insert = insert into units values(NULL, ?, ?, ?, ?, ?, ?, ?)
 finish_cmd = commit
 busy_timeout = 60000
 
