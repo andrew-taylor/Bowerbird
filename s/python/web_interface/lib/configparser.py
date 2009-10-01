@@ -87,7 +87,7 @@ class ConfigParser(object):
 				cache[K_OBJ].reload()
 				cache[K_TIME] = obj_timestamp
 		else:
-			cache[K_OBJ] = ConfigObj(filename)
+			cache[K_OBJ] = ConfigObj(filename, list_values=False)
 			cache[K_TIME] = os.stat(filename).st_mtime
 
 		cache[K_VAL] = OrderedDict()
