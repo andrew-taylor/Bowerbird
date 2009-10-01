@@ -4,7 +4,27 @@
       xmlns:py="http://genshi.edgewall.org/">
 <xi:include href="layout.html" />
 <head>
-  <title>Configuration</title>
+	<script type="text/javascript">
+		// on document load
+		$(document).ready(function() {
+			// hide all the tables
+			$("table.config").hide();
+
+			// add a note explaining how to show tables
+			$("span.config_title")
+				.after("<span>Click on title to expand section</span>");
+
+			// set click event on all headings to toggle visibility
+			$("a.config").click(function(event) {
+				// stop any anchor click handling
+				event.preventDefault();
+				// toggle visibility of note and table (show one and hide the other)
+				$(this).parent().next("span").toggle();
+				$(this).parent().parent().find("table.config").toggle();
+			});
+		});
+	</script>
+	<title>Configuration</title>
 </head>
 
 <body>
@@ -12,42 +32,28 @@
 
 <form action="" method="post">
 
-<div py:if="desc_errors" class="error">
-	<h3>Errors in Configuration Description</h3>
-	<h4>File: "${file}"</h4>
-	<ul>
-		<li py:for="error in desc_errors">${error}</li>
-	</ul>
-	<hr />
-</div>
-
-<div py:if="errors" class="error">
-	<h3>Errors in Configuration</h3>
-	<h4>File: "${file}"</h4>
-	<ul>
-		<li py:for="error in errors">${error}</li>
-	</ul>
-	<hr />
-</div>
-
-<py:for each="section in desc.keys()">
-<h4>${section}</h4>
-<table>
+<py:for each="section in values.keys()">
+<div py:if="section != 'scheduled_recordings'">
+	<span class="config_title">
+		<a class="config" href="#">${section}</a>
+	</span>
+<br />
+<table class="config">
 	<tbody>
-		<py:for each="name in desc[section].keys()">
-		<tr py:for="i, subname in enumerate(desc[section][name].keys())">
-		<td py:if="i==0"
-					width="200pt" rowspan="${len(desc[section][name].keys())}">
+		<py:for each="name in values[section].keys()">
+		<tr py:for="i, (n, subname, input_id, value, input_type, units) in enumerate(values[section][name])">
+			<td py:if="i == 0" class="config_header" rowspan="${len(values[section][name])}">
 				${name}</td>
-			<td width="100pt">${subname}</td>
-			<td	py:with="input_id, input_type, units = desc[section][name][subname]">
+			<td class="config_subheader">${subname}</td>
+			<td class="config">
 				<input class="config" id="${input_id}" name="${input_id}" 
-					type="text" value=""/>${units}
+						type="text" value="${value}"/>${units}
 			</td>
 		</tr>
 		</py:for>
 	</tbody>
 </table>
+</div>
 </py:for>
 
 <p>

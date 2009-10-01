@@ -3,7 +3,7 @@ from ConfigParser import RawConfigParser
 from lib import storage, ajax, template
 from lib.odict import OrderedDict
 from lib.sonogram import generateSonogram
-from lib.parser import Config
+from lib.configparser import ConfigParser
 from genshi.filters import HTMLFormFiller
 
 WEB_CONFIG = 'bowerbird.conf'
@@ -25,8 +25,7 @@ class Root(object):
 			defaults = cherrypy.config[CONFIG_DEFAULTS_KEY]
 		else:
 			defaults = None
-		self.config = Config(cherrypy.config[CONFIG_KEY],
-				cherrypy.config['bowerbird_config_desc'], defaults)
+		self.config = ConfigParser(cherrypy.config[CONFIG_KEY], defaults)
 
 	def get_station_name(self):
 		return self.config.get_value2(STATION_SECTION_NAME, STATION_NAME_KEY)
@@ -55,16 +54,13 @@ class Root(object):
 			raise cherrypy.HTTPRedirect('/')
 
 		if load_defaults:
-			config_desc, config_values, config_desc_errors, config_errors \
-				= self.config.default_values()
+			values = self.config.default_values()
 		else:
-			config_desc, config_values, config_desc_errors, config_errors \
-				= self.config.values()
+			values = self.config.values()
 		return template.render(station=self.get_station_name(),
-				desc=config_desc, desc_errors=config_desc_errors,
-				using_defaults=load_defaults,
-				file=self.config.filename, defaults_file=self.config.defaults_filename,
-				errors=config_errors) | HTMLFormFiller(data=config_values)
+				using_defaults=load_defaults, values=values,
+				file=self.config.filename, 
+				defaults_file=self.config.defaults_filename)
 
 	@cherrypy.expose
 	@template.output('categories.html')

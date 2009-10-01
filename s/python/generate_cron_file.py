@@ -16,13 +16,17 @@ DEFAULT_USER = 'root' # the user to execute the command to put in crontab
 DEFAULT_DAYS_TO_SCHEDULE = 7
 DEFAULT_CONFIG_FILENAME = '../bowerbird_config'
 
-CONFIG_SECTION = 'scheduled_recordings'
-CONFIG_COMMAND = 'command'
-CONFIG_USER = 'user'
-CONFIG_DAYS_KEY = 'days_to_schedule'
-CONFIG_TZ_KEY = 'tz_offset'
-CONFIG_LAT_KEY = 'latitude'
-CONFIG_LONG_KEY = 'longitude'
+STATION_SECTION = 'station_information'
+STATION_TZ_KEY = 'tz_offset'
+STATION_LAT_KEY = 'latitude'
+STATION_LONG_KEY = 'longitude'
+
+CONFIG_SECTION = 'sound_capture'
+CONFIG_COMMAND = 'schedule_command'
+CONFIG_USER = 'schedule_user'
+CONFIG_DAYS_KEY = 'schedule_days'
+
+SCHEDULE_SECTION = 'scheduled_recordings'
 TIMESPEC_RE = re.compile('([SR]?)([+-]?[0-9]{1,2}):([0-9]{2}) *- '
 						'*([SR]?)([+-]?[0-9]{1,2}):([0-9]{2})')
 
@@ -44,7 +48,7 @@ def parseRecordingSpec(key, value):
 					timedelta(hours=int(end_hour), minutes=int(end_minute)))))
 		else:
 			sys.stderr.write('%s has invalid recording spec: %s->%s: %s\n'
-					% (config_filename, CONFIG_SECTION, key, spec))
+					% (config_filename, SCHEDULE_SECTION, key, spec))
 			sys.exit(1)
 	return specs
 
@@ -60,8 +64,21 @@ longitude = None
 
 # read configuration file
 config = ConfigObj(config_filename)
+# read station information
+section = config[STATION_SECTION]
+for key in section:
+	if key == STATION_TZ_KEY:
+		# get timezone from config
+		tz_offset = int(section[key])
+	elif key == STATION_LAT_KEY:
+		# get latitude from config
+		latitude = float(section[key])
+	elif key == STATION_LONG_KEY:
+		# get longitude from config
+		longitude = float(section[key])
+
+# read sound capture info
 section = config[CONFIG_SECTION]
-recording_times = []
 for key in section:
 	if key == CONFIG_COMMAND:
 		command = section[key]
@@ -69,18 +86,6 @@ for key in section:
 		user = section[key]
 	elif key == CONFIG_DAYS_KEY:
 		days_to_schedule = int(section[key])
-	elif key == CONFIG_TZ_KEY:
-		# get timezone from config
-		tz_offset = int(section[key])
-	elif key == CONFIG_LAT_KEY:
-		# get latitude from config
-		latitude = float(section[key])
-	elif key == CONFIG_LONG_KEY:
-		# get longitude from config
-		longitude = float(section[key])
-	else:
-		# parse requested recording times
-		recording_times.extend(parseRecordingSpec(key, section[key]))
 
 # check config had enough info, and fill in defaults if available
 if not command:
@@ -100,6 +105,12 @@ if not latitude or not longitude:
 				'(at least until we can talk to the GPS)\n'
 			% (CONFIG_LAT_KEY, CONFIG_LONG_KEY, CONFIG_SECTION, config_filename));
 
+
+# parse the requested recording times
+recording_times = []
+section = config[SCHEDULE_SECTION]
+for key in section:
+	recording_times.extend(parseRecordingSpec(key, section[key]))
 
 # get current day
 today = datetime.today().replace(hour=0,minute=0,second=0,microsecond=0)
