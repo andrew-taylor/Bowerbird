@@ -25,10 +25,10 @@ class Root(object):
 			defaults = cherrypy.config[CONFIG_DEFAULTS_KEY]
 		else:
 			defaults = None
-		self.config = ConfigParser(cherrypy.config[CONFIG_KEY], defaults)
+		self.conf = ConfigParser(cherrypy.config[CONFIG_KEY], defaults)
 
 	def get_station_name(self):
-		return self.config.get_value2(STATION_SECTION_NAME, STATION_NAME_KEY)
+		return self.conf.get_value2(STATION_SECTION_NAME, STATION_NAME_KEY)
 
 	@cherrypy.expose
 	@template.output('index.html')
@@ -36,31 +36,26 @@ class Root(object):
 		return template.render(station=self.get_station_name())
 
 	@cherrypy.expose
-	@template.output('index.html')
-	def config(self, **ignored):
-		return template.render(station=self.get_station_name())
-
-	@cherrypy.expose
 	@template.output('config.html')
-	def config2(self, load_defaults=False, cancel=False, apply=False, **data):
+	def config(self, load_defaults=False, cancel=False, apply=False, **data):
 		if cancel:
 			raise cherrypy.HTTPRedirect('/')
 		elif apply:
 			for key in data:
-				self.config.set_value1(key, data[key])
+				self.conf.set_value1(key, data[key])
 			# update file
-			self.config.save_to_file()
+			self.conf.save_to_file()
 			# bounce back to homepage
 			raise cherrypy.HTTPRedirect('/')
 
 		if load_defaults:
-			values = self.config.default_values()
+			values = self.conf.default_values()
 		else:
-			values = self.config.values()
+			values = self.conf.values()
 		return template.render(station=self.get_station_name(),
 				using_defaults=load_defaults, values=values,
-				file=self.config.filename, 
-				defaults_file=self.config.defaults_filename)
+				file=self.conf.filename, 
+				defaults_file=self.conf.defaults_filename)
 
 	@cherrypy.expose
 	@template.output('categories.html')
@@ -161,12 +156,14 @@ def main(args):
 
 	cherrypy.engine.subscribe('stop_thread', db.stop)
 
-	cherrypy.quickstart(Root(db), '/', {
+	cherrypy.tree.mount(Root(db), '/', {
 		'/media': {
 			'tools.staticdir.on': True,
 			'tools.staticdir.dir': 'static'
 		}
 	})
+	cherrypy.engine.start()
+	cherrypy.engine.block()
 
 
 if __name__ == '__main__':
