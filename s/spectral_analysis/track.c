@@ -3,6 +3,8 @@
 void
 extract_calls_file(char *filename, FILE *index_file, int *call_count) {
 	char *peaks_image_filename_format = param_get_string_n("call", "peaks_image_filename");
+	int peaks_image_maximum_length = param_get_integer("call", "peaks_image_maximum_length");
+	int peaks_image_count = 0;
 	int calculate_phase = param_get_integer("call", "calculate_phase");
 	soundfile_t	*infile = soundfile_open_read(filename);
 	if (!infile) sdie(NULL, "can not open input file %s: ", filename) ;
@@ -40,9 +42,14 @@ extract_calls_file(char *filename, FILE *index_file, int *call_count) {
 		// FIXME replace column numbers with constants
 		sqlite3_bind_text(sql_statement, 1, filename, -1, SQLITE_STATIC);
 		sqlite3_bind_double(sql_statement, 2, fft.sampling_rate);
-		sqlite3_bind_int(sql_statement, 3, (int)fft.n_bins);
-		sqlite3_bind_int(sql_statement, 4, (int)fft.step_size);
-		sqlite3_bind_int(sql_statement, 5, (int)fft.window_size);
+		sqlite3_bind_int(sql_statement, 3, n_channels);
+		sqlite3_bind_int64(sql_statement, 4, infile->frames);
+		sqlite3_bind_int(sql_statement, 5, (int)fft.fft_size);
+		sqlite3_bind_int(sql_statement, 6, (int)fft.window_size);
+		sqlite3_bind_int(sql_statement, 7, (int)fft.step_size);
+		sqlite3_bind_text(sql_statement, 8, param_get_string("metadata", "time"), -1, SQLITE_STATIC);
+		sqlite3_bind_text(sql_statement, 9, param_get_string("metadata", "location_name"), -1, SQLITE_STATIC);
+		sqlite3_bind_text(sql_statement, 10, param_get_string("metadata", "lat_long"), -1, SQLITE_STATIC);
 		if (sqlite3_step(sql_statement) != SQLITE_DONE)
 			die("SQL error from sqlite3_step inserting source %s: %s\n", filename, sqlite3_errmsg(sql_db));
 		dp(20, "source '%s' inserted\n", filename);
@@ -54,12 +61,15 @@ extract_calls_file(char *filename, FILE *index_file, int *call_count) {
 	GArray *past_samples = g_array_new(0, 1, sizeof (sample_t **));
 	GArray *past_power = g_array_new(0, 1, sizeof (power_t **));
 	GArray *past_peaks = peaks_image_filename_format ? g_array_new(0, 1, sizeof (int **)) : NULL;
-	GArray *track_history = peaks_image_filename_format ? g_array_new(0, 1, sizeof (track_t)) : NULL;
+	GArray *track_history1[n_channels];
+	GArray **track_history = peaks_image_filename_format ? track_history1 : NULL;
 	GArray *active_tracks[n_channels];
 	uint32_t min_track_length = 0.5+param_get_double("spectral_analysis", "min_track_length")/(fft.step_size/fft.sampling_rate);
 	sample_t samples_buffer[fft.window_size][n_channels];
-	for (int channel = 0; channel < n_channels; channel++)
+	for (int channel = 0; channel < n_channels; channel++) {
 		active_tracks[channel] = g_array_new(0, 1, sizeof (track_t));
+		if (track_history) track_history[channel] = g_array_new(0, 1, sizeof (track_t));
+	}
 	g_array_new(0, 1, sizeof (track_t));
 	for (index_t step = 0; step < n_steps; step++) {
 		dp(22, "step=%d\n", (int)step);
@@ -85,8 +95,11 @@ extract_calls_file(char *filename, FILE *index_file, int *call_count) {
 		}
 		sample_t **samples = g_slice_alloc(n_channels*sizeof (sample_t *));
 		g_array_insert_val(past_samples, 0, samples);
+		phase_t phase1[n_channels][fft.n_bins];
+		phase_t *phase[n_channels];
 		for (int channel = 0; channel < n_channels; channel++) {
-			if (ignore_channel_bitmap & (1 << channel))
+			// need to calculate power for between channel band width even if channel is being ignored
+			if (ignore_channel_bitmap & (1 << channel) && channel > 1)  
 				continue;
 			sample_t mono[fft.window_size];
 			for (int sample = 0; sample < fft.window_size; sample++)
@@ -96,11 +109,14 @@ extract_calls_file(char *filename, FILE *index_file, int *call_count) {
 			for (int sample = new_samples_index; sample < fft.window_size; sample++)
 				samples[channel][sample-new_samples_index] = samples_buffer[sample][channel];
 			power[channel] = g_slice_alloc(fft.n_bins*sizeof power[0][0]);
-			phase_t phase1[fft.n_bins];
-			phase_t *phase = calculate_phase ? phase1 : NULL;
-			short_time_power_phase(mono, &fft, (void *)power[channel], (void *)phase); //yuk
+			phase[channel] = calculate_phase ?  phase1[n_channels] : NULL;
+			short_time_power_phase(mono, &fft, (void *)power[channel], (void *)phase[channel]); //yuk
+		}
+		for (int channel = 0; channel < n_channels; channel++) {
+			if (ignore_channel_bitmap & (1 << channel))
+				continue;
 			power_t *previous_power = step ?  (g_array_index(past_power, power_t **, 1))[channel] : NULL; 
-			GArray *completed_tracks = new_update_sinusoid_tracks(fft, power[channel], previous_power, phase, active_tracks[channel], step);
+			GArray *completed_tracks = new_update_sinusoid_tracks(fft, power[channel], previous_power, phase[channel], active_tracks[channel], step);
 			if (peaks) {
 				peaks[channel] = g_slice_alloc((fft.n_bins+1)*sizeof peaks[0][0]);
 				int n_peaks = bins_to_peaks(fft.n_bins, power[channel], peaks[channel]);
@@ -108,9 +124,9 @@ extract_calls_file(char *filename, FILE *index_file, int *call_count) {
 			}
 			dp(26, "completed_tracks->len=%d active_tracks[channel]->len=%d \n", completed_tracks->len, active_tracks[channel]->len);
 			for (int j = 0; j < completed_tracks->len; j++) {
-				process_track(&g_array_index(completed_tracks, track_t, j), fft, filename, channel, step, past_power, past_samples, index_file, call_count, sql_statement);
+				process_track(&g_array_index(completed_tracks, track_t, j), fft, filename, channel, n_channels, step, past_power, past_samples, index_file, call_count, sql_statement);
 				if (track_history) {
-					g_array_append_val(track_history, g_array_index(completed_tracks, track_t, j));
+					g_array_append_val(track_history[channel], g_array_index(completed_tracks, track_t, j));
 				} else {	
 					g_array_free(g_array_index(completed_tracks, track_t, j).points, 1);
 				}
@@ -119,19 +135,29 @@ extract_calls_file(char *filename, FILE *index_file, int *call_count) {
 			for (int j = 0; j < active_tracks[channel]->len; j++)
 				maximum_track_length = MAX(maximum_track_length, g_array_index(active_tracks[channel], track_t, j).points->len);
 		}
-		while (past_power->len > maximum_track_length && !peaks_image_filename_format) {
+//		dp(1,"step=%d peaks_image_maximum_length=%d\n",step,peaks_image_maximum_length);
+		int can_free = peaks_image_filename_format == NULL;
+		if (peaks_image_filename_format && step && step % peaks_image_maximum_length == 0) {
+			output_peaks_images(peaks_image_count++, peaks_image_maximum_length, step, peaks_image_filename_format, prefix, fft, past_power, past_peaks, track_history, min_track_length, ignore_channel_bitmap, n_channels);
+			can_free = 1;
+		}
+		while (can_free && past_power->len > maximum_track_length) {
 			power_t **power =  g_array_index(past_power, power_t **, past_power->len-1);
 			sample_t **samples =  g_array_index(past_samples, sample_t **, past_samples->len-1);
+			int **peaks =  past_peaks ? g_array_index(past_peaks, int **, past_peaks->len-1) : NULL;
 			for (int channel = 0; channel < n_channels; channel++) {
 				if (ignore_channel_bitmap & (1 << channel))
 					continue;
 				g_slice_free1(fft.n_bins*sizeof power[0][0], power[channel]);
 				g_slice_free1(fft.step_size*sizeof samples[0][0], samples[channel]);
+				if (peaks)
+					g_slice_free1((fft.n_bins+1)*sizeof peaks[0][0], peaks[channel]);
 			}
 			g_array_remove_index_fast(past_power, past_power->len-1);
 			g_array_remove_index_fast(past_samples, past_samples->len-1);
+			if (peaks)
+				g_array_remove_index_fast(past_peaks, past_peaks->len-1);
 		}
-		
 	}
 	for (int channel = 0; channel < n_channels; channel++) {
 		if (ignore_channel_bitmap & (1 << channel))
@@ -140,100 +166,17 @@ extract_calls_file(char *filename, FILE *index_file, int *call_count) {
 			track_t *t = &g_array_index(active_tracks[channel], track_t, j);
 			int track_ok = t->completed || t->points->len >= min_track_length;
 			if (track_ok)
-				process_track(t, fft, filename, channel, n_steps, past_power, past_samples, index_file, call_count, sql_statement);
+				process_track(t, fft, filename, channel,  n_channels, n_steps, past_power, past_samples, index_file, call_count, sql_statement);
 			if (track_history && track_ok) {
-				g_array_append_val(track_history, *t);
+				g_array_append_val(track_history[channel], *t);
 			} else {	
 				g_array_free(t->points, 1);
 			}
 		}
 	}
-	if (peaks_image_filename_format) {
-		int buffer_size = param_get_integer("call", "peaks_image_maximum_length");
-		int needed = MIN(n_steps, buffer_size);
-		dp(26, "needed=%d n_steps=%d, buffer_size=%d\n", needed, n_steps, buffer_size);
-		double (*log_power)[fft.n_bins] = salloc(needed*fft.n_bins*sizeof log_power[0][0]);
-		double (*peaks)[fft.n_bins] = salloc(needed*fft.n_bins*sizeof peaks[0][0]);
-		double (*tracks)[fft.n_bins] = salloc(needed*fft.n_bins*sizeof tracks[0][0]);
-		for (int channel = 0; channel < n_channels; channel++) {
-			if (ignore_channel_bitmap & (1 << channel))
-				continue;
-			for (int image_count = 0; image_count < (n_steps-1)/buffer_size+1; image_count++) {
-				int step_offset= image_count*buffer_size;
-				char *peaks_image_filename = g_strdup_printf(peaks_image_filename_format, prefix, channel, image_count);
-				memset(log_power, 0, needed*fft.n_bins*sizeof log_power[0][0]);
-				memset(peaks, 0, needed*fft.n_bins*sizeof peaks[0][0]);
-				memset(tracks, 0, needed*fft.n_bins*sizeof tracks[0][0]);
-				for (int step = 0; step < MIN(needed, n_steps-step_offset); step++) {
-					int s = step_offset+step;
-					// dp(1, "s=%d step=%d image_count=%d\n", s, step, image_count);
-					power_t **power =  g_array_index(past_power, power_t **, n_steps-s-1);  
-					for (int i = 0; i < fft.n_bins; i++) {
-						if (power[channel][i])
-							log_power[step][i] = log(power[channel][i]);
-					}
-					int **p =  g_array_index(past_peaks, int **,  n_steps-s-1);  
-					for (int i = 0; i < fft.n_bins; i++) {
-						if (p[channel][i] <= 0)
-							break;
-						peaks[step][p[channel][i]] = 8;
-						log_power[step][p[channel][i]] = 0;
-					}
-				}
-				for (int j = 0; j < track_history->len; j++) {
-					track_t *t = &g_array_index(track_history, track_t, j);
-					if (!t->completed && t->points->len < min_track_length)
-						continue;
-					if (t->start >= step_offset + needed || t->start + t->points->len < step_offset)
-						continue;
-					dp(31, "t->start=%d\n", t->start);
-					int min_bin = fft.n_bins - 1;
-					int max_bin = 0;
-					for (int k = 0; k < t->points->len; k++) {
-						track_point_t *s = &g_array_index(t->points, track_point_t, k);
-						min_bin = MIN(s->bin, min_bin);
-						max_bin = MAX(s->bin, max_bin);
-					}
-					// min_bin = MAX(0, min_bin - 8);
-					// max_bin = MAX(0, max_bin + 8);
-					for (int k = 0; k < t->points->len; k++) {
-						int m = t->start + k - step_offset;
-						// dp(1, "m=%d t->start=%d k=%d\n", m, t->start, k);
-						if (m >= 0 && m < buffer_size) {
-							track_point_t *s = &g_array_index(t->points, track_point_t, k);
-							tracks[m][s->bin] = 1;
-							peaks[m][s->bin] = (j&2)*2 +(j&8);
-							log_power[m][s->bin] = (j&1)*2 + (j&4);
-							if (k == 0 || k == t->points->len - 1) {
-								for (int b = min_bin; b <= max_bin; b++) {
-									if (b == s->bin) continue;
-									tracks[m][b] = 0;
-									peaks[m][b] = 0;
-									log_power[m][b] = 0;
-								}
-							} else {
-								if (min_bin != s->bin) {
-									tracks[m][min_bin] = 0;
-									peaks[m][min_bin] = 0;
-									log_power[m][min_bin] = 0;
-								}
-								if (max_bin != s->bin) {
-									tracks[m][max_bin] = 0;
-									peaks[m][max_bin] = 0;
-									log_power[m][max_bin] = 0;
-								}
-							}
-						}
-					}
-				}
-				write_arrays_as_rgb_jpg(peaks_image_filename, needed, fft.n_bins, tracks, peaks, log_power, 0, 1, NULL);
-				g_free(peaks_image_filename);
-			}
-		}
-		g_free(log_power);
-		g_free(peaks);
-		g_free(tracks);
-	}
+	if (peaks_image_filename_format)
+		output_peaks_images(peaks_image_count++, n_steps%peaks_image_maximum_length, n_steps, peaks_image_filename_format, prefix, fft, past_power, past_peaks, track_history, min_track_length, ignore_channel_bitmap, n_channels);
+
 #ifdef USE_SQLITE
 	if (sql_statement) {
 		char *err = 0;
@@ -257,6 +200,15 @@ extract_calls_file(char *filename, FILE *index_file, int *call_count) {
 	}
 	soundfile_close(infile);
 	g_free(prefix);
+	if (track_history) {
+		for (int channel = 0; channel < n_channels; channel++) {
+			for (int j = 0; j < track_history[channel]->len; j++) {
+				track_t *t = &g_array_index(track_history[channel], track_t, j);
+				g_array_free(t->points, 1);
+			}
+			g_array_free(track_history[channel], 1);
+		}
+	}
 }
 
 void
@@ -332,8 +284,24 @@ score_calls_file(char *filename) {
 	printf("%s %d %g %g\n", filename, n_tracks, sum_score, max_score);
 }
 
+double
+track_bandwidth(int bin, int n_bins, power_t  power[n_bins], double bandwidth_threshold) {
+	int lower = bin, upper = bin;
+	power_t threshold = double_to_power_t(power_t_to_double(power[bin])*bandwidth_threshold);
+//	dp(1, "%d %f %f\n", bin, power_t_to_double(power[bin]), power_t_to_double(threshold));
+	while (lower > 0 && power[lower - 1] >= threshold)
+		lower--;
+	while (upper < n_bins-1 && power[upper + 1] >= threshold)
+		upper++;
+//	dp(1, "%d %d %d\n",bin, upper, lower);
+//	for (int i = lower; i <=upper; i++)
+//		fprintf(debug_stream, "%f ", power_t_to_double(power[i]));
+//	fprintf(stderr, "\n");
+	return upper - lower + 1;
+}
+
 void
-process_track(track_t *t, fft_t fft, char *source, int channel, index_t step, GArray *past_power, GArray *past_samples,  FILE *index_file, int *call_count, sqlite3_stmt *sql_statement) {
+process_track(track_t *t, fft_t fft, char *source, int channel, int n_channels, index_t step, GArray *past_power, GArray *past_samples,  FILE *index_file, int *call_count, sqlite3_stmt *sql_statement) {
 	uint32_t length = t->points->len;
 	char *output_directory = param_get_string("call", "output_directory");
 	char *prefix = param_sprintf("call", "pathname_prefix", output_directory);
@@ -350,22 +318,22 @@ process_track(track_t *t, fft_t fft, char *source, int channel, index_t step, GA
 	double (*log_power)[fft.n_bins] = NULL;
 	if (image_filename||spectrum_filename) {
 		log_power = salloc(length*fft.n_bins*sizeof log_power[0][0]);
-		for (int step = 0; step < length; step++) {
-			power_t **power =  g_array_index(past_power, power_t **, step);  
+		for (int k = 0; k < length; k++) {
+			power_t **power =  g_array_index(past_power, power_t **, k);  
 			for (int i = 0; i < fft.n_bins; i++) {
 				if (power[channel][i])
-					log_power[length-step-1][i] = log(power[channel][i]);
+					log_power[length-k-1][i] = log(power[channel][i]);
 			}
 		}
 	}
 	if (image_filename) {
 		double (*tracks)[fft.n_bins] = salloc(length*fft.n_bins*sizeof tracks[0][0]);
-		for (int k = 0; k < t->points->len; k++) {
+		for (int k = 0; k < length; k++) {
 			track_point_t *s = &g_array_index(t->points, track_point_t, k);
 			dp(26, "k=%d bin=%d\n", k, s->bin);
 			tracks[k][s->bin] = 1;
 		}
-		write_arrays_as_rgb_jpg(image_filename, length, fft.n_bins, tracks, NULL, log_power, 1, 0, param_get_string("call", "image_size"));
+		write_arrays_as_rgb_png(image_filename, length, fft.n_bins, tracks, NULL, log_power, 1, 0, param_get_string("call", "image_size"));
 		if (index_file)
 			fprintf(index_file, "<img src=\"%s\">\n", image_filename);
 		g_free(tracks);
@@ -392,16 +360,42 @@ process_track(track_t *t, fft_t fft, char *source, int channel, index_t step, GA
 		sqlite3_bind_int(sql_statement, 2, (int)channel);
 		sqlite3_bind_int64(sql_statement, 3, track_start_samples);
 		sqlite3_bind_int64(sql_statement, 4, track_len_samples);
-		double frequency[t->points->len];
-		double amplitude[t->points->len];
-		double phase[t->points->len];
+		double frequency[length];
+		double amplitude[length];
+		double phase[length];
+		double bandwidth[length];
+		double amplitude_between_channels[length];
+		
 		sqlite3_bind_blob(sql_statement, 5, frequency, sizeof frequency, SQLITE_STATIC);
 		sqlite3_bind_blob(sql_statement, 6, amplitude, sizeof amplitude, SQLITE_STATIC);
 		sqlite3_bind_blob(sql_statement, 7, phase, sizeof phase, SQLITE_STATIC);
-		for (int k = 0; k < t->points->len; k++) {
+		sqlite3_bind_blob(sql_statement, 8, bandwidth, sizeof bandwidth, SQLITE_STATIC);
+		sqlite3_bind_blob(sql_statement, 9, amplitude_between_channels, sizeof amplitude_between_channels, SQLITE_STATIC);
+
+		double bin_to_frequency = fft.sampling_rate/(2.0*t->fft.n_bins);
+		double bandwidth_threshold = param_get_double("spectral_analysis", "bandwidth_threshold");
+		for (int k = 0; k < length; k++) {
+			power_t **power =  g_array_index(past_power, power_t **, (length - k));  
+			track_point_t *s = &g_array_index(t->points, track_point_t, k);
+			int bin = s->bin;
+//			dp(32, "k=%d bin=%d fft.n_bins=%d channel=%d n_channels=%d length=%d\n", k, bin, fft.n_bins, channel, n_channels, length);
+//			dp(1,"%f %f %f\n", power_t_to_double(s->power[0]), power_t_to_double(s->power[1]), power_t_to_double(s->power[2]));
+			bandwidth[k] =  bin_to_frequency*track_bandwidth(bin, fft.n_bins, power[channel], bandwidth_threshold);
+			if (n_channels > 1) {
+//				dp(32, "%d power[channel==0]=%p\n", channel==0, power[channel==0]);
+				double d = power[channel==0][bin];
+				if (!d)
+					d = 0.000000001; //FIXME hack
+				amplitude_between_channels[k] = power[channel][bin]/d;
+			} else {
+				amplitude_between_channels[k] = 0;
+			}
+		}
+		
+		for (int k = 0; k < length; k++) {
 			track_point_t *tp = &g_array_index(t->points, track_point_t, k);
 			if (!refine_sinusoid_parameters) {
-				frequency[k] = tp->bin/(2.0*t->fft.n_bins);
+				frequency[k] = bin_to_frequency*tp->bin;
 				amplitude[k] = sqrt(1.5*power_t_to_double(tp->power[1])/t->fft.n_bins);
 				phase[k] = tp->phase[1];
 			} else {
@@ -420,7 +414,7 @@ process_track(track_t *t, fft_t fft, char *source, int channel, index_t step, GA
 	if (track_filename) {
 		FILE *track_file = fopen(track_filename, "w");
 		assert(track_file);
-		for (int k = 0; k < t->points->len; k++) {
+		for (int k = 0; k < length; k++) {
 			track_point_t *tp = &g_array_index(t->points, track_point_t, k);
 			if (!refine_sinusoid_parameters)
 				fprintf(track_file, "%g %g %g\n", tp->bin/(2.0*t->fft.n_bins), sqrt(1.5*power_t_to_double(tp->power[1])/t->fft.n_bins), tp->phase[1]);
@@ -446,7 +440,7 @@ process_track(track_t *t, fft_t fft, char *source, int channel, index_t step, GA
 		FILE *spectrum_file = fopen(spectrum_filename, "w");
 		assert(spectrum_file);
 		int spectrum_radius = param_get_integer("call", "spectrum_radius");
-		for (int k = 0; k < t->points->len; k++) {
+		for (int k = 0; k < length; k++) {
 			track_point_t *s = &g_array_index(t->points, track_point_t, k);
 			int index = s->bin;
 			dp(31, "index = %d\n", index);
@@ -531,4 +525,95 @@ print_track_attributes(track_t *t, FILE *index_file, FILE *attribute_file) {
 //		c1 = (y[n_steps - 1]-y[0])/((x[n_steps - 1] - x[0]));
 //		slope = 1+0.5*c1/c0;
 //	}
+}
+
+void
+output_peaks_images(int image_count, int image_length, int n_steps, char *peaks_image_filename_format, char *prefix, fft_t fft, GArray *past_power, GArray *past_peaks, GArray **track_history, int min_track_length, int ignore_channel_bitmap, int n_channels) {
+	int needed = image_length;
+	dp(31, "image_count=%d needed=%d n_steps=%d, ppast_power->len=%d\n", image_count, needed, n_steps, past_power->len);
+	double (*log_power)[fft.n_bins] = salloc(needed*fft.n_bins*sizeof log_power[0][0]);
+	double (*peaks)[fft.n_bins] = salloc(needed*fft.n_bins*sizeof peaks[0][0]);
+	double (*tracks)[fft.n_bins] = salloc(needed*fft.n_bins*sizeof tracks[0][0]);
+	for (int channel = 0; channel < n_channels; channel++) {
+		if (ignore_channel_bitmap & (1 << channel))
+			continue;
+//		for (int image_count = 0; image_count < (n_steps-1)/peaks_image_maximum_length+1; image_count++) {
+		int step_offset = n_steps - image_length;
+		dp(31, "step_offset=%d n_steps=%d  image_length=%d\n", step_offset, n_steps, image_length);
+		char *peaks_image_filename = g_strdup_printf(peaks_image_filename_format, prefix, channel, image_count);
+		memset(log_power, 0, needed*fft.n_bins*sizeof log_power[0][0]);
+		memset(peaks, 0, needed*fft.n_bins*sizeof peaks[0][0]);
+		memset(tracks, 0, needed*fft.n_bins*sizeof tracks[0][0]);
+		for (int step = 0; step < MIN(needed, n_steps-step_offset); step++) {
+			int s = step_offset+step;
+			// dp(1, "s=%d step=%d image_count=%d\n", s, step, image_count);
+			power_t **power =  g_array_index(past_power, power_t **, n_steps-s-1);  
+			for (int i = 0; i < fft.n_bins; i++) {
+				if (power[channel][i])
+					log_power[step][i] = log(power[channel][i]);
+			}
+			int **p =  g_array_index(past_peaks, int **,  n_steps-s-1);  
+			for (int i = 0; i < fft.n_bins; i++) {
+				if (p[channel][i] <= 0)
+					break;
+				peaks[step][p[channel][i]] = 8;
+				log_power[step][p[channel][i]] = 0;
+			}
+		}
+		for (int j = 0; j < track_history[channel]->len; j++) {
+			track_t *t = &g_array_index(track_history[channel], track_t, j);
+//			dp(31, "j=%d t->completed=%d t->points->len=%d, min_track_length=%d\n",j,t->completed, t->points->len, min_track_length);
+			if (!t->completed && t->points->len < min_track_length)
+				continue;
+//			dp(31, "t->start=%d  step_offset=%d step_offset + needed=%d\n", t->start, step_offset, step_offset + needed);
+			if (t->start >= step_offset + needed || t->start + t->points->len < step_offset)
+				continue;
+//			dp(31, "t->start=%d\n", t->start);
+			int min_bin = fft.n_bins - 1;
+			int max_bin = 0;
+//			dp(31, "writing rectangle\n");
+			for (int k = 0; k < t->points->len; k++) {
+				track_point_t *s = &g_array_index(t->points, track_point_t, k);
+				min_bin = MIN(s->bin, min_bin);
+				max_bin = MAX(s->bin, max_bin);
+			}
+			// min_bin = MAX(0, min_bin - 8);
+			// max_bin = MAX(0, max_bin + 8);
+			for (int k = 0; k < t->points->len; k++) {
+				int m = t->start + k - step_offset;
+				// dp(1, "m=%d t->start=%d k=%d\n", m, t->start, k);
+				if (m >= 0 && m < image_length) {
+					track_point_t *s = &g_array_index(t->points, track_point_t, k);
+					tracks[m][s->bin] = 1;
+					peaks[m][s->bin] = (j&2)*2 +(j&8);
+					log_power[m][s->bin] = (j&1)*2 + (j&4);
+					if (k == 0 || k == t->points->len - 1) {
+						for (int b = min_bin; b <= max_bin; b++) {
+							if (b == s->bin) continue;
+							tracks[m][b] = 0;
+							peaks[m][b] = 0;
+							log_power[m][b] = 0;
+						}
+					} else {
+						if (min_bin != s->bin) {
+							tracks[m][min_bin] = 0;
+							peaks[m][min_bin] = 0;
+							log_power[m][min_bin] = 0;
+						}
+						if (max_bin != s->bin) {
+							tracks[m][max_bin] = 0;
+							peaks[m][max_bin] = 0;
+							log_power[m][max_bin] = 0;
+						}
+					}
+				}
+			}
+		}
+		write_arrays_as_rgb_png(peaks_image_filename, needed, fft.n_bins, tracks, peaks, log_power, 0, 1, NULL);
+		g_free(peaks_image_filename);
+//	}
+	}
+	g_free(log_power);
+	g_free(peaks);
+	g_free(tracks);
 }
