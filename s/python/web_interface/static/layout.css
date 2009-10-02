@@ -187,3 +187,7 @@ input.call_navigation {
 	font-size: x-large;
 	color: navy
 }
+
+.error {
+	background-color: yellow
+}

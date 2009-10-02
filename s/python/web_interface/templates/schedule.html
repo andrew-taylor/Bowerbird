@@ -4,14 +4,17 @@
       xmlns:py="http://genshi.edgewall.org/">
 <xi:include href="layout.html" />
 <?python
-	from bowerbird.common import schedule_re
+	from bowerbird.common import schedule_re, time_pattern
 ?>
 
 <py:def function="time_edit(name, value)">
-<input name="${name}" class="schedule_time required" type="text" value="${value}" />
+<input name="${name}" class="schedule_time required mytime" type="text" value="${value}" />
 </py:def>
 <py:def function="time_edit_js(name, value)">
-					+ '<input name="${name}" class="schedule_time required" type="text" value="${value}" />'
+					+ '<input name="${name}" class="schedule_time required mytime" type="text" value="${value}" />'
+</py:def>
+<py:def function="time_js_expression(arg)">
+/^${time_pattern}$/.test(${arg});
 </py:def>
 
 <head>
@@ -24,6 +27,11 @@
 			// remove the row clicked on
 			$(this).parents("tr.schedule").remove();
 		}
+
+		// write custom validator for our time (with sunrise/set relative option)
+		jQuery.validator.addMethod("mytime", function(value, element) {
+				return this.optional(element) || ${time_js_expression('value')}
+				}, "Please enter a valid time.");
 
 		// on document load
 		$(document).ready(function() {
@@ -45,7 +53,7 @@
 				// add a new row before it
 				$(this).parents("tr").before('<tr id="'+new_id+'" class="schedule">'
 					+ '<td class="schedule">'
-					+ '<input name="'+new_id+'.label" class="schedule_desc" type="text" value="new schedule" />'
+					+ '<input name="'+new_id+'.label" class="schedule_desc required" minlength="3" type="text" value="" />'
 					+ '</td><td class="schedule">'
 					${time_edit_js("'+new_id+'.start", "")}
 					+ '</td><td class="schedule">'
