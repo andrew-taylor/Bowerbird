@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from math import floor
 from sun import Sun
 from bowerbird.configobj import ConfigObj
+from bowerbird.common import schedule_re
 
 # location of configuration file
 DEFAULT_USER = 'root' # the user to execute the command to put in crontab
@@ -26,9 +27,8 @@ CONFIG_COMMAND = 'schedule_command'
 CONFIG_USER = 'schedule_user'
 CONFIG_DAYS_KEY = 'schedule_days'
 
-SCHEDULE_SECTION = 'scheduled_recordings'
-TIMESPEC_RE = re.compile('([SR]?)([+-]?[0-9]{1,2}):([0-9]{2}) *- '
-						'*([SR]?)([+-]?[0-9]{1,2}):([0-9]{2})')
+SCHEDULE_SECTION = 'scheduled_capture'
+TIMESPEC_RE = schedule_re
 
 # check value is a valid array of recording times
 def parseRecordingSpec(key, value):
@@ -47,9 +47,8 @@ def parseRecordingSpec(key, value):
 					(end_type,
 					timedelta(hours=int(end_hour), minutes=int(end_minute)))))
 		else:
-			sys.stderr.write('%s has invalid recording spec: %s->%s: %s\n'
+			sys.stderr.write('\nWARNING: "%s" has invalid recording spec: %s->%s: %s\n\n'
 					% (config_filename, SCHEDULE_SECTION, key, spec))
-			sys.exit(1)
 	return specs
 
 # TODO search for this file in a number of places

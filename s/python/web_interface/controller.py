@@ -15,6 +15,7 @@ DEFAULT_FFT_STEP = 256 # in milliseconds
 SONOGRAM_DIRECTORY = os.path.join("static", "sonograms")
 STATION_SECTION_NAME = 'station_information'
 STATION_NAME_KEY = 'name'
+SCHEDULE_SECTION = 'scheduled_capture'
 
 
 class Root(object):
@@ -49,14 +50,74 @@ class Root(object):
 			raise cherrypy.HTTPRedirect('/')
 
 		if load_defaults:
-			values = self.conf.default_values()
+			values = self.conf.get_default_values()
 		else:
-			values = self.conf.values()
+			values = self.conf.get_values()
 		return template.render(station=self.get_station_name(),
 				using_defaults=load_defaults, values=values,
 				file=self.conf.filename, 
 				defaults_file=self.conf.defaults_filename)
 
+	@cherrypy.expose
+	@template.output('schedule.html')
+	def schedule(self, load_defaults=None, cancel=None, apply=None, add=None,
+			**data):
+		
+		if cancel:
+			raise cherrypy.HTTPRedirect('/')
+		elif apply:
+			# keep track of which schedules no longer exist
+			schedules_to_delete = self.conf.get_schedules()
+			print "sched orig ",schedules_to_delete
+			for key in data:
+				# each schedule comes in three parts: ?.label, ?.start, ?.finish
+				if key.endswith('label'):
+					id = key.split('.')[0]
+					start_key = "%s.start" % id
+					finish_key = "%s.finish" % id
+					print "%s, id %s, keys %s, %s" \
+							% (data[key], id, start_key, finish_key)
+					if data.has_key(start_key) and data.has_key(finish_key):
+						schedule_key = data[key]
+						schedule_value = "%s - %s" \
+								% (data[start_key], data[finish_key])
+						self.conf.set_schedule(schedule_key, schedule_value)
+						if schedules_to_delete.has_key(data[key]):
+							del(schedules_to_delete[data[key]])
+							print "sched del  ",schedules_to_delete
+						print "schedules  ",self.conf.get_schedules()
+
+			# delete obsolete schedules
+			for schedule_key in schedules_to_delete:
+				self.conf.delete_schedule(schedule_key)
+			# update file
+			self.conf.save_to_file()
+			# bounce back to homepage
+			raise cherrypy.HTTPRedirect('/')
+
+		elif not add:
+			# this should only happen when a remove button has been clicked
+			# find the remove key
+			for key in data:
+				if key.endswith('remove'):
+					# get the schedule key from the label
+					id = key.split('.')[0]
+					label_key = "%s.label" % id
+					if data.has_key(label_key):
+						schedule_key = data[label_key]
+						self.conf.delete_schedule(schedule_key)
+
+		if load_defaults:
+			values = self.conf.get_default_schedules()
+		else:
+			values = self.conf.get_schedules()
+
+		return template.render(station=self.get_station_name(),
+				using_defaults=load_defaults, values=values, add=add,
+				section=SCHEDULE_SECTION, file=self.conf.filename, 
+				defaults_file=self.conf.defaults_filename)
+
+	
 	@cherrypy.expose
 	@template.output('categories.html')
 	def categories(self, sort='label', sort_order='asc', **ignored):

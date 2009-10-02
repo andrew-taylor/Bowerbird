@@ -17,8 +17,10 @@
 # a strangeness in comment parsing
 [dummy]
 
+# don't change this section name without changing the parameter in controller.py
 # Station Information
 [station_information]
+# don't change this key name without changing the parameter in controller.py
 # Location, Name, string, 
 name = Nourlangie Rock
 # Location, Timezone offset, float, hours
@@ -146,8 +148,8 @@ schedule_user = root
 # Scheduling, Days to Plan, int, days
 schedule_days = 3
 
-[scheduled_recordings]
+[scheduled_capture]
 monkeys = 9:00-11:00
-bears = 6:00-6:30, 8:00-9:30, 15:40-19:00
-frogs = R-4:00-R-2:00, S+1:00-S+5:00, 12:00-S-4:00
-badgers = R-8:00-R-5:00
+bears = 6:00-6:30
+frogs = R-4:00-R-2:00
+badgers = R-8:00-S-5:00
