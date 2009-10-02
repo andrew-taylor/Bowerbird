@@ -117,7 +117,7 @@ int
 param_get_boolean_with_default(const char *group, const char *key, int default_value) {
 	GError *g_error = NULL;
 	int value = g_key_file_get_boolean(param_get_keyfile(group, key), group, key, &g_error);
-	if (!value) {
+	if (g_error) {
 		if (g_error->code == G_KEY_FILE_ERROR_INVALID_VALUE) {
 			dp(0, "Config file has invalid value for %s:%s\n", group, key);
 			return default_value;
@@ -148,7 +148,7 @@ int
 param_get_integer_with_default(const char *group, const char *key, int default_value) {
 	GError *g_error = NULL;
 	int value = g_key_file_get_integer(param_get_keyfile(group, key), group, key, &g_error);
-	if (value == 0) {
+	if (g_error) {
 		if (g_error->code == G_KEY_FILE_ERROR_INVALID_VALUE) {
 			dp(0, "Config file has invalid value for %s:%s\n", group, key);
 			return default_value;
@@ -179,7 +179,7 @@ double
 param_get_double_with_default(const char *group, const char *key, double default_value) {
 	GError *g_error = NULL;
 	double value = g_key_file_get_double(param_get_keyfile(group, key), group, key, &g_error);
-	if (value == 0.0) {
+	if (g_error) {
 		if (g_error->code == G_KEY_FILE_ERROR_INVALID_VALUE) {
 			dp(0, "Config file has invalid value for %s:%s\n", group, key);
 			return default_value;
