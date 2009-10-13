@@ -9,7 +9,10 @@ test -e /etc/bowerbird/board_configs/$mac_address/global_variables &&
 . /etc/bowerbird/config/global_variables
 
 
-PATH=$PATH:/usr/lib/bowerbird/ts7800/bin/
+PATH=$PATH:/usr/lib/bowerbird/beagleboard/bin/
+
+# turn off the dvi chip
+disable-dvi start
 
 if ping -c 1 -q 192.168.1.1 
 then
