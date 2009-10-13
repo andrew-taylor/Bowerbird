@@ -1,12 +1,21 @@
-#!/bin/sh
+#!/bin/bash
+
+DEV=1
 
 GPIO_BASE_DIR=/sys/class/gpio
-GPIO_INACTIVE_DEFAULT=low
+GPIO_OUTPUT_DIRECTION=out
 
-. ../../../../../etc/bowerbird/config/global_variables
-. ../../../../../etc/bowerbird/board_configs/beagleboard.C3.0.1
-#logger -t $0 "$@"
-cd /
+if [ $DEV ]
+then
+	. ../../../../../etc/bowerbird/config/global_variables
+	. ../../../../../etc/bowerbird/board_configs/beagleboard.C3.0.1
+	echo "WARNING: script is in development mode. Set DEV=0 to disable."
+else
+	. /etc/bowerbird/config/global_variables
+	. /etc/bowerbird/board_configs/beagleboard.C3.0.1
+	logger -t $0 "$@"
+	cd /
+fi
 
 USAGE="Usage: `basename $0` label value"
 
@@ -32,10 +41,6 @@ do
 			if [ "${!temp}" ]
 			then
 				gpio=$1
-				# get inactive state for gpio 
-				# (defaults to out, which is the save as low)
-				temp=${gpio}_gpio_inactive
-				gpio_inactive=${temp-$GPIO_INACTIVE_DEFAULT}
 			else
 				echo "Unmapped gpio number: $1" > /dev/stderr
 				echo $USAGE
@@ -49,7 +54,6 @@ do
 			if [ "${!temp}" ]
 			then
 				gpio=${!temp}
-				gpio_inactive=$GPIO_INACTIVE_DEFAULT
 			else
 				echo "Unknown gpio: $1" > /dev/stderr
 				echo $USAGE
@@ -85,14 +89,14 @@ then
 	fi
 fi
 
-# ensure that gpio is set as an output (with appropriate active state)
-if [ `cat $gpio_dir/direction` != $gpio_inactive ]
+# ensure that gpio is set as an output
+if [ `cat $gpio_dir/direction` != $GPIO_OUTPUT_DIRECTION ]
 then
-	echo $gpio_inactive > $gpio_dir/direction
+	echo $GPIO_OUTPUT_DIRECTION > $gpio_dir/direction
 	sleep 1
-	if [ `cat $gpio_dir/direction` != $gpio_inactive ]
+	if [ `cat $gpio_dir/direction` != $GPIO_OUTPUT_DIRECTION ]
 	then
-		echo "Couldn't set direction for gpio $gpio to $gpio_inactive" > /dev/stderr
+		echo "Couldn't set direction for gpio $gpio to $GPIO_OUTPUT_DIRECTION" > /dev/stderr
 		exit 1
 	fi
 fi
