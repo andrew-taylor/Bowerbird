@@ -1,0 +1,101 @@
+#!/bin/sh
+
+GPIO_BASE_DIR=/sys/class/gpio
+GPIO_INACTIVE_DEFAULT=low
+
+. ../../../../../etc/bowerbird/config/global_variables
+. ../../../../../etc/bowerbird/board_configs/beagleboard.C3.0.1
+#logger -t $0 "$@"
+cd /
+
+USAGE="Usage: `basename $0` label value"
+
+if [ $# -lt 2 ]
+then
+	echo $USAGE > /dev/stderr
+	exit 1
+fi
+
+# enable extended matching (so we can match [0-9]+ in the case statement)
+shopt -s extglob
+
+while [ ! "$gpio" ]
+do
+	case $1 in
+		# map known label aliases
+		audio)	$1=microphone;;
+
+		# deal with raw gpio numbers
+		+([0-9]) )
+			# make sure that's a real gpio number
+			temp=gpio${1}_pin
+			if [ "${!temp}" ]
+			then
+				gpio=$1
+				# get inactive state for gpio 
+				# (defaults to out, which is the save as low)
+				temp=${gpio}_gpio_inactive
+				gpio_inactive=${temp-$GPIO_INACTIVE_DEFAULT}
+			else
+				echo "Unmapped gpio number: $1" > /dev/stderr
+				echo $USAGE
+				exit 1
+			fi
+			;;
+
+		# assume everything else is an alias
+		*)
+			temp=${1}_gpio
+			if [ "${!temp}" ]
+			then
+				gpio=${!temp}
+				gpio_inactive=$GPIO_INACTIVE_DEFAULT
+			else
+				echo "Unknown gpio: $1" > /dev/stderr
+				echo $USAGE
+				exit 1
+			fi
+	esac
+done
+
+
+# map value aliases
+case "$2" in
+	on) value=1;;
+	off) value=0;;
+	[01]) value=$2;;
+	*)
+		echo "Unknown value: $2" > /dev/stderr
+		echo $USAGE
+		exit 1
+		;;
+esac
+
+
+# ensure that gpio is mapped
+gpio_dir=$GPIO_BASE_DIR/gpio$gpio
+if [ ! -d $gpio_dir ]
+then
+	echo $gpio > $GPIO_BASE_DIR/export
+	sleep 1
+	if [ ! -d $gpio_dir ]
+	then
+		echo "Couldn't create access gpio $gpio" > dev/stderr
+		exit 1
+	fi
+fi
+
+# ensure that gpio is set as an output (with appropriate active state)
+if [ `cat $gpio_dir/direction` != $gpio_inactive ]
+then
+	echo $gpio_inactive > $gpio_dir/direction
+	sleep 1
+	if [ `cat $gpio_dir/direction` != $gpio_inactive ]
+	then
+		echo "Couldn't set direction for gpio $gpio to $gpio_inactive" > /dev/stderr
+		exit 1
+	fi
+fi
+
+# write output to gpio (if necessary)
+echo $value > $gpio_dir/value
