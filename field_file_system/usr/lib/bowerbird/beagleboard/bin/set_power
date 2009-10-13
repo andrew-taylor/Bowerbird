@@ -4,8 +4,9 @@ DEV=1
 
 GPIO_BASE_DIR=/sys/class/gpio
 GPIO_OUTPUT_DIRECTION=out
+SETTLE_TIME=0.1
 
-if [ $DEV ]
+if [ ${DEV-0} -ne 0 ]
 then
 	. ../../../../../etc/bowerbird/config/global_variables
 	. ../../../../../etc/bowerbird/board_configs/beagleboard.C3.0.1
@@ -54,6 +55,12 @@ do
 			if [ "${!temp}" ]
 			then
 				gpio=${!temp}
+				# check if it's active low
+				temp=${1}_activelow
+				if [ ${!temp-0} -ne 0 ]
+				then
+					activelow=1
+				fi
 			else
 				echo "Unknown gpio: $1" > /dev/stderr
 				echo $USAGE
@@ -67,7 +74,7 @@ done
 case "$2" in
 	on) value=1;;
 	off) value=0;;
-	[01]) value=$2;;
+	+([0-9])) value=$2;;
 	*)
 		echo "Unknown value: $2" > /dev/stderr
 		echo $USAGE
@@ -75,13 +82,24 @@ case "$2" in
 		;;
 esac
 
+# if device is active low, then invert value
+if [ "$activelow" ]
+then
+	if [ $value -eq 0 ]
+	then
+		value=1
+	else
+		value=0
+	fi
+fi
+
 
 # ensure that gpio is mapped
 gpio_dir=$GPIO_BASE_DIR/gpio$gpio
 if [ ! -d $gpio_dir ]
 then
 	echo $gpio > $GPIO_BASE_DIR/export
-	sleep 1
+	sleep $SETTLE_TIME
 	if [ ! -d $gpio_dir ]
 	then
 		echo "Couldn't create access gpio $gpio" > dev/stderr
@@ -93,7 +111,7 @@ fi
 if [ `cat $gpio_dir/direction` != $GPIO_OUTPUT_DIRECTION ]
 then
 	echo $GPIO_OUTPUT_DIRECTION > $gpio_dir/direction
-	sleep 1
+	sleep $SETTLE_TIME
 	if [ `cat $gpio_dir/direction` != $GPIO_OUTPUT_DIRECTION ]
 	then
 		echo "Couldn't set direction for gpio $gpio to $GPIO_OUTPUT_DIRECTION" > /dev/stderr
@@ -101,5 +119,15 @@ then
 	fi
 fi
 
+
 # write output to gpio (if necessary)
 echo $value > $gpio_dir/value
+
+# make sure that the value was set successfully
+sleep $SETTLE_TIME
+new_val=`cat $gpio_dir/value`
+if [ $new_val != $value ]
+then
+	echo "Couldn't set value for gpio $gpio to $value ($new_val)" > /dev/stderr
+	exit 1
+fi
