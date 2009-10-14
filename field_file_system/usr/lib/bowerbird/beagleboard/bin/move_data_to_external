@@ -1,0 +1,119 @@
+#!/bin/bash
+
+DEV=1
+
+RSYNC_ATTEMPTS=5
+DEBUG=true
+
+if $DEBUG
+then
+	DPRINT=echo
+else
+	# this succeeds but doesn't print anything
+	DPRINT=true
+fi
+
+if [ ${DEV-0} -ne 0 ]
+then
+	sound_file_dir=`pwd`/bowerbird
+	external_sound_file_dir=/mnt/storage/extern
+	echo "WARNING: script is in development mode. Set DEV=0 to disable."
+	PRINT=echo
+else
+	. /etc/bowerbird/config/global_variables
+	PRINT=logger
+fi
+
+# if necessary, mount the external device
+# extract mount points from /etc/fstab
+mount_point=""
+mount_point_length=0
+for mp in $(sed -n 's/^\s*[^#]\S*\s*\(\S*\).*/\1/p' /etc/fstab)
+do
+	# find mount points that are part of the external drive path
+	if echo $external_sound_file_dir | grep -q "^$mp"
+	then
+		# get the longest one
+		newlen=`echo -n $mp|wc -c`
+		if [ $newlen -gt $mount_point_length ]
+		then
+			$DPRINT biggest mount point is $mp
+			mount_point=$mp
+			mount_point_length=$newlen
+		fi
+	fi
+done
+
+# if we found a mount point, then make sure it's mounted
+if [ "$mount_point" ]
+then
+	needs_mount=true
+	# scan the mounted filesystems
+	for mp in $(mount|sed -n 's/\S*\s*on\s*\(\S*\)\s*type.*/\1/p')
+	do
+		if [ $mount_point = $mp ]
+		then
+			$DPRINT found $mount_point is already mounted
+			unset needs_mount
+			break
+		fi
+	done
+
+	if [ "$needs_mount" ]
+	then
+		$DPRINT mounting $mount_point
+		mount $mount_point
+	fi
+fi
+
+
+# make sure the backup directory exists
+if [ ! -d $external_sound_file_dir ]
+then
+	$DPRINT making external directory $external_sound_file_dir
+	mkdir -p $external_sound_file_dir
+fi
+
+
+# move all but todays recordings to an external device
+# get today's date
+today=`date +%Y_%m_%d`
+
+# Use rsync for it's partial transfer recovery, eliminating redundant transfers, etc
+# It's configured to delete files after successful transfer
+# NOTE: trailing slashes are added to make sure both get treated the same (rsync is picky)
+rsync_rc=-1
+attempt=0
+until [ $rsync_rc -eq 0 -o $attempt -ge $RSYNC_ATTEMPTS ]
+do
+	attempt=$(($attempt+1))
+	$DPRINT "transferring files (attempt $attempt)..."
+	rsync_out=`rsync -av --partial --remove-source-files --exclude=$today $sound_file_dir/ $external_sound_file_dir/`
+	rsync_rc=$?
+
+	# pass on output. If transfer failed, report it
+	if [ $rsync_rc -ne 0 ]
+	then
+		$PRINT -e "Transfer failed:\n $rsync_out"
+	else
+		$PRINT "Transfer succeeded: `echo $rsync_out | sed 's/.*\(sent [0-9]* bytes.*\)$/\1/'`"
+	fi
+	sleep 1
+done
+
+
+# clean up empty directories (rsync only removes files)
+for dir in $sound_file_dir/data/*
+do
+	if [ `ls $dir|wc -l` -eq 0 ]
+	then
+		rmdir $dir
+	fi
+done
+
+# unmount external device again if we mounted it
+if [ "$needs_mount" ]
+then
+	$DPRINT unmounting $mount_point again
+	umount $mount_point
+fi
