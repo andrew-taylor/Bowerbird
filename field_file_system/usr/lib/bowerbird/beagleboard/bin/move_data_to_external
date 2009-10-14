@@ -1,9 +1,13 @@
 #!/bin/bash
 
-DEV=1
+DEV=0
+DEBUG=false
 
-RSYNC_ATTEMPTS=5
-DEBUG=true
+LOGGER=/usr/bin/logger
+VARIABLES_FILE=/etc/bowerbird/config/global_variables
+rsync_attempts=5 # default
+external_power=false # default
+external_power_settle_time=15 # seconds
 
 if $DEBUG
 then
@@ -13,15 +17,47 @@ else
 	DPRINT=true
 fi
 
+
 if [ ${DEV-0} -ne 0 ]
 then
 	sound_file_dir=`pwd`/bowerbird
 	external_sound_file_dir=/mnt/storage/extern
-	echo "WARNING: script is in development mode. Set DEV=0 to disable."
 	PRINT=echo
+	echo "WARNING: script is in development mode. Set DEV=0 to disable."
 else
-	. /etc/bowerbird/config/global_variables
-	PRINT=logger
+	. $VARIABLES_FILE
+
+	MISSING_VARIABLES=false
+	for var in sound_file_dir external_sound_file_dir
+	do
+		if [ ! "${!var}" ]
+		then
+			echo "`basename $0`: variable $var must be defined in $VARIABLES_FILE" > /dev/stderr
+			MISSING_VARIABLES=true
+		fi
+	done
+	if $MISSING_VARIABLES
+	then
+		exit 1
+	fi
+
+	if [ -x $LOGGER ]
+	then
+		PRINT=$LOGGER
+	else
+		PRINT=echo
+	fi
+fi
+
+# if configured, power up the external device
+if $external_power
+then
+	# power up the hub, and the drive
+	$DPRINT powering up the usb hub and device
+	set_power usbhub on
+	set_power usbhd on
+	# wait a while to let them settle
+	sleep $external_power_settle_time
 fi
 
 # if necessary, mount the external device
@@ -84,7 +120,7 @@ today=`date +%Y_%m_%d`
 # NOTE: trailing slashes are added to make sure both get treated the same (rsync is picky)
 rsync_rc=-1
 attempt=0
-until [ $rsync_rc -eq 0 -o $attempt -ge $RSYNC_ATTEMPTS ]
+until [ $rsync_rc -eq 0 -o $attempt -ge $rsync_attempts ]
 do
 	attempt=$(($attempt+1))
 	$DPRINT "transferring files (attempt $attempt)..."
@@ -107,13 +143,26 @@ for dir in $sound_file_dir/data/*
 do
 	if [ `ls $dir|wc -l` -eq 0 ]
 	then
+		$DPRINT removing empty directory: $dir
 		rmdir $dir
 	fi
 done
+
 
 # unmount external device again if we mounted it
 if [ "$needs_mount" ]
 then
 	$DPRINT unmounting $mount_point again
 	umount $mount_point
+fi
+
+
+# if configured, power down the external device
+if $external_power
+then
+	# power down the hub, and the drive
+	# TODO don't power down the hub if someone else is using it
+	$DPRINT powering down the usb device and hub
+	set_power usbhd off
+	set_power usbhub off
 fi
