@@ -15,7 +15,6 @@ else
 	. /etc/bowerbird/config/global_variables
 	. /etc/bowerbird/board_configs/beagleboard.C3.0.1
 	logger -t $0 "$@"
-	cd /
 fi
 
 USAGE="Usage: `basename $0` label value"
