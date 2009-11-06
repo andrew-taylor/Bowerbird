@@ -1,0 +1,56 @@
+#!/bin/sh
+#
+### BEGIN INIT INFO
+# Provides:          disable-leds
+# Required-Start:    
+# Required-Stop:     
+# Should-Start:      
+# Should-Stop:       
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Disables Beagleboard USR LEDs
+# Description: Disables the Beagleboard USR LEDs
+#				saving power
+### END INIT INFO
+
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+LED_USR0=/sys/class/leds/beagleboard::usr0
+LED_USR1=/sys/class/leds/beagleboard::usr1
+LED_PMU=/sys/class/leds/beagleboard::pmu_stat
+LEDS_OFF=none
+LED_USR0_ON=nand-disk
+LED_USR1_ON=mmc0
+LED_PMU_ON=heartbeat
+
+if [ ! -d $LED_USR0 ]
+then
+	echo "No support in this kernel for controlling Beagleboard LEDs"
+	exit 1
+fi
+
+case "$1" in
+  start)
+  	echo -n "Enabling Beagleboard LEDs"
+	echo $LED_USR0_ON > $LED_USR0/trigger
+	echo $LED_USR1_ON > $LED_USR1/trigger
+	echo $LED_PMU_ON > $LED_PMU/trigger
+	echo "."
+	;;
+  stop)
+  	echo -n "Disabling Beagleboard LEDs"
+	echo $LEDS_OFF > $LED_USR0/trigger
+	echo $LEDS_OFF > $LED_USR1/trigger
+	echo $LEDS_OFF > $LED_PMU/trigger
+	echo "."
+	;;
+  force-reload|restart)
+	$0 stop
+	sleep 1
+	$0 start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart|force-reload}"
+	exit 1
+esac
+
+exit 0
