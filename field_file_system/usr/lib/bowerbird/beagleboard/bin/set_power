@@ -2,7 +2,11 @@
 
 USAGE="Usage: `basename $0` [on|off] device"
 
-if [ $# -lt 2  -o $1 != "on" -a $1 != "off" ]
+if [ $# -lt 2 ]
+then
+	echo $USAGE > /dev/stderr
+	exit 1
+elif [ $1 != "on" -a $1 != "off" ]
 then
 	echo $USAGE > /dev/stderr
 	exit 1
