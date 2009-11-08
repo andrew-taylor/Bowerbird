@@ -1,4 +1,4 @@
 #!/bin/sh
 . /etc/bowerbird/config/global_variables
-logger -p local0.notice '#=# AVR lcd' "`date '+%a %H:%M'` `cat $status_dir/*.message`"
-logger -p local0.notice '#=# AVR lcd' "$*"
+logger -p local0.notice '^@^ AVR lcd' "`date '+%a %H:%M'` `cat $status_dir/*.message`"
+logger -p local0.notice '^@^ AVR lcd' "$*"

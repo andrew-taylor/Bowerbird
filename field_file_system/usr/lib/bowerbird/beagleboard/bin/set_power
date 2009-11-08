@@ -13,4 +13,4 @@ then
 fi
 
 # send the command to the IO AVR using logger
-logger -p local0.notice "#=# AVR power $@"
+logger -p local0.notice "^@^ AVR power $@"
