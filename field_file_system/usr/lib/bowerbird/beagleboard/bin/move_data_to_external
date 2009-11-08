@@ -1,13 +1,13 @@
 #!/bin/bash
 
 DEV=0
-DEBUG=false
+DEBUG=true
 
 LOGGER=/usr/bin/logger
 VARIABLES_FILE=/etc/bowerbird/config/global_variables
 rsync_attempts=5 # default
 external_power=true # default
-external_power_settle_time=15 # seconds
+external_power_settle_time=30 # seconds
 
 if $DEBUG
 then
@@ -49,17 +49,6 @@ else
 	fi
 fi
 
-# if configured, power up the external device
-if $external_power
-then
-	# power up the hub, and the drive
-	$DPRINT powering up the usb hub and device
-	set_power on usbhub
-	set_power on usbhd
-	# wait a while to let them settle
-	sleep $external_power_settle_time
-fi
-
 # if necessary, mount the external device
 # extract mount points from /etc/fstab
 mount_point=""
@@ -97,6 +86,17 @@ then
 
 	if [ "$needs_mount" ]
 	then
+		# if configured, (and not already mounted) power up the external device
+		if $external_power
+		then
+			# power up the hub, and the drive
+			$DPRINT powering up the usb hub and device
+			set_power on usbhub
+			set_power on usbhd
+			# wait a while to let them settle
+			sleep $external_power_settle_time
+		fi
+
 		$DPRINT mounting $mount_point
 		if ! mount $mount_point
 		then
@@ -134,7 +134,7 @@ do
 	# pass on output. If transfer failed, report it
 	if [ $rsync_rc -ne 0 ]
 	then
-		$PRINT -e "Transfer failed:\n $rsync_out"
+		$PRINT "Transfer failed: $rsync_out"
 	else
 		$PRINT "Transfer succeeded: `echo $rsync_out | sed 's/.*\(sent [0-9]* bytes.*\)$/\1/'`"
 	fi
@@ -158,15 +158,14 @@ if [ "$needs_mount" ]
 then
 	$DPRINT unmounting $mount_point again
 	umount $mount_point
-fi
 
-
-# if configured, power down the external device
-if $external_power
-then
-	# power down the hub, and the drive
-	# TODO don't power down the hub if someone else is using it
-	$DPRINT powering down the usb device #and hub
-	set_power off usbhd
-	#set_power off usbhub
+	# if configured, power down the external device (unless it was already mounted)
+	if $external_power
+	then
+		# power down the hub, and the drive
+		# TODO don't power down the hub if someone else is using it
+		$DPRINT powering down the usb device #and hub
+		set_power off usbhd
+		#set_power off usbhub
+	fi
 fi
