@@ -8,7 +8,7 @@ ps -ef|grep 'ppp_daemon$'|sed "/$$/d;/grep/d;s/^[a-z]* *//;s/ .*//"|xargs -r kil
 unsuccessful_power_cycles=0
 while test $unsuccessful_power_cycles -lt 10
 do
-	set_power nextg on
+	set_power on nextg
 	modprobe ppp_generic
 	modprobe ppp_async
 	modprobe ppp_deflate
@@ -70,7 +70,7 @@ do
 		fi
 	done
 	unsuccessful_power_cycles=$((unsuccessful_power_cycles + 1))
-	set_power nextg off
+	set_power off nextg
 	modprobe -r ppp_generic
 	modprobe -r ppp_async
 	modprobe -r ppp_deflate

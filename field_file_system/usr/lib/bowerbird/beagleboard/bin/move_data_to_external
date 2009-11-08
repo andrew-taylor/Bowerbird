@@ -54,8 +54,8 @@ if $external_power
 then
 	# power up the hub, and the drive
 	$DPRINT powering up the usb hub and device
-	set_power usbhub on
-	set_power usbhd on
+	set_power on usbhub
+	set_power on usbhd
 	# wait a while to let them settle
 	sleep $external_power_settle_time
 fi
@@ -163,6 +163,6 @@ then
 	# power down the hub, and the drive
 	# TODO don't power down the hub if someone else is using it
 	$DPRINT powering down the usb device and hub
-	set_power usbhd off
-	set_power usbhub off
+	set_power off usbhd
+	set_power off usbhub
 fi

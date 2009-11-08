@@ -38,10 +38,10 @@ mkdir -p $data_dir
 rm -f $status_dir/*
 message 'bowerbird starting'
 
-set_power audio on
-set_power nextg on
-set_power usb0 on
-set_power usb1 on
+set_power on audio
+set_power on nextg
+set_power on usb0
+set_power on usb1
 
 setsid ppp_daemon &
 setsid disk_space_daemon  &
