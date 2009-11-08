@@ -14,6 +14,9 @@ PATH=$PATH:/usr/lib/bowerbird/beagleboard/bin/
 # turn off the dvi chip
 disable-dvi start
 
+# turn off the beagleboard leds
+enable-leds stop
+
 if ifconfig usb0 up 192.168.0.2  netmask 255.255.255.0
 then
 	route add default gw  192.168.0.1
