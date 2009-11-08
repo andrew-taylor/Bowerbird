@@ -25,16 +25,26 @@ fi
 case "$1" in
   start)
   	echo -n "Disabling DVI-D"
-	echo 0 > $DSS/display0/enabled
-	echo "" > $DSS/manager0/display
-	echo 0 > $DSS/overlay0/enabled
+	for d in $DSS/display*
+	do
+		echo 0 > $d/enabled
+	done
+	for m in $DSS/manager*
+	do
+		echo "" > $m/display
+	done
 	echo "."
 	;;
   stop)
   	echo -n "Enabling DVI-D"
-	echo 1 > $DSS/display0/enabled
-	echo "dvi" > $DSS/manager0/display
-	echo 1 > $DSS/overlay0/enabled
+	for d in $DSS/display*
+	do
+		echo 1 > $d/enabled
+	done
+	for m in $DSS/manager*
+	do
+		echo "dvi" > $m/display
+	done
 	echo "."
 	;;
   force-reload|restart)
