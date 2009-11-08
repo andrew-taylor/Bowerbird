@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import os,re,bisect,heapq,subprocess
 from optparse import OptionParser
+from sun import Sun
 
 def find_best_sound_files_to_transfer(remote_files, local_files, how_many_files=10):
     """ choose best files to transfer """
@@ -23,6 +24,8 @@ def find_best_sound_files_to_transfer(remote_files, local_files, how_many_files=
         files_to_transfer.append(remote_file_to_transfer)
     return [f[1] for f in files_to_transfer]
 
+def priority(time, priority_expression, lat, long)
+	
 def smallest_distance(x, numbers):
     index = bisect.bisect_right(numbers,x)
     if index - 1 >= 0:
