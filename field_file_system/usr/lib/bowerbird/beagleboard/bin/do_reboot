@@ -1,0 +1,19 @@
+#!/bin/sh
+. /etc/bowerbird/config/global_variables
+sync
+umount -f /mnt/storage
+set_power off $sw_audio
+set_power off $sw_hub
+set_power off $sw_disk
+set_power off $sw_nextg
+set_power off $sw_external
+sleep 5
+set_power on $sw_audio
+set_power on $sw_hub
+set_power on $sw_disk
+set_power on $sw_nextg
+set_power on $sw_external
+halt
+sleep 200
+echo "${avr_prefix}REALLY reset the Beagleboard" >/dev/ttyS2
+set_power off $sw_beagle

@@ -116,7 +116,7 @@ sound_buffer_size = 64000
 # Buffer, Frames, int,
 sound_buffer_frames = 960000
 # Storage, Root Dir, text,
-sound_file_root_dir = /mnt/storage
+sound_file_root_dir = /var/lib/
 # Storage, File Ext., text,
 sound_file_ext = wv
 # Storage, Details File Ext., text,
@@ -127,7 +127,7 @@ sound_compression_type = 2
 # Storage, Compression Shell Cmd, text,
 sound_compressor_shellcmd = /usr/bin/wavpack -q -f - >%s
 # Alsa, PCM Device Name, text,
-alsa_pcm_name = hw:10
+alsa_pcm_name = hw:1,0
 # Alsa, Channels, int,
 alsa_n_channels = 4
 # Alsa, Sampling Rate, int, Hz
@@ -153,13 +153,3 @@ monkeys =  9:00 -  11:00
 badgers = R -8:00 - S -5:00
 bears =  6:00 -  6:30
 frogs = R -4:00 - R -2:00
-
-[beagleboard_watchdog]
-prefix = avr://
-feed = watchdog pulse
-reboot = REALLY reset the Beagleboard
-tty = /dev/ttyS2
-files = /var/lib/bowerbird/status/network_up:100000
-feed_seconds = 300
-granularity_seconds = 60
-startup_seconds = 300

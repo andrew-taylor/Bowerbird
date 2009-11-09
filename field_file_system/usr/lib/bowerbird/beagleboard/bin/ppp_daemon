@@ -1,8 +1,8 @@
 #!/bin/sh
 trap ''  1 2 3 7 13 15
 . /etc/bowerbird/config/global_variables
-exec >>$log_dir/ppp_daemon 2>&1
-set -x
+#exec >>$log_dir/ppp_daemon 2>&1
+#set -x
 
 ps -ef|grep 'ppp_daemon$'|sed "/$$/d;/grep/d;s/^[a-z]* *//;s/ .*//"|xargs -r kill -9
 unsuccessful_power_cycles=0
@@ -28,9 +28,9 @@ do
 				ping_count=60
 				while test $ping_count -gt 0
 				do
-					echo 'i:down' >$status_dir/ppp.message
 					if ping -c 1 -q 129.94.172.235 || ping -c 1 -q 203.2.75.132 || ping -c 1 -q 61.9.211.33
 					then
+						echo 'i:up' >$status_dir/ppp.message
 						sleep 60
 						ping_count=`expr $ping_count - 1`
 					else
@@ -51,7 +51,7 @@ do
 #		message "signal strength: `sed 5q </dev/ttyUSB1|grep CSQ:|sed 's/,.*//;s/.* //' & echo AT+CSQ >/dev/ttyUSB1`"  &
 #		sleep 10
 
-		if pppd defaultroute  updetach debug persist holdoff 60 call $ppp_name && ppp_up
+		if pppd defaultroute  updetach persist holdoff 60 call $ppp_name && ppp_up
 		then
 			message 'ppp running'
 			echo 'i:up' >$status_dir/ppp.message

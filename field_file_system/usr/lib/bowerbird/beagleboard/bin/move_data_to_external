@@ -91,8 +91,8 @@ then
 		then
 			# power up the hub, and the drive
 			$DPRINT powering up the usb hub and device
-			set_power on usbhub
-			set_power on usbhd
+			set_power on $sw_hub
+			set_power on $sw_disk
 			# wait a while to let them settle
 			sleep $external_power_settle_time
 		fi
