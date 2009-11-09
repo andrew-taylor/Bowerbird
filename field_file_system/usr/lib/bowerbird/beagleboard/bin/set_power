@@ -1,5 +1,5 @@
-#!/bin/bash
-
+#!/bin/sh
+. /etc/bowerbird/config/global_variables
 USAGE="Usage: `basename $0` [on|off] device"
 
 if [ $# -lt 2 ]
@@ -13,4 +13,5 @@ then
 fi
 
 # send the command to the IO AVR using logger
-logger -p local0.notice "^@^ AVR power $@"
+#logger -p local0.notice "$avr_prefix"power "$@"
+echo "${avr_prefix}power $@" >/dev/ttyS2

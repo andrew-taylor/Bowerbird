@@ -11,5 +11,5 @@
 #
 # By default this script does nothing.
 
-/usr/lib/bowerbird/beagleboard/bin/rc.local
+#/usr/lib/bowerbird/beagleboard/bin/rc.local
 exit 0
