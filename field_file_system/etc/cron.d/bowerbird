@@ -1,1 +1,2 @@
-03 12  * * * /usr/lib/bowerbird/beagleboard/bin/daily_cron_job
+# doesn't seem to be run
+#03 12  * * * /usr/lib/bowerbird/beagleboard/bin/daily_cron_job

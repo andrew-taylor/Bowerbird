@@ -1,8 +1,8 @@
 #!/bin/sh
 trap ''  1 2 3 7 13 15
 . /etc/bowerbird/config/global_variables
-#set -x
-#exec >>$log_dir/sound_capture_daemon 2>&1
+set -x
+exec >>$log_dir/sound_capture_daemon 2>&1
 cd /tmp/
 mkdir -p $data_dir
 chmod 777 $data_dir $data_dir/.. # sound_capture checks for this

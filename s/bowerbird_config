@@ -162,4 +162,4 @@ tty = /dev/ttyS2
 files = /var/lib/bowerbird/status/network_up:100000
 feed_seconds = 300
 granularity_seconds = 60
-startup_seconds = 300
+startup_seconds = 7200

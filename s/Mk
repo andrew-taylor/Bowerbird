@@ -1,7 +1,7 @@
 #ARCH=armel
 #COMPILER = /usr/bin/arm-ep9312-linux-gnueabi-gcc -I/usr/include
 #SUB_DIRECTORIES = util spectral_analysis localization filter
-SUB_DIRECTORIES = util spectral_analysis localization sound_capture
+SUB_DIRECTORIES = util spectral_analysis localization sound_capture beagle_watchdog
 COMPILE_TYPE ?= standard
 ARCH ?= $(shell uname -m|sed 's/^arm.*/arm/;s/.*86/x86/')
 T = binaries-$(ARCH)

@@ -1,0 +1,2 @@
+EXTERNAL_LIBS += -lm -lasound
+APPLICATIONS = beagle_watchdog.c

@@ -7,6 +7,7 @@ LOGGER=/usr/bin/logger
 VARIABLES_FILE=/etc/bowerbird/config/global_variables
 rsync_attempts=5 # default
 external_power=true # default
+external_power=false
 external_power_settle_time=30 # seconds
 
 if $DEBUG
@@ -165,7 +166,7 @@ then
 		# power down the hub, and the drive
 		# TODO don't power down the hub if someone else is using it
 		$DPRINT powering down the usb device #and hub
-		set_power off usbhd
+		#set_power off usbhd
 		#set_power off usbhub
 	fi
 fi
