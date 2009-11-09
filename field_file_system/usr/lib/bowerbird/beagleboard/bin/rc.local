@@ -11,6 +11,8 @@ set -x
 
 PATH=$PATH:/usr/lib/bowerbird/beagleboard/bin/
 
+mount -o remount,noatime /
+
 # turn off the dvi chip
 disable-dvi start
 
