@@ -1,0 +1,5 @@
+#!/bin/sh
+. /etc/bowerbird/config/global_variables
+#logger -p local0.notice "${avr_prefix}watchdog $*"
+echo  >/dev/ttyS2
+echo "${avr_prefix}watchdog $*" >/dev/ttyS2
