@@ -1,0 +1,15 @@
+#!/bin/sh
+. /etc/bowerbird/config/global_variables
+exec >>$log_dir/daily_cron_job 2>&1
+set -x
+touch /tmp/daily_cron_job
+umount $external_mount_point
+umount -f $external_mount_point
+mkdir -p $external_mount_point 
+set_power on $sw_disk
+sleep 30
+move_data_to_external
+umount $external_mount_point
+umount -f $external_mount_point
+sleep 5
+set_power off $sw_disk

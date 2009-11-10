@@ -1,6 +1,6 @@
 #!/bin/sh
 trap ''  1 2 3 7 13 15
-set -x
+#set -x
 #exec >>/tmp/rc_local.output 2>&1
 
 #mac_address=`ifconfig eth0|sed 's/ *$//;s/.* //;s/://g;q'|tr a-z A-Z`
@@ -38,20 +38,15 @@ then
 	/etc/init.d/ntp start
 	exit
 fi
-mkdir -p $status_dir
-mkdir -p $data_dir
+mkdir -p $log_dir  $status_dir  $data_dir
 rm -f $status_dir/*
 message 'bowerbird starting'
 
-set_power on audio
-set_power on nextg
-set_power on usb0
-set_power on usb1
+set_power off $sw_disk
+#set_power on $sw_external
 
 setsid ppp_daemon &
-setsid disk_space_daemon  &
+#setsid disk_space_daemon  &
 setsid run_sound_capture  &
-
+setsid beagle_watchdog &
 lsusb
-#/sbin/getty -L ttyS0 115200 vt100 &
-beagle_watchdog -ofiles:$network_alive_file:100000

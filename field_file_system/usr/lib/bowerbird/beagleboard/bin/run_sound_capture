@@ -1,0 +1,34 @@
+
+#!/bin/sh
+trap ''  1 2 3 7 13 15
+. /etc/bowerbird/config/global_variables
+set -x
+exec >>$log_dir/sound_capture_daemon 2>&1
+cd /tmp/
+mkdir -p $data_dir
+chmod 777 $data_dir $data_dir/.. # sound_capture checks for this
+modprobe snd-usb-audio
+message "`cat /proc/asound/cards`"
+amixer -c $sound_card_number sset 'Mic 4 Channel Selector',0 'Mic 1a+2a+3a+4a' && message 'mixer succeeded'
+amixer -c $sound_card_number sset '4 Channels',0 100%,100%,100%,100%
+
+unsuccessful_power_cycles=0
+while test $unsuccessful_power_cycles -lt 100
+do
+	set_power on $sw_audio
+	sleep 5
+    failures=0
+    while test $failures -lt 30
+    do
+		message 'Starting sound capture'
+		sound_capture -v1 -C /etc/bowerbird/bowerbird_config
+		message "Sound capture failed"
+		failure=$((failures + 1))
+	done
+	unsuccessful_power_cycles=$((unsuccessful_power_cycles + 1))
+	set_power off $sw_audio
+	sleep 10
+done
+message 'Sound capture abandoned'
+sleep 7200
+do_reboot

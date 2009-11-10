@@ -16,9 +16,7 @@
 int main(int argc, char *argv[]) 
 {
 	debug_stream = stderr;
-	verbosity = PARAMETER_PARSING_VERBOSITY; 
 	initialize(argc, argv, SOUND_CAPTURE_GROUP, VERSION, "");
-	verbosity = PROGRAM_VERBOSITY;
 	
 	run();
 	return 0;
@@ -75,7 +73,7 @@ void run(void)
 //		}
 		char file_dir[PATH_MAX];
 		snprintf(file_dir, sizeof(file_dir), FILE_DIR_FORMAT, 1900 + local->tm_year, local->tm_mon, local->tm_mday);
-		if (ensure_directory_exists(data_dir, file_dir, 0))
+		if (ensure_directory_exists(data_dir, file_dir, 20))
 			exit(1);
 
 		char details_pathname[PATH_MAX];
@@ -93,14 +91,14 @@ initialise_data_storage(const char *file_root_dir)
 	char *data_path, *data_dir;
    
 	// ensure root directory exists
-	if (ensure_directory_exists(file_root_dir, DATA_ROOT, 0))
+	if (ensure_directory_exists(file_root_dir, DATA_ROOT, 20))
 		exit(1);
 
 	data_path = salloc(PATH_MAX);
 	snprintf(data_path, PATH_MAX, "%s/%s", file_root_dir, DATA_ROOT);
 	
 	// ensure data directory exists
-	if (ensure_directory_exists(data_path, DATA_DIR, 0))
+	if (ensure_directory_exists(data_path, DATA_DIR, 20))
 		exit(1);
 
 	data_dir = salloc(PATH_MAX);
@@ -251,7 +249,7 @@ write_externally_compressed_data(char *wav_header, int16_t *buffer, int n_channe
 	}
 	char command[PATH_MAX+256];
 	snprintf(command, sizeof command, compressor, pathname);
-	dp(1, "command='%s'\n", command);
+	dp(20, "command='%s'\n", command);
 	FILE *f = popen(command, "w");
 	assert(f);
 	if (fwrite(wav_header, WAV_HEADER_SIZE, 1, f) != 1)
@@ -286,13 +284,13 @@ fork_write_cmd(char *wav_header, int16_t *buffer, int n_channels, int n_frames, 
 	errno = 0;
 	if (nice(10) == -1 && errno != 0)
 		die("nice failed");
-	dp(1,"child starts\n");
+	dp(20,"child starts\n");
 	for (int i=3; i < 30;i++)
 		close(i);
 
 	write_cmd(wav_header, buffer, n_channels, n_frames, sampling_rate, pathname);
 
-	dp(1,"child complete\n");
+	dp(20,"child complete\n");
 	exit(0);
 }
 
