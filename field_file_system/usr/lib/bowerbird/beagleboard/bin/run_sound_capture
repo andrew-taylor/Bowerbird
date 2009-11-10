@@ -1,3 +1,4 @@
+
 #!/bin/sh
 trap ''  1 2 3 7 13 15
 . /etc/bowerbird/config/global_variables
@@ -20,7 +21,7 @@ do
     while test $failures -lt 30
     do
 		message 'Starting sound capture'
-		sound_capture -C /etc/bowerbird/bowerbird_config
+		sound_capture -v1 -C /etc/bowerbird/bowerbird_config
 		message "Sound capture failed"
 		failure=$((failures + 1))
 	done

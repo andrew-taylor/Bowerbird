@@ -19,3 +19,4 @@ sw_disk=4
 sw_nextg=5
 sw_external=6
 avr_prefix=avr://
+sound_card_number=1

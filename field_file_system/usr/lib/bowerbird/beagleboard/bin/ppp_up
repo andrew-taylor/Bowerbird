@@ -2,7 +2,7 @@
 . /etc/bowerbird/config/global_variables
 external_ip=`wget -q -O- http://glebe.homelinux.org/cgi-bin/ip.cgi?$external_hostname` || exit 1
 test -n "$external_ip"|| exit 1
-ez-ipupdate -w -u litoria:caerulea -h $external_hostname -S dyndns -a $external_ip -b /var/ip
+ez-ipupdate -q -w -u litoria:caerulea -h $external_hostname -S dyndns -a $external_ip -b /var/ip
 touch $network_alive_file
 exit 0
 
