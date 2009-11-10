@@ -10,8 +10,8 @@ PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 # m h dom mon dow user	command
 17 *	* * *	root    cd / && run-parts --report /etc/cron.hourly
 # debugging
-00,10,20,30,40,50 *	* * *	root	test -x /usr/sbin/anacron || ( cd / && run-parts --report /usr/lib/bowerbird/beagleboard/bin/daily_cron_job )
-00 12	* * *	root	test -x /usr/sbin/anacron || ( cd / && run-parts --report /usr/lib/bowerbird/beagleboard/bin/daily_cron_job )
+00,10,15,20,30,40,50 *	* * *	root	/usr/lib/bowerbird/beagleboard/bin/daily_cron_job
+00 12	* * *	root	/usr/lib/bowerbird/beagleboard/bin/daily_cron_job
 25 12	* * *	root	test -x /usr/sbin/anacron || ( cd / && run-parts --report /etc/cron.daily )
 47 12	* * 7	root	test -x /usr/sbin/anacron || ( cd / && run-parts --report /etc/cron.weekly )
 52 12	1 * *	root	test -x /usr/sbin/anacron || ( cd / && run-parts --report /etc/cron.monthly )

@@ -153,3 +153,13 @@ monkeys =  9:00 -  11:00
 badgers = R -8:00 - S -5:00
 bears =  6:00 -  6:30
 frogs = R -4:00 - R -2:00
+
+[beagleboard_watchdog]
+prefix = avr://
+feed = watchdog pulse
+reboot = REALLY reset the Beagleboard
+tty = /dev/ttyS2
+files = /var/lib/bowerbird/status/network_up:100000
+feed_seconds = 300
+granularity_seconds = 60
+startup_seconds = 7200

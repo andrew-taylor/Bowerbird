@@ -38,18 +38,15 @@ then
 	/etc/init.d/ntp start
 	exit
 fi
-mkdir -p $status_dir
-mkdir -p $data_dir
+mkdir -p $log_dir  $status_dir  $data_dir
 rm -f $status_dir/*
 message 'bowerbird starting'
 
 set_power off $sw_disk
-set_power off $sw_external
+#set_power on $sw_external
 
 setsid ppp_daemon &
-setsid disk_space_daemon  &
+#setsid disk_space_daemon  &
 setsid run_sound_capture  &
-
+setsid beagle_watchdog &
 lsusb
-#/sbin/getty -L ttyS0 115200 vt100 &
-beagle_watchdog -obowerbird:files:$network_alive_file:100000

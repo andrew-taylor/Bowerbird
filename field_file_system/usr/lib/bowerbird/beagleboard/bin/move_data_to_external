@@ -144,14 +144,14 @@ done
 
 
 # clean up empty directories (rsync only removes files)
-for dir in $sound_file_dir/data/*
-do
-	if [ `ls $dir|wc -l` -eq 0 ]
-	then
-		$DPRINT removing empty directory: $dir
-		rmdir $dir
-	fi
-done
+#for dir in $sound_file_dir/data/*
+#do
+#	if [ `ls $dir|wc -l` -eq 0 ]
+#	then
+#		$DPRINT removing empty directory: $dir
+#		rmdir $dir
+#	fi
+#done
 
 
 # unmount external device again if we mounted it

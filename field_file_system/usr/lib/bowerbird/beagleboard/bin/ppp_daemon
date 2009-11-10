@@ -61,7 +61,7 @@ do
 			ssh -R 11122:$ip:22 -R 11123:$ip:23 -N -n $remote_account &
 			ssh $remote_account ./execute_software_update
 			ssh $remote_account ./local_software_update|sh -x
-			message "connected to `$remote_account|sed 's/.*@//'`"
+			message "completed remote ssh"
 			sleep 300
 #			sleep 7200
 		else
