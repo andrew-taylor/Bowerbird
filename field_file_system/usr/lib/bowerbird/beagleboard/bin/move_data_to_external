@@ -5,10 +5,13 @@ DEBUG=true
 
 LOGGER=/usr/bin/logger
 VARIABLES_FILE=/etc/bowerbird/config/global_variables
-rsync_attempts=5 # default
-external_power=true # default
-external_power=false
-external_power_settle_time=30 # seconds
+RSYNC_ATTEMPTS=5 # default
+DELETE_FILES_WHEN_FULL=1
+FULL_THRESHOLD=99
+FILES_TO_DELETE_WHEN_FULL=150
+EXTERNAL_POWER=true # default
+EXTERNAL_POWER=false
+EXTERNAL_POWER_SETTLE_TIME=30 # seconds
 
 if $DEBUG
 then
@@ -88,14 +91,14 @@ then
 	if [ "$needs_mount" ]
 	then
 		# if configured, (and not already mounted) power up the external device
-		if $external_power
+		if $EXTERNAL_POWER
 		then
 			# power up the hub, and the drive
 			$DPRINT powering up the usb hub and device
 			set_power on $sw_hub
 			set_power on $sw_disk
 			# wait a while to let them settle
-			sleep $external_power_settle_time
+			sleep $EXTERNAL_POWER_SETTLE_TIME
 		fi
 
 		$DPRINT mounting $mount_point
@@ -125,7 +128,7 @@ today=`date +%Y_%m_%d`
 # NOTE: trailing slashes are added to make sure both get treated the same (rsync is picky)
 rsync_rc=-1
 attempt=0
-until [ $rsync_rc -eq 0 -o $attempt -ge $rsync_attempts ]
+until [ $rsync_rc -eq 0 -o $attempt -ge $RSYNC_ATTEMPTS ]
 do
 	attempt=$(($attempt+1))
 	$DPRINT "transferring files (attempt $attempt)..."
@@ -136,6 +139,18 @@ do
 	if [ $rsync_rc -ne 0 ]
 	then
 		$PRINT "Transfer failed: $rsync_out"
+
+		# if transfer failed because disk is full, then clear some space
+		if [ "$DELETE_FILES_WHEN_FULL" ]
+		then
+			df=`df $external_sound_file_dir|sed '1d;s/%.*//;s/.* //'`
+			if [ "$df" -ge "$FULL_THRESHOLD" ]
+			then
+				find $external_sound_file_dir -name '*.wv' \
+					| sort | sed ${FILES_TO_DELETE_WHEN_FULL}q \
+					| xargs -r rm
+			fi
+		fi
 	else
 		$PRINT "Transfer succeeded: `echo $rsync_out | sed 's/.*\(sent [0-9]* bytes.*\)$/\1/'`"
 	fi
@@ -161,7 +176,7 @@ then
 	umount $mount_point
 
 	# if configured, power down the external device (unless it was already mounted)
-	if $external_power
+	if $EXTERNAL_POWER
 	then
 		# power down the hub, and the drive
 		# TODO don't power down the hub if someone else is using it
