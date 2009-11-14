@@ -1,12 +1,11 @@
-GLOBAL_FUNCTIONS = general.c gnuplot.c xv.c parameter.c sound_io.c approximate_log.c option.c memory.c schedule.c
-LOCAL_FUNCTIONS = 
+GLOBAL_FUNCTIONS = general.c gnuplot.c xv.c parameter.c	sound_io.c approximate_log.c memory.c
 EXTERNAL_LIBS += -lsndfile -lwavpack -lpng
+APPLICATIONS = zero_channel.c
 
 test: $T/util-sound_io_test $T/util-sound_io_test-debug
 	mkdir -p util/test_data
-	util-sound_io_test-debug -V1 test_sound_files/ground_parrot_calls.wav test_sound_files/ground_parrot_calls.wv util/test_data/tmp.wav util/test_data/tmp.wv util/test_data/tmp1.wav util/test_data/tmp_output.wav <test_sound_files/ground_parrot_calls.wav >util/test_data/tmp_output.wav
+	util-sound_io_test-debug -V30 test_sound_files/ground_parrot_calls.wav test_sound_files/ground_parrot_calls.wv util/test_data/tmp.wav util/test_data/tmp.wv util/test_data/tmp1.wav util/test_data/tmp_output.wav <test_sound_files/ground_parrot_calls.wav >util/test_data/tmp_output.wav
 	util-sound_io_test-debug test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wav	test_sound_files/barren_grounds0_2008_03_19_1205915224.787271@90.wv  util/test_data/tmp.wav util/test_data/tmp.wv
-	@rm -f util/test_data/tmp.*
-# 	cd util/test_data && util-parameter_test && valgrind -q  '--error-exitcode=1' util-parameter_test 
-# 	@echo /util/parameter parameter OK
+	cd util/test_data && util-parameter_test && valgrind -q  '--error-exitcode=1' util-parameter_test 
+	@echo /util/parameter parameter OK
 #	gnuplot_test

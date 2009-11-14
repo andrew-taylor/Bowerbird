@@ -1,6 +1,6 @@
 GLOBAL_FUNCTIONS = power.c estimate_sinusoid_parameters.c track_sinusoids.c sinusoid.c peaks.c track.c
 LOCAL_FUNCTIONS = kiss_fft.c kiss_fftr.c
-APPLICATIONS = extract_calls.c sound_to_image.c silence_removal.c score_calls.c
+APPLICATIONS = extract_calls.c sound_to_image.c silence_removal.c score_calls.c score_channels.c
 EXTERNAL_LIBS += -lfftw3 -lgsl -lgslcblas -lsqlite3
 
 score_calls:$T/score_calls $T/score_calls-debug $T/score_calls-profile

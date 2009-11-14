@@ -79,7 +79,7 @@ max_sound_buffer_size = 2400000
 # seconds
 prefix_seconds = 0.1
 suffix_seconds = 0.1
-ignore_channel_bitmap = 2
+ignore_channel_bitmap = 0
 
 [database]
 start_cmd = create table if not exists sources (source_id INTEGER PRIMARY KEYname TEXTsampling_rate DOUBLEfft_n_bins INTEGERfft_step_size INTEGERfft_window_size INTEGER);create table if not exists units (unit_id INTEGER PRIMARY KEYsource_id INTEGERchannel INTEGERfirst_frame INTEGERn_frames INTEGERfrequency BLOBamplitude BLOBphase BLOB);create index if not exists unit_source_index on units(source_id);create index if not exists source_name_index on sources(name);begin transaction;
