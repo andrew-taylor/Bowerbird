@@ -1,4 +1,4 @@
 import re
-time_pattern = '([SR]?) *([+-]?[0-9]{1,2}):([0-9]{2})'
-schedule_pattern = '^ *%s *- *%s *$' % (time_pattern, time_pattern)
-schedule_re = re.compile(schedule_pattern)
+TIME_PATTERN = '([SR]?) *([+-]?[0-9]{1,2}):([0-9]{2})'
+SCHEDULE_PATTERN = '^ *%s *- *%s *$' % (TIME_PATTERN, TIME_PATTERN)
+SCHEDULE_RE = re.compile(SCHEDULE_PATTERN)

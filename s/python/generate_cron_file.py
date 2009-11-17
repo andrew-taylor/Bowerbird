@@ -8,9 +8,9 @@
 import sys, re, time
 from datetime import datetime, timedelta
 from math import floor
-from sun import Sun
+from bowerbird.sun import Sun
 from bowerbird.configobj import ConfigObj
-from bowerbird.common import schedule_re
+from bowerbird.common import SCHEDULE_RE
 
 # location of configuration file
 DEFAULT_USER = 'root' # the user to execute the command to put in crontab
@@ -28,7 +28,7 @@ CONFIG_USER = 'schedule_user'
 CONFIG_DAYS_KEY = 'schedule_days'
 
 SCHEDULE_SECTION = 'scheduled_capture'
-TIMESPEC_RE = schedule_re
+TIMESPEC_RE = SCHEDULE_RE
 
 # check value is a valid array of recording times
 def parseRecordingSpec(key, value):

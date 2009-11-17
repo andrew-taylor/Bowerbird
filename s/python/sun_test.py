@@ -3,7 +3,7 @@
 # for comparison with sunrise & set times 
 
 from math import floor
-from sun import Sun
+from bowerbird.sun import Sun
 
 utc_offset = 10
 year = 2009

@@ -4,7 +4,7 @@
       xmlns:py="http://genshi.edgewall.org/">
 <xi:include href="layout.html" />
 <?python
-	from bowerbird.common import schedule_re, time_pattern
+	from bowerbird.common import SCHEDULE_RE, TIME_PATTERN
 ?>
 
 <py:def function="time_edit(name, value)">
@@ -14,7 +14,7 @@
 					+ '<input name="${name}" class="schedule_time required mytime" type="text" value="${value}" />'
 </py:def>
 <py:def function="time_js_expression(arg)">
-/^${time_pattern}$/.test(${arg});
+/^${TIME_PATTERN}$/.test(${arg});
 </py:def>
 
 <head>
@@ -86,7 +86,7 @@
 			<th class="schedule">Finish Time</th></tr>
 		<py:for each="i,label in enumerate(values)">
 			<?python
-			match = schedule_re.match(values[label])
+			match = SCHEDULE_RE.match(values[label])
 			if match:
 				(s_type,s_hour,s_min,f_type,f_hour,f_min) = match.groups()
 				s = "%s %d:%02d" % (s_type, int(s_hour), int(s_min))

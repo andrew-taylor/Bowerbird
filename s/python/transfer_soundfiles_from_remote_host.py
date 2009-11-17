@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import os,re,bisect,heapq,subprocess
 from optparse import OptionParser
-from sun import Sun
+from bowerbird.sun import Sun
 
 def find_best_sound_files_to_transfer(remote_files, local_files, how_many_files=10):
     """ choose best files to transfer """
