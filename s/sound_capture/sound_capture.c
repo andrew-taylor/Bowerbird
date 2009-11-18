@@ -81,6 +81,9 @@ void run(void)
 		snprintf(details_pathname, sizeof(details_pathname), FILE_NAME_FORMAT, data_dir, file_dir, local->tm_hour, local->tm_min, local->tm_sec, (uint32_t)tv.tv_usec, details_ext);
 		snprintf(pathname, sizeof(pathname), FILE_NAME_FORMAT, data_dir, file_dir, local->tm_hour, local->tm_min, local->tm_sec, (uint32_t)tv.tv_usec, file_ext);
 		write_data(buffer, n_channels, length, sampling_rate, pathname, details_pathname, tv.tv_sec, (uint32_t)tv.tv_usec);
+        if (length < buffer_frames)
+			die("too few frames returned(%d) - %d requested", length, buffer_frames);
+            
 	}
 }
 

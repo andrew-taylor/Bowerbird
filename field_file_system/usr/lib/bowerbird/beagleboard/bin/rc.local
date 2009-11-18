@@ -43,7 +43,8 @@ rm -f $status_dir/*
 message 'bowerbird starting'
 
 set_power off $sw_disk
-#set_power on $sw_external
+set_power on $sw_external0
+set_power on $sw_external1
 
 setsid ppp_daemon &
 #setsid disk_space_daemon  &

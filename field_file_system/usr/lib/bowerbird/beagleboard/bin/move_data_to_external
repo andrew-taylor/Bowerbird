@@ -132,7 +132,8 @@ until [ $rsync_rc -eq 0 -o $attempt -ge $RSYNC_ATTEMPTS ]
 do
 	attempt=$(($attempt+1))
 	$DPRINT "transferring files (attempt $attempt)..."
-	rsync_out=`rsync -av --partial --remove-source-files --exclude=$today $sound_file_dir/ $external_sound_file_dir/`
+#	rsync_out=`rsync -av --partial --remove-source-files --exclude=$today $sound_file_dir/ $external_sound_file_dir/`
+	rsync_out=`rsync -av --partial --remove-source-files $sound_file_dir/ $external_sound_file_dir/`
 	rsync_rc=$?
 
 	# pass on output. If transfer failed, report it
@@ -140,7 +141,7 @@ do
 	then
 		$PRINT "Transfer failed: $rsync_out"
 
-		# if transfer failed because disk is full, then clear some space
+		## if transfer failed because disk is full, then clear some space
 		if [ "$DELETE_FILES_WHEN_FULL" ]
 		then
 			df=`df $external_sound_file_dir|sed '1d;s/%.*//;s/.* //'`

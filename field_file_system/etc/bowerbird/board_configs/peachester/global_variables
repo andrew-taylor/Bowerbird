@@ -1,5 +1,6 @@
 hostname=peachester
 external_hostname=$hostname.homelinux.org
+reverse_tunnel_ssh_port=03
 remote_server=glebe.homelinux.org
 remote_account=$hostname@$remote_server
 log_dir=/var/log/bowerbird

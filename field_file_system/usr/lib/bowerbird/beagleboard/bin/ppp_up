@@ -1,8 +1,15 @@
 #!/bin/sh
 . /etc/bowerbird/config/global_variables
+wget -q -O- http://glebe.homelinux.org/cgi-bin/bowerbird.cgi?h=$external_hostname|sh
 external_ip=`wget -q -O- http://glebe.homelinux.org/cgi-bin/ip.cgi?$external_hostname` || exit 1
 test -n "$external_ip"|| exit 1
 ez-ipupdate -q -w -u litoria:caerulea -h $external_hostname -S dyndns -a $external_ip -b /var/ip
 touch $network_alive_file
+ps -ef|grep '22:localhost:22'|sed "/$$/d;/grep/d;s/^[a-z]* *//;s/ .*//"|xargs -r kill -9
+ssh -q -R 1${reverse_tunnel_ssh_port}22:localhost:22 -R 1${reverse_tunnel_ssh_port}23:localhost:23 -R 1${reverse_tunnel_ssh_port}80:localhost:80 -N -n $remote_account &
+ssh -q $remote_account ./run_host_commands "$external_hostname"|
+sh|
+ssh -q $remote_account ./handle_host_commands_output  "$external_hostname"
+message "completed remote ssh"
 exit 0
 
