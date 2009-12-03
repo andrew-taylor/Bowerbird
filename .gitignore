@@ -6,3 +6,4 @@ s/binaries-*
 s/util/test_data
 s/Makefile
 s/python/web_interface/static/sonograms/*
+miscellaneous_source/usbreset

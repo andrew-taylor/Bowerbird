@@ -1,4 +1,4 @@
 #!/bin/bash
 
-echo To start web interface, run:
-echo PYTHON_PATH=.. python controller.py
+#echo To start web interface, run:
+PYTHONPATH=.. python controller.py
