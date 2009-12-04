@@ -30,6 +30,8 @@
 <body>
 <h1>Configuration</h1>
 
+<h3 py:if="error" class="error">${error}</h3>
+
 <form action="" method="post">
 
 <py:for each="section in values.keys()">

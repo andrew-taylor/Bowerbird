@@ -189,5 +189,6 @@ input.call_navigation {
 }
 
 .error {
-	background-color: yellow
+	color: black;
+	background-color: red
 }

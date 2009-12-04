@@ -117,10 +117,17 @@ class ConfigParser(object):
 		self.cache[K_OBJ][SCHEDULE_SECTION].clear()
 
 	def save_to_file(self):
-		# update file
-		with open(self.filename, 'w') as save_file:
-			self.cache[K_OBJ].write(save_file)
-	
+		try:
+			# update file
+			with open(self.filename, 'w') as save_file:
+				self.cache[K_OBJ].write(save_file)
+		except:
+			# if this fails we should re-read the file to keep them synced
+			self.cache[K_OBJ].reload()
+			self.cache[K_TIME] = os.stat(self.cache[K_OBJ].filename).st_mtime
+			raise
+
+
 	def read_from_file(self, filename, cache):
 		if cache and cache.has_key(K_OBJ):
 			# if already loaded and file hasn't changed then use cached value

@@ -1,4 +1,5 @@
 import cherrypy, os, sys
+import errno
 from ConfigParser import RawConfigParser
 from lib import storage, ajax, template
 from lib.odict import OrderedDict
@@ -6,30 +7,49 @@ from lib.sonogram import generateSonogram
 from lib.configparser import ConfigParser
 from genshi.filters import HTMLFormFiller
 
+# web interface config file
 WEB_CONFIG = 'bowerbird.conf'
+# parameters for parsing contents of web interface config file
 CONFIG_KEY = 'bowerbird_config'
 CONFIG_DEFAULTS_KEY = 'bowerbird_config_defaults'
 DATABASE_KEY = 'database'
+REQUIRED_KEYS = [CONFIG_KEY, DATABASE_KEY]
+
+# general configuration
 FREQUENCY_SCALES = ['Linear', 'Logarithmic']
 DEFAULT_FFT_STEP = 256 # in milliseconds
 SONOGRAM_DIRECTORY = os.path.join("static", "sonograms")
+
+# parameters for parsing the contents of the bowerbird config file
 STATION_SECTION_NAME = 'station_information'
 STATION_NAME_KEY = 'name'
 SCHEDULE_SECTION = 'scheduled_capture'
 
 
 class Root(object):
-
 	def __init__(self, db):
 		self.db = db
+
+		config = cherrypy.config[CONFIG_KEY]
+		if not os.path.exists(config):
+			raise IOError(errno.ENOENT, "Config file '%s' not found" % config)
+
 		if cherrypy.config.has_key(CONFIG_DEFAULTS_KEY):
 			defaults = cherrypy.config[CONFIG_DEFAULTS_KEY]
+			# if defaults file doesn't exist, then don't use it
+			if not os.path.exists(defaults):
+				sys.stderr.write("Warning: configured defaults file "
+						" '%s' doesn't exist\n" % defaults)
+				defaults = None
 		else:
 			defaults = None
-		self.conf = ConfigParser(cherrypy.config[CONFIG_KEY], defaults)
+
+		self.conf = ConfigParser(config, defaults)
+
 
 	def get_station_name(self):
 		return self.conf.get_value2(STATION_SECTION_NAME, STATION_NAME_KEY)
+
 
 	@cherrypy.expose
 	@template.output('index.html')
@@ -39,21 +59,26 @@ class Root(object):
 	@cherrypy.expose
 	@template.output('config.html')
 	def config(self, load_defaults=False, cancel=False, apply=False, **data):
+		error = None
 		if cancel:
 			raise cherrypy.HTTPRedirect('/')
 		elif apply:
 			for key in data:
 				self.conf.set_value1(key, data[key])
 			# update file
-			self.conf.save_to_file()
-			# bounce back to homepage
-			raise cherrypy.HTTPRedirect('/')
+			try:
+				self.conf.save_to_file()
+				# bounce back to homepage
+				raise cherrypy.HTTPRedirect('/')
+			except IOError as e:
+				# if save failed, put up error message and stay on the page
+				error = "Error saving: %s" % e
 
 		if load_defaults:
 			values = self.conf.get_default_values()
 		else:
 			values = self.conf.get_values()
-		return template.render(station=self.get_station_name(),
+		return template.render(station=self.get_station_name(), error=error,
 				using_defaults=load_defaults, values=values,
 				file=self.conf.filename, 
 				defaults_file=self.conf.defaults_filename)
@@ -62,21 +87,18 @@ class Root(object):
 	@template.output('schedule.html')
 	def schedule(self, load_defaults=None, cancel=None, apply=None, add=None,
 			**data):
-		
+		error = None
 		if cancel:
 			raise cherrypy.HTTPRedirect('/')
 		elif apply:
 			# keep track of which schedules no longer exist
 			schedules_to_delete = self.conf.get_schedules()
-			print "sched orig ",schedules_to_delete
 			for key in data:
 				# each schedule comes in three parts: ?.label, ?.start, ?.finish
 				if key.endswith('label'):
 					id = key.split('.')[0]
 					start_key = "%s.start" % id
 					finish_key = "%s.finish" % id
-					print "%s, id %s, keys %s, %s" \
-							% (data[key], id, start_key, finish_key)
 					if data.has_key(start_key) and data.has_key(finish_key):
 						schedule_key = data[key]
 						schedule_value = "%s - %s" \
@@ -84,16 +106,18 @@ class Root(object):
 						self.conf.set_schedule(schedule_key, schedule_value)
 						if schedules_to_delete.has_key(data[key]):
 							del(schedules_to_delete[data[key]])
-							print "sched del  ",schedules_to_delete
-						print "schedules  ",self.conf.get_schedules()
 
 			# delete obsolete schedules
 			for schedule_key in schedules_to_delete:
 				self.conf.delete_schedule(schedule_key)
 			# update file
-			self.conf.save_to_file()
-			# bounce back to homepage
-			raise cherrypy.HTTPRedirect('/')
+			try:
+				self.conf.save_to_file()
+				# bounce back to homepage
+				raise cherrypy.HTTPRedirect('/')
+			except IOError as e:
+				# if save failed, put up error message and stay on the page
+				error = "Error saving: %s" % e
 
 		elif not add:
 			# this should only happen when a remove button has been clicked
@@ -112,7 +136,7 @@ class Root(object):
 		else:
 			values = self.conf.get_schedules()
 
-		return template.render(station=self.get_station_name(),
+		return template.render(station=self.get_station_name(), error=error,
 				using_defaults=load_defaults, values=values, add=add,
 				section=SCHEDULE_SECTION, file=self.conf.filename, 
 				defaults_file=self.conf.defaults_filename)
@@ -121,8 +145,9 @@ class Root(object):
 	@cherrypy.expose
 	@template.output('categories.html')
 	def categories(self, sort='label', sort_order='asc', **ignored):
-		return template.render(station=self.get_station_name(), \
-				categories=self.db.getCategories(sort, sort_order),
+		categories_var = self.db.getCategories(sort, sort_order)
+		return template.render(station=self.get_station_name(),
+				categories=categories_var,
 				sort=sort, sort_order=sort_order)
 
 	@cherrypy.expose
@@ -197,8 +222,7 @@ def loadWebConfig():
 			'tools.staticdir.root': os.path.abspath(os.path.dirname(__file__)),
 			})
 
-	required_keys = [CONFIG_KEY, DATABASE_KEY]
-	for key in required_keys:
+	for key in REQUIRED_KEYS:
 		if not cherrypy.config.has_key(key):
 			sys.stderr.write('Web config file "%s" is missing definition for "%s"\n'
 					% (WEB_CONFIG, key))
@@ -213,16 +237,32 @@ def main(args):
 		sys.exit(1)
 
 	# initialise storage
-	db = storage.Storage(cherrypy.config[DATABASE_KEY])
+	database_file = cherrypy.config[DATABASE_KEY]
+	if not os.path.exists(database_file):
+		sys.stderr.write('Warning: configured database file '
+				'"%s" does not exist. Creating a new one...\n'
+				% database_file)
+	db = storage.Storage(database_file)
+	# make sure that database has key tables
+	if not db.hasRequiredTables():
+		sys.stderr.write('Warning: configured database file '
+				'"%s" missing required tables. Creating them...\n'
+				% database_file)
+		db.createRequiredTables()
 
 	cherrypy.engine.subscribe('stop_thread', db.stop)
 
-	cherrypy.tree.mount(Root(db), '/', {
-		'/media': {
-			'tools.staticdir.on': True,
-			'tools.staticdir.dir': 'static'
-		}
-	})
+	try:
+		cherrypy.tree.mount(Root(db), '/', {
+			'/media': {
+				'tools.staticdir.on': True,
+				'tools.staticdir.dir': 'static'
+			}
+		})
+	except IOError as e:
+		sys.stderr.write('Error: %s.\n' % e);
+		sys.exit(1)
+
 	cherrypy.engine.start()
 	cherrypy.engine.block()
 

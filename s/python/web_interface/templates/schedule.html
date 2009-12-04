@@ -78,6 +78,8 @@
 <body>
 <h1>Scheduled Capture</h1>
 
+<h3 py:if="error" class="error">${error}</h3>
+
 <form id="scheduleForm" action="" method="post">
 	<table class="schedule">
 		<tr>
@@ -91,12 +93,12 @@
 				(s_type,s_hour,s_min,f_type,f_hour,f_min) = match.groups()
 				s = "%s %d:%02d" % (s_type, int(s_hour), int(s_min))
 				f = "%s %d:%02d" % (f_type, int(f_hour), int(f_min))
-				error = None
+				schedule_error = None
 				label_attr = {}
 			else:
 				s_type = None;s_hour = None;s_min = None; s = 0
 				f_type = None;f_hour = None;f_min = None; f = 0
-				error = "Invalid schedule: %s" % values[label]
+				schedule_error = "Invalid schedule: %s" % values[label]
 				label_attr = dict(rowspan=2)
 			?>
 			<tr class="schedule" id="${i}">
@@ -112,8 +114,8 @@
 				</td>
 			</tr>
 			<!--! display error if there was one -->
-			<tr py:if="error">
-				<td colspan="2" class="schedule_error">${error}</td>
+			<tr py:if="schedule_error">
+				<td colspan="2" class="schedule_error">${schedule_error}</td>
 			</tr>
 		</py:for>
 
@@ -137,7 +139,8 @@
 <p>
 <!--! only show load defaults button if defaults file has been specified -->
 <input py:if="defaults_file" name="load_defaults" value="Load Defaults" type="submit" />
-<input name="cancel" value="Cancel" type="submit" />
+<!--! The class="cancel" keeps the cancel button enabled even when the form doesn't validate -->
+<input name="cancel" class="cancel" value="Cancel" type="submit" />
 <input name="apply" value="Apply Changes" type="submit" /> 
 </p>
 </form>
