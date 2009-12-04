@@ -78,7 +78,7 @@ class Storage(Thread):
 			query = self.SqlQuery(commands)
 			self.query_queue.put(query)
 			response = query.response.get()
-			if response and response[-1].has_key(self.ERROR_KEY):
+			if response and self.ERROR_KEY in response[-1].keys():
 				raise response[-1][self.ERROR_KEY]
 			return response
 
