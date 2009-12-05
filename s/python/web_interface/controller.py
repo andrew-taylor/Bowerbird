@@ -1,4 +1,4 @@
-import cherrypy, os, sys
+import cherrypy, os, sys, shutil
 import errno
 from ConfigParser import RawConfigParser
 from lib import storage, ajax, template
@@ -14,6 +14,7 @@ CONFIG_KEY = 'bowerbird_config'
 CONFIG_DEFAULTS_KEY = 'bowerbird_config_defaults'
 DATABASE_KEY = 'database'
 REQUIRED_KEYS = [CONFIG_KEY, DATABASE_KEY]
+CONFIG_CACHE_PATH = 'config/current_config'
 
 # general configuration
 FREQUENCY_SCALES = ['Linear', 'Logarithmic']
@@ -27,8 +28,9 @@ SCHEDULE_SECTION = 'scheduled_capture'
 
 
 class Root(object):
-	def __init__(self, db):
+	def __init__(self, db, path):
 		self.db = db
+		self.path = path
 
 		config = cherrypy.config[CONFIG_KEY]
 		if not os.path.exists(config):
@@ -50,7 +52,6 @@ class Root(object):
 	def get_station_name(self):
 		return self.conf.get_value2(STATION_SECTION_NAME, STATION_NAME_KEY)
 
-
 	@cherrypy.expose
 	@template.output('index.html')
 	def index(self, **ignored):
@@ -58,10 +59,19 @@ class Root(object):
 
 	@cherrypy.expose
 	@template.output('config.html')
-	def config(self, load_defaults=False, cancel=False, apply=False, **data):
+	def config(self, load_defaults=False, cancel=False, apply=False, 
+			export_config=False, new_config=None, import_config=False, **data):
 		error = None
 		if cancel:
 			raise cherrypy.HTTPRedirect('/')
+		elif export_config:
+			# use cherrypy utility to push the file for download. This also means
+			# that we don't have to move the config file into the web-accessible
+			# filesystem hierarchy
+			return cherrypy.lib.static.serve_file(
+					os.path.realpath(self.conf.filename), 
+					"application/x-download", "attachment",
+					os.path.basename(self.conf.filename))
 		elif apply:
 			for key in data:
 				self.conf.set_value1(key, data[key])
@@ -72,11 +82,23 @@ class Root(object):
 				raise cherrypy.HTTPRedirect('/')
 			except IOError as e:
 				# if save failed, put up error message and stay on the page
-				error = "Error saving: %s" % e
+				error = 'Error saving: %s' % e
 
+		values = None
 		if load_defaults:
 			values = self.conf.get_default_values()
-		else:
+		elif import_config:
+			if new_config.filename:
+				print 'got new config called', new_config.filename
+				try:
+					values = self.conf.parse_file(new_config.file)
+				except Exception as e:
+					values = None
+					error = 'Unable to parse config file: "%s"' % e
+			else:
+				error = 'No filename provided for config import'
+
+		if not values:
 			values = self.conf.get_values()
 		return template.render(station=self.get_station_name(), error=error,
 				using_defaults=load_defaults, values=values,
@@ -252,8 +274,10 @@ def main(args):
 
 	cherrypy.engine.subscribe('stop_thread', db.stop)
 
+	path = os.path.dirname(os.path.realpath(args[0]))
+
 	try:
-		cherrypy.tree.mount(Root(db), '/', {
+		cherrypy.tree.mount(Root(db, path), '/', {
 			'/media': {
 				'tools.staticdir.on': True,
 				'tools.staticdir.dir': 'static'

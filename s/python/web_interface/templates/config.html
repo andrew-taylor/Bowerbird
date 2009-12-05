@@ -32,7 +32,7 @@
 
 <h3 py:if="error" class="error">${error}</h3>
 
-<form action="" method="post">
+<form name="edit" action="" method="post">
 
 <py:for each="section in values.keys()">
 <div py:if="section != 'scheduled_capture'">
@@ -76,14 +76,35 @@
 <input name="cancel" value="Cancel" type="submit" />
 <input name="apply" value="Apply Changes" type="submit" /> 
 </p>
-</form>
 
-<p py:if="defaults_file">
+<p>
 Current values are stored in "${file}".<br/>
+<py:if test="defaults_file">
 To update the defaults, change the values in "${defaults_file}".<br/>
+</py:if>
 To change the descriptions of the sections &amp; parameters, edit the
 comments in the config file (following examples &amp; descriptions
 within).
+</p>
+</form>
+
+<p>
+<form name="export" action="" method="post">
+To save the current configuration, click on this button.
+<br />
+<input name="export_config" value="Export Current Config" type="submit" />
+</form>
+</p>
+
+<p>
+<form name="import" action="" method="post" enctype="multipart/form-data">
+To upload a new configuration, choose the file below, and click the Import button.
+<br />
+<strong>Note</strong>: This will just upload the config. You need to click the
+"Apply Changes" button (on the next page) to actually save the new values.
+<input name="new_config" type="file" />
+<input name="import_config" value="Import New Config" type="submit" />
+</form>
 </p>
 </body>
 </html>

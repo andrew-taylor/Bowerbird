@@ -127,7 +127,6 @@ class ConfigParser(object):
 			self.cache[K_TIME] = os.stat(self.cache[K_OBJ].filename).st_mtime
 			raise
 
-
 	def read_from_file(self, filename, cache):
 		if cache and cache.has_key(K_OBJ):
 			# if already loaded and file hasn't changed then use cached value
@@ -141,6 +140,9 @@ class ConfigParser(object):
 					write_empty_values=True)
 			cache[K_TIME] = os.stat(filename).st_mtime
 
+		self.update_cache_from_configobj(cache)
+
+	def update_cache_from_configobj(self, cache):
 		cache[K_VAL] = OrderedDict()
 		cache[K_DICT] = OrderedDict()
 		cache[K_SCHED] = OrderedDict()
@@ -185,3 +187,16 @@ class ConfigParser(object):
 					cache[K_DICT][option_id] = values
 				if section_dict:
 					cache[K_VAL][section_name] = section_dict
+
+	def parse_file(self, file):
+		'''
+		Parse the new file and return the values, but don't cache them.
+		The argument to this method can be anything that ConfigObj can take as an
+		infile parameter to its constructor. This includes filenames, lists of
+		strings, a dictionary, or anything with a read method.
+		'''
+		cache = {}
+		cache[K_OBJ] = ConfigObj(file, list_values=False, write_empty_values=True)
+		self.update_cache_from_configobj(cache)
+
+		return cache[K_VAL]
