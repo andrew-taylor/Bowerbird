@@ -73,8 +73,15 @@ class Root(object):
 					"application/x-download", "attachment",
 					os.path.basename(self.conf.filename))
 		elif apply:
+			# clear out the configuration and re-populate it
+			self.conf.clear_config()
 			for key in data:
-				self.conf.set_value1(key, data[key])
+				if key.startswith('__meta__'):
+					self.conf.set_meta1(key[len('__meta__'):], data[key])
+				elif key.startswith('__smeta__'):
+					self.conf.set_smeta(key[len('__smeta__'):], data[key])
+				else:
+					self.conf.set_value1(key, data[key])
 			# update file
 			try:
 				self.conf.save_to_file()

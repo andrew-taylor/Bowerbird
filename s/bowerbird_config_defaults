@@ -79,7 +79,7 @@ max_sound_buffer_size = 2400000
 # seconds
 prefix_seconds = 0.1
 suffix_seconds = 0.1
-ignore_channel_bitmap = 2
+ignore_channel_bitmap = 0
 
 [database]
 start_cmd = create table if not exists sources (source_id INTEGER PRIMARY KEYname TEXTsampling_rate DOUBLEfft_n_bins INTEGERfft_step_size INTEGERfft_window_size INTEGER);create table if not exists units (unit_id INTEGER PRIMARY KEYsource_id INTEGERchannel INTEGERfirst_frame INTEGERn_frames INTEGERfrequency BLOBamplitude BLOBphase BLOB);create index if not exists unit_source_index on units(source_id);create index if not exists source_name_index on sources(name);begin transaction;
@@ -115,18 +115,18 @@ kml_desc = More information at http://bioacoustics.cse.unsw.edu.au
 sound_buffer_size = 64000
 # Buffer, Frames, int,
 sound_buffer_frames = 960000
-# Storage, Root Dir, text,
+# Storage, Root Dir, string,
 sound_file_root_dir = /mnt/storage
-# Storage, File Ext., text,
+# Storage, File Ext., string,
 sound_file_ext = wv
-# Storage, Details File Ext., text,
+# Storage, Details File Ext., string,
 sound_details_ext = details
 # 0: raw wav, 1: use builtin wavpack, 2: use shellcmd
 # Storage, Compression Type, int,
 sound_compression_type = 2
-# Storage, Compression Shell Cmd, text,
+# Storage, Compression Shell Cmd, string,
 sound_compressor_shellcmd = /usr/bin/wavpack -q -f - >%s
-# Alsa, PCM Device Name, text,
+# Alsa, PCM Device Name, string,
 alsa_pcm_name = hw:10
 # Alsa, Channels, int,
 alsa_n_channels = 4
@@ -141,15 +141,25 @@ alsa_buffer_size = 128000
 beep = false
 active_high = false
 sound_n_files = 4
-# Scheduling, Command, text,
+# Scheduling, Command, string,
 schedule_command = sound_capture -orecording_duration=%s
-# Scheduling, User, text,
+# Scheduling, User, string,
 schedule_user = root
 # Scheduling, Days to Plan, int, days
 schedule_days = 3
 
 [scheduled_capture]
-monkeys = 9:00-11:00
-bears = 6:00-6:30
-frogs = R-4:00-R-2:00
-badgers = R-8:00-S-5:00
+monkeys = 9:00 -  11:00
+badgers = R -8:00 - S -5:00
+bears = 6:00 -  6:30
+frogs = R -4:00 - R -2:00
+
+[beagleboard_watchdog]
+prefix = avr://
+feed = watchdog pulse
+reboot = REALLY reset the Beagleboard
+tty = /dev/ttyS2
+files = /var/lib/bowerbird/status/network_up:100000
+feed_seconds = 300
+granularity_seconds = 60
+startup_seconds = 7200

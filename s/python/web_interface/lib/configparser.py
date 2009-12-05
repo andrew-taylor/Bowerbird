@@ -5,6 +5,23 @@ from lib.odict import OrderedDict
 
 # scheduled capture section is handled differently
 SCHEDULE_SECTION = 'scheduled_capture'
+CONFIG_HEADER = '''# configuration file for bowerbird deployment
+
+# Some formatting of comments is required to provide nice looking edit
+# pages. General explanatory comments are welcome, but the last comment 
+# line just before an item should be as described in the next
+# paragraph.
+
+# Comment just before section should be a display version of the section name
+# Comment just before key-value pairs should be 4 comma separated values:
+# 1) display name for value (this should be the for value groups such as a
+# 		min-max range pair)
+# 2) display subname for values that are part of a group
+# 3) variable type (float, string, int, time, etc) - Currently ignored
+# 4) units for value (for display)
+
+# leave this section header here to workaround 
+# a strangeness in comment parsing'''
 
 # keys for cache
 K_OBJ = 'config_obj'
@@ -19,7 +36,7 @@ I_SUBNAME = I_NAME + 1
 I_KEY = I_SUBNAME + 1
 I_VAL = I_KEY + 1
 I_TYPE = I_VAL + 1
-I_UNIT = I_TYPE + 1
+I_UNITS = I_TYPE + 1
 
 
 class ConfigParser(object):
@@ -65,21 +82,47 @@ class ConfigParser(object):
 		return self.get_value1('.'.join((section, key)))
 
 	def set_value1(self, key, value):
-		# update cache
-		if not self.cache[K_DICT].has_key(key):
-			self.cache[K_DICT][key][I_VAL] = value
-		else:
-			# create dummy entry (which won't have spec info)
-			self.cache[K_DICT][key] = ['','',key,value,'','']
-
 		# update config obj
 		section, s_key = key.split('.')
 		if not self.cache[K_OBJ].has_key(section):
 			self.cache[K_OBJ][section] = {}
 		self.cache[K_OBJ][section][s_key] = value
+		# update cache(s)
+		self.update_cache_from_configobj(self.cache)
 
 	def set_value2(self, section, key, value):
 		self.set_value1('.'.join(section, key))
+
+	def set_meta1(self, key, meta):
+		# update config obj
+		section, s_key = key.split('.')
+		if not self.cache[K_OBJ].has_key(section):
+			self.cache[K_OBJ][section] = {}
+		if not self.cache[K_OBJ][section].has_key(s_key):
+			self.cache[K_OBJ][section][s_key] = ''
+		self.cache[K_OBJ][section].comments[s_key].append("# " + meta)
+		# update cache(s)
+		self.update_cache_from_configobj(self.cache)
+
+	def set_meta2(self, section, key, value):
+		self.set_meta1('.'.join(section, key))
+
+	def set_smeta(self, section, meta):
+		# update config obj
+		if not self.cache[K_OBJ].has_key(section):
+			self.cache[K_OBJ][section] = {}
+		self.cache[K_OBJ].comments[section].append("# " + meta)
+		# update cache(s)
+		self.update_cache_from_configobj(self.cache)
+
+	def clear_config(self):
+		'''delete all config entries from cache (not including schedule)'''
+		self.cache[K_VAL].clear();
+		self.cache[K_DICT].clear();
+		self.cache[K_OBJ].clear();
+		self.cache[K_OBJ].initial_comment = CONFIG_HEADER.split('\n')
+		self.cache[K_OBJ]['dummy'] = {}
+		self.cache[K_TIME] = 0;
 
 	def get_schedules(self):
 		# update if file has been modified
@@ -175,7 +218,7 @@ class ConfigParser(object):
 						# no (or invalid) spec in last comment so use defaults
 						name = key
 						subname = ''
-						input_type = 'text'
+						input_type = 'string'
 						units = ''
 					if not section_dict.has_key(name):
 						section_dict[name] = []
