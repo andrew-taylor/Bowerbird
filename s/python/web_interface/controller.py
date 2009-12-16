@@ -76,19 +76,65 @@ class Root(object):
 		elif apply:
 			# clear out the configuration and re-populate it
 			self.conf.clear_config()
+
+			# parse the data, then sort it so it can be entered in the same order we
+			# sent it (to preserve the order that gets mixed up by the POST data
+			sections = {}
+			keys = {}
+			values = {}
 			for key in data:
 				if key.startswith(common.META_PREFIX):
-#					print "META: %s (%s): %s" % (key, key[len(common.META_PREFIX):], data[key])
-					self.conf.set_meta1(key[len(common.META_PREFIX):], data[key])
+					split_data = data[key].split(',')
+					section_index = int(split_data[0])
+					name_index = int(split_data[1])
+					subname_index = int(split_data[2])
+					value = ','.join(split_data[3:])
+					real_key = key[len(common.META_PREFIX):]
+					print "POST META", section_index, name_index, \
+							subname_index, real_key, "||", value
+					if not keys.has_key(section_index):
+						keys[section_index] = {}
+					if not keys[section_index].has_key(name_index):
+						keys[section_index][name_index] = {}
+					keys[section_index][name_index][subname_index] \
+							= (real_key, value)
 				elif key.startswith(common.SECTION_META_PREFIX):
-					realkey = key[len(common.SECTION_META_PREFIX):]
-#					print "SECTION META: %s (%s): %s" % (key, realkey, data[key])
-					self.conf.set_smeta(key[len(common.SECTION_META_PREFIX):], data[key])
-#					print "after setting: keys are now %s" % \
-#							self.conf.get_values().keys()
+					index = data[key].find(',')
+					id = int(data[key][:index])
+					value = data[key][index+1:]
+					real_key = key[len(common.SECTION_META_PREFIX):]
+					print "POST SMETA", id, real_key, "||", value
+					sections[id] = (real_key, value)
 				else:
 #					print "DATA", key, data[key]
-					self.conf.set_value1(key, data[key])
+					values[key] = data[key]
+
+			# first insert the sections in sorted order
+			section_indicies = sections.keys()
+			section_indicies.sort()
+			for section_index in section_indicies:
+				key, value = sections[section_index]
+				print "SORT SMETA", key, "||", value
+				self.conf.set_smeta(key, value)
+
+			# next insert the key meta data in sorted order
+			section_indicies = keys.keys()
+			section_indicies.sort()
+			for section_index in section_indicies:
+				name_indicies = keys[section_index].keys()
+				name_indicies.sort()
+				for name_index in name_indicies:
+					subname_indicies = keys[section_index][name_index].keys()
+					subname_indicies.sort()
+					for subname_index in subname_indicies:
+						key, value = keys[section_index][name_index][subname_index]
+						print "SORT META", key, "||", value
+						self.conf.set_meta1(key, value)
+
+			# now set the actual values
+			for key in values:
+				self.conf.set_value1(key, values[key])
+
 			# update file
 			try:
 				self.conf.save_to_file()
