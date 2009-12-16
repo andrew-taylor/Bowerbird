@@ -1,7 +1,7 @@
 import cherrypy, os, sys, shutil
 import errno
 from ConfigParser import RawConfigParser
-from lib import storage, ajax, template
+from lib import common, storage, ajax, template
 from lib.odict import OrderedDict
 from lib.sonogram import generateSonogram
 from lib.configparser import ConfigParser
@@ -26,6 +26,7 @@ STATION_SECTION_NAME = 'station_information'
 STATION_NAME_KEY = 'name'
 SCHEDULE_SECTION = 'scheduled_capture'
 
+# paramaters used during 
 
 class Root(object):
 	def __init__(self, db, path):
@@ -76,11 +77,17 @@ class Root(object):
 			# clear out the configuration and re-populate it
 			self.conf.clear_config()
 			for key in data:
-				if key.startswith('__meta__'):
-					self.conf.set_meta1(key[len('__meta__'):], data[key])
-				elif key.startswith('__smeta__'):
-					self.conf.set_smeta(key[len('__smeta__'):], data[key])
+				if key.startswith(common.META_PREFIX):
+#					print "META: %s (%s): %s" % (key, key[len(common.META_PREFIX):], data[key])
+					self.conf.set_meta1(key[len(common.META_PREFIX):], data[key])
+				elif key.startswith(common.SECTION_META_PREFIX):
+					realkey = key[len(common.SECTION_META_PREFIX):]
+#					print "SECTION META: %s (%s): %s" % (key, realkey, data[key])
+					self.conf.set_smeta(key[len(common.SECTION_META_PREFIX):], data[key])
+#					print "after setting: keys are now %s" % \
+#							self.conf.get_values().keys()
 				else:
+#					print "DATA", key, data[key]
 					self.conf.set_value1(key, data[key])
 			# update file
 			try:
@@ -96,7 +103,6 @@ class Root(object):
 			values = self.conf.get_default_values()
 		elif import_config:
 			if new_config.filename:
-				print 'got new config called', new_config.filename
 				try:
 					values = self.conf.parse_file(new_config.file)
 				except Exception as e:

@@ -37,6 +37,7 @@
 <py:for each="section in values.keys()">
 <div py:if="section != 'scheduled_capture'">
 	<?python
+		from lib.common import META_PREFIX,SECTION_META_PREFIX
 		section_id = "unknown_section_id"
 		for name in values[section]:
 			for (n,sn,id,v,t,u) in values[section][name]:
@@ -44,7 +45,7 @@
 				break
 			break
 	?>
-	<input type="hidden" name="__smeta__${section_id}" value="${section}" />
+	<input type="hidden" name="${SECTION_META_PREFIX}${section_id}" value="${section}" />
 	<a class="config_title" href="#">${section}</a>
 <br />
 <table class="config">
@@ -69,7 +70,7 @@
 				${name}</td>
 			<td py:if="has_subnames" class="config_subheader">${subname}</td>
 			<td class="config">
-				<input type="hidden" name="__meta__${input_id}" 
+				<input type="hidden" name="${META_PREFIX}${input_id}" 
 					value="${name},${subname},${input_type},${units}" />
 				<input class="${input_class}" name="${input_id}" 
 						type="text" value="${value}"/>${units}

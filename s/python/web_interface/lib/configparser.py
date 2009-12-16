@@ -1,4 +1,4 @@
-import os, sys
+import os, sys, time
 from copy import deepcopy
 from bowerbird.configobj import ConfigObj
 from lib.odict import OrderedDict
@@ -122,7 +122,7 @@ class ConfigParser(object):
 		self.cache[K_OBJ].clear();
 		self.cache[K_OBJ].initial_comment = CONFIG_HEADER.split('\n')
 		self.cache[K_OBJ]['dummy'] = {}
-		self.cache[K_TIME] = 0;
+		self.cache[K_TIME] = time.time();
 
 	def get_schedules(self):
 		# update if file has been modified
