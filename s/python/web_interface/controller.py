@@ -112,25 +112,29 @@ class Root(object):
 		if cancel:
 			raise cherrypy.HTTPRedirect('/')
 		elif apply:
-			# keep track of which schedules no longer exist
-			schedules_to_delete = self.conf.get_schedules()
+			# clear all schedules and add them back in the order they were on the webpage
+			self.conf.clear_schedules()
+			schedules = {}
+
+			# just get the labels
 			for key in data:
 				# each schedule comes in three parts: ?.label, ?.start, ?.finish
 				if key.endswith('label'):
 					id = key.split('.')[0]
-					start_key = "%s.start" % id
-					finish_key = "%s.finish" % id
-					if data.has_key(start_key) and data.has_key(finish_key):
-						schedule_key = data[key]
-						schedule_value = "%s - %s" \
-								% (data[start_key], data[finish_key])
-						self.conf.set_schedule(schedule_key, schedule_value)
-						if schedules_to_delete.has_key(data[key]):
-							del(schedules_to_delete[data[key]])
+					schedules[id] = data[key]
 
-			# delete obsolete schedules
-			for schedule_key in schedules_to_delete:
-				self.conf.delete_schedule(schedule_key)
+			# sort the labels by their id, then add them in that order
+			schedule_ids = schedules.keys()
+			schedule_ids.sort()
+			for id in schedule_ids:
+				start_key = "%s.start" % id
+				finish_key = "%s.finish" % id
+				if data.has_key(start_key) and data.has_key(finish_key):
+					schedule_key = schedules[id]
+					schedule_value = "%s - %s" \
+							% (data[start_key], data[finish_key])
+					self.conf.set_schedule(schedule_key, schedule_value)
+
 			# update file
 			try:
 				self.conf.save_to_file()
