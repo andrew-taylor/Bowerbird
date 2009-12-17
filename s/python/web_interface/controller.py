@@ -50,13 +50,11 @@ class Root(object):
 		self.conf = ConfigParser(config, defaults)
 
 
-	def get_station_name(self):
-		return self.conf.get_value2(STATION_SECTION_NAME, STATION_NAME_KEY)
-
 	@cherrypy.expose
 	@template.output('index.html')
 	def index(self, **ignored):
 		return template.render(station=self.get_station_name())
+
 
 	@cherrypy.expose
 	@template.output('config.html')
@@ -74,66 +72,7 @@ class Root(object):
 					"application/x-download", "attachment",
 					os.path.basename(self.conf.filename))
 		elif apply:
-			# clear out the configuration and re-populate it
-			self.conf.clear_config()
-
-			# parse the data, then sort it so it can be entered in the same order we
-			# sent it (to preserve the order that gets mixed up by the POST data
-			sections = {}
-			keys = {}
-			values = {}
-			for key in data:
-				if key.startswith(common.META_PREFIX):
-					split_data = data[key].split(',')
-					section_index = int(split_data[0])
-					name_index = int(split_data[1])
-					subname_index = int(split_data[2])
-					value = ','.join(split_data[3:])
-					real_key = key[len(common.META_PREFIX):]
-					print "POST META", section_index, name_index, \
-							subname_index, real_key, "||", value
-					if not keys.has_key(section_index):
-						keys[section_index] = {}
-					if not keys[section_index].has_key(name_index):
-						keys[section_index][name_index] = {}
-					keys[section_index][name_index][subname_index] \
-							= (real_key, value)
-				elif key.startswith(common.SECTION_META_PREFIX):
-					index = data[key].find(',')
-					id = int(data[key][:index])
-					value = data[key][index+1:]
-					real_key = key[len(common.SECTION_META_PREFIX):]
-					print "POST SMETA", id, real_key, "||", value
-					sections[id] = (real_key, value)
-				else:
-#					print "DATA", key, data[key]
-					values[key] = data[key]
-
-			# first insert the sections in sorted order
-			section_indicies = sections.keys()
-			section_indicies.sort()
-			for section_index in section_indicies:
-				key, value = sections[section_index]
-				print "SORT SMETA", key, "||", value
-				self.conf.set_smeta(key, value)
-
-			# next insert the key meta data in sorted order
-			section_indicies = keys.keys()
-			section_indicies.sort()
-			for section_index in section_indicies:
-				name_indicies = keys[section_index].keys()
-				name_indicies.sort()
-				for name_index in name_indicies:
-					subname_indicies = keys[section_index][name_index].keys()
-					subname_indicies.sort()
-					for subname_index in subname_indicies:
-						key, value = keys[section_index][name_index][subname_index]
-						print "SORT META", key, "||", value
-						self.conf.set_meta1(key, value)
-
-			# now set the actual values
-			for key in values:
-				self.conf.set_value1(key, values[key])
+			self.updateConfigFromPostData(data);
 
 			# update file
 			try:
@@ -163,6 +102,7 @@ class Root(object):
 				using_defaults=load_defaults, values=values,
 				file=self.conf.filename, 
 				defaults_file=self.conf.defaults_filename)
+
 
 	@cherrypy.expose
 	@template.output('schedule.html')
@@ -231,6 +171,7 @@ class Root(object):
 				categories=categories_var,
 				sort=sort, sort_order=sort_order)
 
+
 	@cherrypy.expose
 	@template.output('category.html')
 	def category(self, label=None, new_label=None, update_details=None,
@@ -247,12 +188,14 @@ class Root(object):
 				category=self.db.getCategory(label),
 				calls=calls, call_sonograms=call_sonograms, sort=sort, sort_order=sort_order)
 
+
 	@cherrypy.expose
 	@template.output('calls.html')
 	def calls(self, sort='date_and_time', sort_order='asc', category=None, **ignored):
 		return template.render(station=self.get_station_name(), \
 				calls=self.db.getCalls(sort, sort_order, category),
 				sort=sort, sort_order=sort_order)
+
 
 	@cherrypy.expose
 	@template.output('call.html')
@@ -286,6 +229,68 @@ class Root(object):
 					fft_step=fft_step, frequency_scale=frequency_scale,
 					frequency_scales=FREQUENCY_SCALES,
 					prev_next_files=self.db.getPrevAndNextCalls(call))
+
+
+	def get_station_name(self):
+		return self.conf.get_value2(STATION_SECTION_NAME, STATION_NAME_KEY)
+
+
+	def updateConfigFromPostData(self, data):
+		# clear out the configuration and re-populate it
+		self.conf.clear_config()
+
+		# parse the data, then sort it so it can be entered in the same order we
+		# sent it (to preserve the order that gets mixed up by the POST data
+		sections = {}
+		keys = {}
+		values = {}
+		for key in data:
+			if key.startswith(common.META_PREFIX):
+				split_data = data[key].split(',')
+				section_index = int(split_data[0])
+				name_index = int(split_data[1])
+				subname_index = int(split_data[2])
+				value = ','.join(split_data[3:])
+				real_key = key[len(common.META_PREFIX):]
+				if not keys.has_key(section_index):
+					keys[section_index] = {}
+				if not keys[section_index].has_key(name_index):
+					keys[section_index][name_index] = {}
+				keys[section_index][name_index][subname_index] \
+						= (real_key, value)
+			elif key.startswith(common.SECTION_META_PREFIX):
+				index = data[key].find(',')
+				id = int(data[key][:index])
+				value = data[key][index+1:]
+				real_key = key[len(common.SECTION_META_PREFIX):]
+				sections[id] = (real_key, value)
+			else:
+				values[key] = data[key]
+
+		# first insert the sections in sorted order
+		section_indicies = sections.keys()
+		section_indicies.sort()
+		for section_index in section_indicies:
+			key, value = sections[section_index]
+			self.conf.set_smeta(key, value)
+
+		# next insert the key meta data in sorted order
+		section_indicies = keys.keys()
+		section_indicies.sort()
+		for section_index in section_indicies:
+			name_indicies = keys[section_index].keys()
+			name_indicies.sort()
+			for name_index in name_indicies:
+				subname_indicies = keys[section_index][name_index].keys()
+				subname_indicies.sort()
+				for subname_index in subname_indicies:
+					key, value = keys[section_index][name_index][subname_index]
+					self.conf.set_meta1(key, value)
+
+		# now set the actual values
+		for key in values:
+			self.conf.set_value1(key, values[key])
+
 
 	def getSonogram(self, call, frequency_scale, fft_step):
 		if call:

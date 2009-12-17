@@ -1,3 +1,4 @@
 # some common variables
-META_PREFIX = '__meta__'
+SECTION_META_KEY = '__smeta_key__'
 SECTION_META_PREFIX = '__smeta__'
+META_PREFIX = '__meta__'

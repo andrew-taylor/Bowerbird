@@ -1,10 +1,16 @@
-import os, sys, time
+import os, sys, time, string
 from copy import deepcopy
 from bowerbird.configobj import ConfigObj
 from lib.odict import OrderedDict
+from lib.common import SECTION_META_KEY
+
+COMMENTS_LINE_DELIMITER = '___'
 
 # scheduled capture section is handled differently
 SCHEDULE_SECTION = 'scheduled_capture'
+SCHEDULE_COMMENTS = '''
+# This section stores the times for scheduled captures.
+It will always be moved back to the top, so don't bother moving it.'''
 CONFIG_HEADER = '''# configuration file for bowerbird deployment
 
 # Some formatting of comments is required to provide nice looking edit
@@ -100,7 +106,20 @@ class ConfigParser(object):
 			self.cache[K_OBJ][section] = {}
 		if not self.cache[K_OBJ][section].has_key(s_key):
 			self.cache[K_OBJ][section][s_key] = ''
-		self.cache[K_OBJ][section].comments[s_key].append("# " + meta)
+		meta_bits = meta.split(',')
+		(name, subname, type, units) = map(string.strip, meta_bits[:4])
+		description = ','.join(meta_bits[4:]).strip()
+
+		# don't write the description lines if they're empty 
+		# (otherwise, it inserts a blank line)
+		if description:
+			self.cache[K_OBJ][section].comments[s_key] = description.split(
+					COMMENTS_LINE_DELIMITER)
+
+		# don't write the meta-information line if it's the defaults
+		if name != s_key or subname != '' or type != 'string' or units != '':
+			self.cache[K_OBJ][section].comments[s_key].append(
+					"# %s, %s, %s, %s" % (name, subname, type, units))
 		# update cache(s)
 		self.update_cache_from_configobj(self.cache)
 
@@ -111,17 +130,46 @@ class ConfigParser(object):
 		# update config obj
 		if not self.cache[K_OBJ].has_key(section):
 			self.cache[K_OBJ][section] = {}
-		self.cache[K_OBJ].comments[section].append("# " + meta)
+		index = meta.find(',')
+		name = meta[:index]
+		description = meta[index+1:].strip()
+
+		# if the section comments don't start with a blank line then add one
+		# (to separate it from the next section)
+		if not description.startswith(COMMENTS_LINE_DELIMITER):
+			self.cache[K_OBJ].comments[section] = ['']
+		
+		# don't write the description lines if they're empty 
+		# (otherwise, it inserts a blank line)
+		if description:
+			self.cache[K_OBJ].comments[section].extend(description.split(
+					COMMENTS_LINE_DELIMITER))
+
+		# don't write the meta-information line if it's the defaults
+		if name != section:
+			self.cache[K_OBJ].comments[section].append("# " + name)
 		# update cache(s)
 		self.update_cache_from_configobj(self.cache)
 
 	def clear_config(self):
 		'''delete all config entries from cache (not including schedule)'''
+		# clear all values from both cache and raw cache
 		self.cache[K_VAL].clear();
 		self.cache[K_DICT].clear();
+
+		# clear the config obj
 		self.cache[K_OBJ].clear();
 		self.cache[K_OBJ].initial_comment = CONFIG_HEADER.split('\n')
 		self.cache[K_OBJ]['dummy'] = {}
+		# restore the schedule
+		self.cache[K_OBJ][SCHEDULE_SECTION] = {}
+		self.cache[K_OBJ].comments[SCHEDULE_SECTION] \
+				= SCHEDULE_COMMENTS.split('\n')
+		for label in self.cache[K_SCHED]:
+			self.cache[K_OBJ][SCHEDULE_SECTION][label] \
+					= self.cache[K_SCHED][label]
+
+		# update timestamp
 		self.cache[K_TIME] = time.time();
 
 	def get_schedules(self):
@@ -196,13 +244,17 @@ class ConfigParser(object):
 					cache[K_SCHED][label] = cache[K_OBJ][section][label]
 			else:
 				section_dict = OrderedDict()
+				section_comments = cache[K_OBJ].comments[section]
 				# get last line of comment for section
-				section_comment = cache[K_OBJ].comments[section][-1:]
-				if section_comment and section_comment[0]:
+				if section_comments and section_comments[-1:][0]:
 					# remove '#' and spare whitespace
-					section_name = section_comment[0][1:].strip()
-				else:
-					section_name = section
+					section_name = section_comments[-1:][0][1:].strip()
+					section_description = COMMENTS_LINE_DELIMITER.join(
+							section_comments[:-1])
+					# add an entry with the section metadata (conforming to the
+					# shape of the other entries)
+					section_dict[SECTION_META_KEY] = [(section_name, '', 
+							section, '', '', '', section_description)]
 
 				for key in cache[K_OBJ][section]:
 					option_id = '.'.join((section, key))
@@ -214,22 +266,27 @@ class ConfigParser(object):
 								key_comment[0][1:].split(',')]
 						if len(specs) == 4:
 							(name, subname, input_type, units) = specs
+							description = COMMENTS_LINE_DELIMITER.join(
+									cache[K_OBJ][section].comments[key][:-1])
 					if name == None:
 						# no (or invalid) spec in last comment so use defaults
 						name = key
 						subname = ''
 						input_type = 'string'
 						units = ''
+						description = COMMENTS_LINE_DELIMITER.join(
+								cache[K_OBJ][section].comments[key])
 					if not section_dict.has_key(name):
 						section_dict[name] = []
-					values = [name, subname, option_id, 
-							cache[K_OBJ][section][key], input_type, units]
+					values = (name, subname, option_id, 
+							cache[K_OBJ][section][key], input_type, units,
+							description)
 					# store here for display purposes
 					section_dict[name].append(values)
 					# store here for easy access
 					cache[K_DICT][option_id] = values
 				if section_dict:
-					cache[K_VAL][section_name] = section_dict
+					cache[K_VAL][section] = section_dict
 
 	def parse_file(self, file):
 		'''

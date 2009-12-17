@@ -37,16 +37,16 @@
 <py:for each="si, section in enumerate(values.keys())">
 <div py:if="section != 'scheduled_capture'">
 	<?python
-		from lib.common import META_PREFIX,SECTION_META_PREFIX
-		section_id = "unknown_section_id"
-		for name in values[section]:
-			for (n,sn,id,v,t,u) in values[section][name]:
-				section_id = id.split('.')[0]
-				break
-			break
+		from lib.common import SECTION_META_KEY, SECTION_META_PREFIX, META_PREFIX
+		if values[section].has_key(SECTION_META_KEY):
+			(section_name, sn, section_id, v, t, u, section_description) \
+					= values[section][SECTION_META_KEY][0]
+		else:
+			(section_name, section_id, section_description) = (section, section, '')
 	?>
-	<input type="hidden" name="${SECTION_META_PREFIX}${section_id}" value="${si},${section}" />
-	<a class="config_title" href="#">${section}</a>
+	<input type="hidden" name="${SECTION_META_PREFIX}${section_id}"
+			value="${si},${section_name},${section_description}" />
+	<a class="config_title" href="#">${section_name}</a>
 <br />
 <table class="config">
 	<tbody>
@@ -58,20 +58,21 @@
 			input_class = "config_no_units"
 			has_subnames = False
 			for name in values[section]:
-				for (n,subname,i,v,t,units) in values[section][name]:
+				for (n,subname,i,v,t,units,d) in values[section][name]:
 					if units: 
 						input_class = "config"
 					if subname:
 						has_subnames = True
 		?>
-		<py:for each="ni,name in enumerate(values[section].keys())">
-		<tr py:for="sni, (n, subname, input_id, value, input_type, units) in enumerate(values[section][name])">
+		<py:for each="ni, name in enumerate(values[section].keys())"
+				py:if="name != SECTION_META_KEY" >
+		<tr py:for="sni, (n, subname, input_id, value, input_type, units, description) in enumerate(values[section][name])">
 			<td py:if="sni == 0" class="config_header" rowspan="${len(values[section][name])}">
 				${name}</td>
 			<td py:if="has_subnames" class="config_subheader">${subname}</td>
 			<td class="config">
 				<input type="hidden" name="${META_PREFIX}${input_id}" 
-						value="${si},${ni},${sni},${name},${subname},${input_type},${units}" />
+					value="${si}, ${ni}, ${sni},${name}, ${subname}, ${input_type}, ${units}, ${description}" />
 				<input class="${input_class}" name="${input_id}" 
 						type="text" value="${value}"/>${units}
 			</td>
