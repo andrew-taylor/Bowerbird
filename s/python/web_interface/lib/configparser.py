@@ -3,6 +3,8 @@ from copy import deepcopy
 from bowerbird.configobj import ConfigObj
 from lib.odict import OrderedDict
 from lib.common import SECTION_META_KEY
+from convert_config_for_sh import convertConfig
+
 
 COMMENTS_LINE_DELIMITER = '___'
 
@@ -10,7 +12,7 @@ COMMENTS_LINE_DELIMITER = '___'
 SCHEDULE_SECTION = 'scheduled_capture'
 SCHEDULE_COMMENTS = '''
 # This section stores the times for scheduled captures.
-It will always be moved back to the top, so don't bother moving it.'''
+# It will always be moved back to the top, so don't bother moving it.'''
 CONFIG_HEADER = '''# configuration file for bowerbird deployment
 
 # Some formatting of comments is required to provide nice looking edit
@@ -217,6 +219,17 @@ class ConfigParser(object):
 			self.cache[K_OBJ].reload()
 			self.cache[K_TIME] = os.stat(self.cache[K_OBJ].filename).st_mtime
 			raise
+	
+	
+	def export(self, export_filename):
+		with open(export_filename, 'w') as save_file:
+			self.cache[K_OBJ].write(save_file)
+
+
+	def export_for_shell(self, export_filename):
+		with open(export_filename, 'w') as save_file:
+			convertConfig(self.cache[K_OBJ], save_file)
+		
 
 	def read_from_file(self, filename, cache):
 		if cache and cache.has_key(K_OBJ):

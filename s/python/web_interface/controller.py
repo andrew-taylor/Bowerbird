@@ -77,6 +77,7 @@ class Root(object):
 			# update file
 			try:
 				self.conf.save_to_file()
+				self.conf.export_for_shell(self.conf.filename + ".sh")
 				# bounce back to homepage
 				raise cherrypy.HTTPRedirect('/')
 			except IOError as e:
@@ -138,6 +139,7 @@ class Root(object):
 			# update file
 			try:
 				self.conf.save_to_file()
+				self.conf.export_for_shell(self.conf.filename + ".sh")
 				# bounce back to homepage
 				raise cherrypy.HTTPRedirect('/')
 			except IOError as e:

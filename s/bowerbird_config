@@ -17,6 +17,14 @@
 # a strangeness in comment parsing
 [dummy]
 
+# This section stores the times for scheduled captures.
+# It will always be moved back to the top, so don't bother moving it.
+[scheduled_capture]
+monkeys = 9:00 -  11:00
+badgers = R -8:00 - S -5:00
+bears = 6:00 -  6:30
+frogs = R -4:00 - R -2:00
+
 # don't change this section name without changing the parameter in controller.py
 # Station Information
 [station_information]
@@ -32,14 +40,14 @@ longitude = 150.83333
 
 # Spectral Analysis
 [spectral_analysis]
-# FFTW, Enable, bool,
+# FFTW, Enable, bool, 
 use_fftw = 1
 # changed appropriately when files read
 # FFTW, Sampling Rate, int, Hz
 sampling_rate = 16000
-# FFTW, Points, int,
+# FFTW, Points, int, 
 fft_points = 1024
-# FFTW, Window, int,
+# FFTW, Window, int, 
 fft_window = 128
 # FFTW, Overlap.05
 # Maximum Gap Size, , float, seconds
@@ -111,48 +119,42 @@ kml_desc = More information at http://bioacoustics.cse.unsw.edu.au
 
 # Sound Capture
 [sound_capture]
-# Buffer, Size, int,
+# Buffer, Size, int, 
 sound_buffer_size = 64000
-# Buffer, Frames, int,
+# Buffer, Frames, int, 
 sound_buffer_frames = 960000
-# Storage, Root Dir, text,
+# Storage, Root Dir, string, 
 sound_file_root_dir = /mnt/storage
-# Storage, File Ext., text,
+# Storage, File Ext., string, 
 sound_file_ext = wv
-# Storage, Details File Ext., text,
+# Storage, Details File Ext., string, 
 sound_details_ext = details
 # 0: raw wav, 1: use builtin wavpack, 2: use shellcmd
-# Storage, Compression Type, int,
+# Storage, Compression Type, int, 
 sound_compression_type = 2
-# Storage, Compression Shell Cmd, text,
+# Storage, Compression Shell Cmd, string, 
 sound_compressor_shellcmd = /usr/bin/wavpack -q -f - >%s
-# Alsa, PCM Device Name, text,
+# Alsa, PCM Device Name, string, 
 alsa_pcm_name = hw:10
-# Alsa, Channels, int,
+# Alsa, Channels, int, 
 alsa_n_channels = 4
 # Alsa, Sampling Rate, int, Hz
 alsa_sampling_rate = 32000
-# Alsa, Period Size, int,
+# Alsa, Period Size, int, 
 alsa_periods_size = 32000
-# Alsa, Periods, int,
+# Alsa, Periods, int, 
 alsa_n_periods = 2
-# Alsa, Buffer Size, int,
+# Alsa, Buffer Size, int, 
 alsa_buffer_size = 128000
 beep = false
 active_high = false
 sound_n_files = 4
-# Scheduling, Command, text,
+# Scheduling, Command, string, 
 schedule_command = sound_capture -orecording_duration=%s
-# Scheduling, User, text,
+# Scheduling, User, string, 
 schedule_user = root
 # Scheduling, Days to Plan, int, days
 schedule_days = 3
-
-[scheduled_capture]
-monkeys =  9:00 -  11:00
-badgers = R -8:00 - S -5:00
-bears =  6:00 -  6:30
-frogs = R -4:00 - R -2:00
 
 [beagleboard_watchdog]
 prefix = avr://

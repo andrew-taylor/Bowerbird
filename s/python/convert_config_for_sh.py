@@ -25,8 +25,18 @@ def convertConfig(config_obj, output_file):
 	# read station information
 	for section in config_obj:
 		if section != "dummy":
-			output_file.write("\n# Section %s:\n" % section)
+			# write the section comments
+			section_comments = '\n'.join(config_obj.comments[section])
+			if section_comments.strip():
+				output_file.write(section_comments + '\n')
+			else:
+				output_file.write("\n# Section %s:\n" % section)
+
 			for key in config_obj[section]:
+				# write the key comments
+				key_comments = '\n'.join(config_obj[section].comments[key])
+				if key_comments:
+					output_file.write(key_comments + '\n')
 				output_file.write("%s%s%s=\"%s\"\n" % (section, SH_SEPARATOR,
 						key, config_obj[section][key]))
 
