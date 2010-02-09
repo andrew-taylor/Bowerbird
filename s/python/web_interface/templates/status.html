@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:xi="http://www.w3.org/2001/XInclude"
+      xmlns:py="http://genshi.edgewall.org/">
+  <xi:include href="layout.html" />
+  <head>
+    <title>Status</title>
+  </head>
+  <body>
+    <h1>Status</h1>
+	Welcome to Bowerbird.
+
+	<h2>Current System Status</h2>
+	<table>
+		<tr><th>Uptime:</th><td>${uptime}</td></tr>
+		<tr><th>Disk Space:</th><td>${disk_space}</td></tr>
+		<tr><th>Local Time:</th><td>${local_time}</td></tr>
+		<tr><th>Last Recording:</th><td>${last_recording}</td></tr>
+		<tr><th>Next Recording:</th><td>${next_recording}</td></tr>
+	</table>	
+  </body>
+</html>

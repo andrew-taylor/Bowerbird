@@ -49,15 +49,28 @@ I_UNITS = I_TYPE + 1
 
 class ConfigParser(object):
 
-	def __init__(self, config_filename, config_defaults_filename=None):
+	def __init__(self, config_filename=None, config_defaults_filename=None):
 		self.filename = config_filename
 		self.cache = {}
-		self.read_from_file(self.filename, self.cache)
+		if config_filename:
+			self.read_from_file(self.filename, self.cache)
+		else:
+			self.init_cache(self.cache)
 
 		self.defaults_filename = config_defaults_filename
 		self.defaults_cache = {}
 		if config_defaults_filename:
 			self.read_from_file(self.defaults_filename, self.defaults_cache)
+		else:
+			self.init_cache(self.defaults_cache)
+
+	# cache is a dictionary
+	def init_cache(self, cache):
+		cache[K_OBJ] = ConfigObj()
+		cache[K_TIME] = 0
+		cache[K_VAL] = OrderedDict()
+		cache[K_DICT] = OrderedDict()
+		cache[K_SCHED] = OrderedDict()
 
 	def get_raw_values(self):
 		return deepcopy(self.cache[K_DICT])
@@ -209,6 +222,11 @@ class ConfigParser(object):
 		# update config obj
 		self.cache[K_OBJ][SCHEDULE_SECTION].clear()
 
+	def get_timestamp(self):
+		if self.filename and os.path.exists(self.filename):
+			return int(os.path.getmtime(self.filename))
+		return 0
+
 	def save_to_file(self):
 		try:
 			# update file
@@ -217,7 +235,7 @@ class ConfigParser(object):
 		except:
 			# if this fails we should re-read the file to keep them synced
 			self.cache[K_OBJ].reload()
-			self.cache[K_TIME] = os.stat(self.cache[K_OBJ].filename).st_mtime
+			self.cache[K_TIME] = self.get_timestamp();
 			raise
 	
 	
@@ -235,14 +253,14 @@ class ConfigParser(object):
 		if cache and cache.has_key(K_OBJ):
 			# if already loaded and file hasn't changed then use cached value
 			# if config_obj exists, timestamp should too
-			obj_timestamp = os.stat(filename).st_mtime
+			obj_timestamp = self.get_timestamp()
 			if cache[K_TIME] < obj_timestamp:
 				cache[K_OBJ].reload()
 				cache[K_TIME] = obj_timestamp
 		else:
 			cache[K_OBJ] = ConfigObj(filename, list_values=False, 
 					write_empty_values=True)
-			cache[K_TIME] = os.stat(filename).st_mtime
+			cache[K_TIME] = self.get_timestamp()
 
 		self.update_cache_from_configobj(cache)
 

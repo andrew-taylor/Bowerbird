@@ -2,11 +2,22 @@
 <html xmlns="http://www.w3.org/1999/xhtml"
       xmlns:py="http://genshi.edgewall.org/" py:strip="">
 
-	  <ul>
-		  <li><a href="/">Home</a></li>
-		  <li><a href="/config">Config</a></li>
-		  <li><a href="/schedule">Schedule</a></li>
-		  <li><a href="/categories">Categories</a></li>
-		  <li><a href="/calls">Calls</a></li>
+	  <!--! set default values for is_connected, and is_proxy -->
+	  <ul py:with="connected=value_of('is_connected', True);
+			  proxy=value_of('is_proxy', False)">
+		  <li py:if="proxy and not connected"><a href="/connect">
+			  Connect</a>
+		  </li>
+		  <li py:if="proxy and connected"><a href="/disconnect">
+			  Disconnect
+		  </a></li>
+		  <li py:if="connected"><a href="/status">Status</a></li>
+		  <li py:if="connected"><a href="/config">Config</a></li>
+		  <li py:if="connected"><a href="/schedule">Schedule</a></li>
+		  <li><a href="/recordings">Recordings</a></li>
+		  <!--! Disabled currently
+		  <li py:if="connected"><a href="/categories">Categories</a></li>
+		  <li py:if="connected"><a href="/calls">Calls</a></li>
+		  -->
 	  </ul>
 </html>

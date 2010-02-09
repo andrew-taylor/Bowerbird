@@ -20,10 +20,10 @@
 # This section stores the times for scheduled captures.
 # It will always be moved back to the top, so don't bother moving it.
 [scheduled_capture]
-monkeys = 9:00 -  11:00
-badgers = R -8:00 - S -5:00
-bears = 6:00 -  6:30
-frogs = R -4:00 - R -2:00
+Bowerbirds = 9:00 -  11:00
+Gray Tree Frogs = R -8:00 - S -5:00
+Poison Dart Frogs = 18:00 -  18:30
+Cane Toads = R -4:00 - R -2:00
 
 # don't change this section name without changing the parameter in controller.py
 # Station Information
@@ -124,7 +124,7 @@ sound_buffer_size = 64000
 # Buffer, Frames, int, 
 sound_buffer_frames = 960000
 # Storage, Root Dir, string, 
-sound_file_root_dir = /mnt/storage
+sound_file_root_dir = /var/lib
 # Storage, File Ext., string, 
 sound_file_ext = wv
 # Storage, Details File Ext., string, 

@@ -192,3 +192,23 @@ input.call_navigation {
 	color: black;
 	background-color: red
 }
+
+table.month {
+	background-color: #b6dcff;
+	padding: 3px
+}
+
+th.month {
+	background-color: #565cff;
+	padding:1px 5px 1px 5px
+}
+
+th.sun, th.mon, th.tue, th.wed, th.thu, th.fri, th.sat {
+	background-color:#2c92ff;
+	width: 30pt;
+	text-align: center
+}
+
+td.sun, td.mon, td.tue, td.wed, td.thu, td.fri, td.sat {
+	text-align: center
+}

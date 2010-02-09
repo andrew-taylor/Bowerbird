@@ -33,6 +33,7 @@
 <h3 py:if="error" class="error">${error}</h3>
 
 <form name="edit" action="" method="post">
+<input type="hidden" name="config_timestamp" value="${config_timestamp}" />
 
 <py:for each="si, section in enumerate(values.keys())">
 <div py:if="section != 'scheduled_capture'">

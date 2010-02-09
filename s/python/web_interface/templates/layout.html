@@ -10,11 +10,11 @@
 		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
       <title py:with="title = list(select('title/text()'))">
 		  Bowerbird
-		  <py:if test="station"> [${station}]</py:if>
-		  <py:if test="title">: ${title}</py:if>
+		  <py:if test="defined('station')"> [${station}]</py:if>
+		  <py:if test="defined('title')">: ${title}</py:if>
       </title>
-      <link rel="stylesheet" href="${url('/media/layout.css')}" type="text/css" />
-	  <script type="text/javascript" src="${url('/media/jquery.js')}"></script>
+      <link rel="stylesheet" href="/media/layout.css" type="text/css" />
+	  <script type="text/javascript" src="/media/jquery.js"></script>
       ${select('*[local-name()!="title"]')}
     </head>
   </py:match>
@@ -23,12 +23,12 @@
   <body py:attrs="select('@*')">
 	  <div id="wrap">
         <div id="header">
-          <a href="/"><img src="${url('/media/logo.jpg')}" width="100px"
+          <a href="/"><img src="/media/logo.jpg" width="100px"
 			  height="50px" alt="sonogram?" /></a>
           <h1 py:with="heading = list(select('h1/text()'))">
 			  Bowerbird
-			  <py:if test="station"> [${station}]</py:if>
-			  <py:if test="heading">: ${heading}</py:if>
+			  <py:if test="defined('station')"> [${station}]</py:if>
+			  <py:if test="defined('heading')">: ${heading}</py:if>
           </h1>
         </div>
 	    <div id="menu">
@@ -56,20 +56,20 @@
 			  ('energy','Energy'))">
 		  <th py:for="key,heading in headings" py:choose="">
 			  <a py:when="key == sort and sort_order=='asc'"
-				  href="${url('?sort=%s&amp;sort_order=desc' % key)}">
+				  href="?sort=${key}&amp;sort_order=desc">
 				  /\<br/>${heading}</a>
 			  <a py:when="key == sort and sort_order=='desc'"
-				  href="${url('?sort=%s&amp;sort_order=asc' % key)}">
+				  href="?sort=${key}&amp;sort_order=asc">
 				  ${heading}<br/>\/</a>
 			  <a py:otherwise=""
-				  href="${url('?sort=%s' % key)}">
+				  href="?sort=${key}">
 				  ${heading}</a>
 		  </th>
 	  </tr>
 	  </thead>
 	  <tbody>
 	  <tr py:for="call in calls">
-		  <td><a href="${url('/call/%s' % call['filename'])}">
+		  <td><a href="/call/${call['filename']}">
 				  ${call['date_and_time']}</a></td>
 		  <td>${call['label']}</td>
 		  <td>${call['category']}</td>
