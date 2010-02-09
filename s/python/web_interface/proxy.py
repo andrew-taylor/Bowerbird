@@ -54,7 +54,8 @@ class Root(object):
 	@cherrypy.expose
 	def disconnect(self, **ignored):
 		# set disconnected
-		del cherrypy.session[SESSION_STATION_KEY]
+		if cherrypy.session.has_key(SESSION_STATION_KEY):
+			del cherrypy.session[SESSION_STATION_KEY]
 		raise cherrypy.HTTPRedirect('/')
 
 
