@@ -1,79 +1,42 @@
-import sqlite3
+import apsw
 from datetime import datetime
-from threading import Thread
-from Queue import Queue
+from threading import RLock
 from lib.odict import OrderedDict
 
-class Storage(Thread):
+class Storage(object):
 	'''Handles the details of storing data in an sqlite db'''
 
-	COMMAND_KEY = 'command'
-	ERROR_KEY = 'error'
 	REQUIRED_TABLES = []
 	REQUIRED_TABLE_INIT = {}
 
-	__created = False
-
 	def __init__(self, database_path):
-		assert not Storage.__created
-		Thread.__init__(self)
 		self.path = database_path
-		self.query_queue = Queue()
 
-		Storage.__created = True
-		self.start()
+		self.conn = apsw.Connection(self.path)
+		self.conn.setrowtrace(self.__convertToDictionary)
+		self.conn.setbusytimeout(1000)
+		self.lock = RLock()
 
-	def stop(self, *args):
-		self.query_queue.put(self.SqlQuery('', isStop=True))
+	def __del__(self):
+		self.conn.close()
+	
+	def __convertToDictionary(self, cursor, row):
+		'''A row trace method to emulate the Row Factory of sqlite3'''
+		desc = cursor.getdescription()
+		dict = {}
+		for i in xrange(len(desc)):
+			dict[desc[i][0]] = row[i]
+		return dict
 
-	def run(self):
-		try:
-			conn = sqlite3.connect(self.path)
-			conn.row_factory = sqlite3.Row
-			query = self.query_queue.get()
-			while not query.isStop:
-				commitneeded = False
-				result = []
-				try:
-					for command in query.commands:
-						cursor = conn.execute(command)
-						if not command.upper().startswith("SELECT"):
-							commitneeded = True
-						for row in cursor.fetchall():
-							result.append(row)
-					if commitneeded:
-						conn.commit()
-				except Exception as e:
-					result.append({self.COMMAND_KEY : command, self.ERROR_KEY : e})
-				query.response.put(result)
-				# get the next query
-				query = self.query_queue.get()
-		except Exception as e:
-			print "Exception in thread:", e
-		finally:
-			# shutdown database connection
-			conn.close()
-			Storage.__created = False
-
-	class SqlQuery():
-		def __init__(self, commands, isStop=False):
-			self.commands = commands
-			self.response = Queue()
-			self.isStop = isStop
-
-	def __execSqlCmd(self, command):
-			return self.__execSqlList([command])
-
-	def __execSqlList(self, commands):
-			query = self.SqlQuery(commands)
-			self.query_queue.put(query)
-			response = query.response.get()
-			if response and self.ERROR_KEY in response[-1].keys():
-				raise response[-1][self.ERROR_KEY]
-			return response
+	def __execSqlQuery(self, query):
+		# ensure that only one thread accesses the database at a time
+		with self.lock:
+			cursor = self.conn.cursor()
+			cursor.execute(query)
+			return cursor.fetchall()
 
 	def runQuerySingleResponse(self, query):
-		response = self.__execSqlCmd(query)
+		response = self.__execSqlQuery(query)
 		values = OrderedDict()
 		if response:
 			for key in response[0].keys():
@@ -82,7 +45,7 @@ class Storage(Thread):
 
 	def runQuery(self, query):
 		list = []
-		for line in self.__execSqlCmd(query):
+		for line in self.__execSqlQuery(query):
 			values = OrderedDict()
 			keys = line.keys()
 			for key in keys:
@@ -147,7 +110,7 @@ class BowerbirdStorage(Storage):
 
 		list = []
 		try:
-			for line in self.__execSqlCmd(query):
+			for line in self.__execSqlQuery(query):
 				list.append(line['label'])
 		except sqlite3.Error:
 			# just ignore missing table for now
@@ -205,7 +168,7 @@ class BowerbirdStorage(Storage):
 			else:
 				example = ''
 			try:
-				self.__execSqlCmd('update calls set label="%s",category="%s",'
+				self.__execSqlQuery('update calls set label="%s",category="%s",'
 						'example="%s" where filename="%s"'
 					% (label, category, example, filename))
 			except sqlite3.Error:

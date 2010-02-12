@@ -226,8 +226,6 @@ def main(args):
 				% database_file)
 		db.createRequiredTables()
 
-	cherrypy.engine.subscribe('stop_thread', db.stop)
-
 	path = os.path.dirname(os.path.realpath(args[0]))
 
 	try:
