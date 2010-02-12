@@ -178,11 +178,11 @@ class ConfigParser(object):
 		self.cache[K_OBJ]['dummy'] = {}
 		# restore the schedule
 		self.cache[K_OBJ][SCHEDULE_SECTION] = {}
-		self.cache[K_OBJ].comments[SCHEDULE_SECTION] \
-				= SCHEDULE_COMMENTS.split('\n')
+		self.cache[K_OBJ].comments[SCHEDULE_SECTION] = SCHEDULE_COMMENTS.split(
+				'\n')
 		for label in self.cache[K_SCHED]:
-			self.cache[K_OBJ][SCHEDULE_SECTION][label] \
-					= self.cache[K_SCHED][label]
+			self.cache[K_OBJ][SCHEDULE_SECTION][label] = self.cache[K_SCHED][
+					label]
 
 		# update timestamp
 		self.cache[K_TIME] = time.time();
@@ -293,7 +293,7 @@ class ConfigParser(object):
 					name = None
 					if key_comment and key_comment[0]:
 						# remove '#' then split and strip the spec comment
-						specs = [s.strip() for s in \
+						specs = [s.strip() for s in
 								key_comment[0][1:].split(',')]
 						if len(specs) == 4:
 							(name, subname, input_type, units) = specs

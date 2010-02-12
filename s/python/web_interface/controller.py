@@ -1,9 +1,11 @@
 import sys, os, os.path, shutil, errno, calendar, cherrypy
 from subprocess import Popen, PIPE
 from datetime import datetime
-from lib import common, storage, ajax, template
+from lib import common, ajax, template
+from lib.storage import BowerbirdStorage
 from lib.sonogram import generateSonogram
 from lib.configparser import ConfigParser
+from lib.zeroconfservice import ZeroconfService
 from genshi import HTML
 
 # constants
@@ -11,6 +13,7 @@ RECORDING_KB_PER_SECOND = 700
 
 # web interface config file
 WEB_CONFIG = 'bowerbird.conf'
+SERVER_PORT_KEY = 'server.socket_port'
 # parameters for parsing contents of web interface config file
 CONFIG_KEY = 'bowerbird_config'
 CONFIG_DEFAULTS_KEY = 'bowerbird_config_defaults'
@@ -40,7 +43,7 @@ class Root(object):
 
 		config_filename = cherrypy.config[CONFIG_KEY]
 		if not os.path.exists(config_filename):
-			raise IOError(errno.ENOENT, "Config file '%s' not found" 
+			raise IOError(errno.ENOENT, "Config file '%s' not found"
 					% config_filename)
 
 		if cherrypy.config.has_key(CONFIG_DEFAULTS_KEY):
@@ -63,6 +66,11 @@ class Root(object):
 
 
 	@cherrypy.expose
+	def name(self, **ignored):
+		return self.get_station_name()
+
+
+	@cherrypy.expose
 	@template.output('status.html')
 	def status(self, **ignored):
 		return template.render(station = self.get_station_name(),
@@ -75,8 +83,8 @@ class Root(object):
 
 	@cherrypy.expose
 	@template.output('config.html')
-	def config(self, config_timestamp=0, load_defaults=False, cancel=False, 
-			apply=False, export_config=False, new_config=None, 
+	def config(self, config_timestamp=0, load_defaults=False, cancel=False,
+			apply=False, export_config=False, new_config=None,
 			import_config=False, **data):
 		error = None
 		values = None
@@ -88,7 +96,7 @@ class Root(object):
 			# that we don't have to move the config file into the web-accessible
 			# filesystem hierarchy
 			return cherrypy.lib.static.serve_file(
-					os.path.realpath(self.conf.filename), 
+					os.path.realpath(self.conf.filename),
 					"application/x-download", "attachment",
 					os.path.basename(self.conf.filename))
 		elif apply:
@@ -111,7 +119,7 @@ class Root(object):
 						Configuration has been changed externally.<br />
 						If you wish to keep your changes and lose the external
 						changes, then click on 'Apply' again. <br />
-						To lose your changes and preserve the external changes, 
+						To lose your changes and preserve the external changes,
 						click 'Cancel'.''')
 				# load the post data into a temporary configparser to preserve
 				# the user's changes when the page is loaded again. This means
@@ -136,10 +144,10 @@ class Root(object):
 
 		if not values:
 			values = self.conf.get_values()
-		return template.render(station=self.get_station_name(), 
+		return template.render(station=self.get_station_name(),
 				config_timestamp=self.conf.get_timestamp(),
 				error=error, using_defaults=load_defaults, values=values,
-				file=self.conf.filename, 
+				file=self.conf.filename,
 				defaults_file=self.conf.defaults_filename)
 
 
@@ -170,8 +178,8 @@ class Root(object):
 				finish_key = "%s.finish" % id
 				if data.has_key(start_key) and data.has_key(finish_key):
 					schedule_key = schedules[id]
-					schedule_value = "%s - %s" \
-							% (data[start_key], data[finish_key])
+					schedule_value = ("%s - %s"
+							% (data[start_key], data[finish_key]))
 					self.conf.set_schedule(schedule_key, schedule_value)
 
 			# update file
@@ -203,26 +211,26 @@ class Root(object):
 
 		return template.render(station=self.get_station_name(), error=error,
 				using_defaults=load_defaults, values=values, add=add,
-				section=SCHEDULE_SECTION, file=self.conf.filename, 
+				section=SCHEDULE_SECTION, file=self.conf.filename,
 				defaults_file=self.conf.defaults_filename)
 
 	@cherrypy.expose
 	@template.output('recordings.html')
 	def recordings(self, **ignored):
 		recording_calendar = calendar.HTMLCalendar(calendar.SUNDAY)
-		recordings = ["Cane Toads (2:30-4:30)", 
+		recordings = ["Cane Toads (2:30-4:30)",
 				"Poison Dart Frogs (18:00-18:30)"]
 		return template.render(station=self.get_station_name(),
 				recordings=recordings,
 				calendar=HTML(recording_calendar.formatmonth(2010,2,True)))
 
-	
+
 #	@cherrypy.expose
 	@template.output('categories.html')
 	def categories(self, sort='label', sort_order='asc', **ignored):
-		categories_var = self.db.getCategories(sort, sort_order)
+		categories = self.db.getCategories(sort, sort_order)
 		return template.render(station=self.get_station_name(),
-				categories=categories_var,
+				categories=categories,
 				sort=sort, sort_order=sort_order)
 
 
@@ -238,7 +246,7 @@ class Root(object):
 		call_sonograms = {}
 		for call in calls:
 			call_sonograms[call['filename']] = self.getSonogram(call, FREQUENCY_SCALES[0], DEFAULT_FFT_STEP)
-		return template.render(station=self.get_station_name(), \
+		return template.render(station=self.get_station_name(),
 				category=self.db.getCategory(label),
 				calls=calls, call_sonograms=call_sonograms, sort=sort, sort_order=sort_order)
 
@@ -246,7 +254,7 @@ class Root(object):
 #	@cherrypy.expose
 	@template.output('calls.html')
 	def calls(self, sort='date_and_time', sort_order='asc', category=None, **ignored):
-		return template.render(station=self.get_station_name(), \
+		return template.render(station=self.get_station_name(),
 				calls=self.db.getCalls(sort, sort_order, category),
 				sort=sort, sort_order=sort_order)
 
@@ -310,8 +318,8 @@ class Root(object):
 					keys[section_index] = {}
 				if not keys[section_index].has_key(name_index):
 					keys[section_index][name_index] = {}
-				keys[section_index][name_index][subname_index] \
-						= (real_key, value)
+				keys[section_index][name_index][subname_index] = (real_key,
+						value)
 			elif key.startswith(common.SECTION_META_PREFIX):
 				index = data[key].find(',')
 				id = int(data[key][:index])
@@ -349,7 +357,7 @@ class Root(object):
 	def getSonogram(self, call, frequency_scale, fft_step):
 		if call:
 			destination_dir = os.path.abspath(SONOGRAM_DIRECTORY)
-			return '/media/sonograms/%s' % generateSonogram(call['filename'], 
+			return '/media/sonograms/%s' % generateSonogram(call['filename'],
 					destination_dir, frequency_scale, fft_step)
 		return ''
 
@@ -362,22 +370,22 @@ class Root(object):
 		root_dir = self.conf.get_value2(CAPTURE_SECTION_NAME,
 				CAPTURE_ROOT_DIR_KEY)
 		if not os.path.exists(root_dir):
-			return "%s doesn't exist: Fix Config %s->%s" \
-					% (root_dir, CAPTURE_SECTION_NAME, CAPTURE_ROOT_DIR_KEY)
+			return ("%s doesn't exist: Fix Config %s->%s"
+					% (root_dir, CAPTURE_SECTION_NAME, CAPTURE_ROOT_DIR_KEY))
 		# split to remove title line, then split into fields
 		(_,_,_,available,percent,_) = Popen(["df", "-k", root_dir],
 				stdout=PIPE).communicate()[0].split('\n')[1].split()
 		percent_free = 100 - int(percent[:-1])
 		available = int(available)
-		return "%s free (%d%%) Approx. %s recording time left" \
-				% (pretty_size(available), percent_free, 
-						pretty_time(available/RECORDING_KB_PER_SECOND))
+		return ("%s free (%d%%) Approx. %s recording time left"
+				% (pretty_size(available), percent_free,
+						pretty_time(available/RECORDING_KB_PER_SECOND)))
 
 
 	def get_local_time(self):
 		now = datetime.now()
 		# TODO add info about sunrise/set relative time
-		# "18:36 (1 hour until sunset), 1st February 2010"
+		# "18:36 (1 hour until sunset), 01 February 2010"
 		return now.strftime("%H:%M, %d %B %Y")
 
 
@@ -390,8 +398,8 @@ def pretty_size(kilobytes):
 
 
 def pretty_time(seconds, show_seconds=False):
-	sizes = [ (365*24*60*60, "years"), (30*24*60*60, "months"), 
-			(24*60*60, "days"), (60*60, "hours"), 
+	sizes = [ (365*24*60*60, "years"), (30*24*60*60, "months"),
+			(24*60*60, "days"), (60*60, "hours"),
 			(60, "minutes"), (1, "seconds") ]
 	if not show_seconds:
 		sizes = sizes[:-1]
@@ -432,7 +440,7 @@ def main(args):
 		sys.stderr.write('Warning: configured database file '
 				'"%s" does not exist. Creating a new one...\n'
 				% database_file)
-	db = storage.Storage(database_file)
+	db = BowerbirdStorage(database_file)
 	# make sure that database has key tables
 	if not db.hasRequiredTables():
 		sys.stderr.write('Warning: configured database file '
@@ -445,7 +453,8 @@ def main(args):
 	path = os.path.dirname(os.path.realpath(args[0]))
 
 	try:
-		cherrypy.tree.mount(Root(db, path), '/', {
+		root = Root(db, path)
+		cherrypy.tree.mount(root, '/', {
 			'/media': {
 				'tools.staticdir.on': True,
 				'tools.staticdir.dir': 'static'
@@ -455,8 +464,18 @@ def main(args):
 		sys.stderr.write('Error: %s.\n' % e);
 		sys.exit(1)
 
+	# create zeroconf service
+	# TODO handle if avahi and/or dbus is not working
+	service = ZeroconfService(name="Bowerbird [%s]" % root.get_station_name(),
+			port=cherrypy.config[SERVER_PORT_KEY], stype=common.ZEROCONF_TYPE,
+			text=common.ZEROCONF_TEXT_TO_IDENTIFY_BOWERBIRD)
+
 	cherrypy.engine.start()
+	service.publish()
+	
 	cherrypy.engine.block()
+
+	service.unpublish()
 
 
 if __name__ == '__main__':

@@ -5,10 +5,10 @@
   <xi:include href="layout.html" />
   <head>
 	  <!-- this is the double redirect method meta+javascript -->
-	  <meta http-equiv="refresh" content="${value_of('timeout', 5)}; 
+	  <meta http-equiv="refresh" content="${value_of('timeout', 10)}; 
 		  URL=${value_of('redirect', '/connect')}" />
 	  <script type="text/javascript"><!--
-		  setTimeout('Redirect()',${value_of('timeout', 5) * 1000});
+		  setTimeout('Redirect()',${value_of('timeout', 10) * 1000});
 			function Redirect(){
 			  location.href = '${value_of("redirect", "/connect")}';
 			}
@@ -18,11 +18,15 @@
   <body>
     <h1>Connection Failure</h1>
 	<p>
-	The connection to the Bowerbird system
-	<py:if test="station_address">
-		at ${value_of("station_address", "nowhere")}
+	The connection to
+	<py:if test="station_name">
+		${value_of("station_name")},
 	</py:if>
-	was lost.
+	the Bowerbird system
+	<py:if test="station_address">
+		at ${value_of("station_address")}
+	</py:if>
+	${error}.
 	</p>
 	<p>
 		You will be redirected shortly to the Connect screen.

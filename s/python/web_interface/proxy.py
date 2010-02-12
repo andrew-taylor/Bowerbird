@@ -3,6 +3,8 @@ import urllib2, lxml.html, lxml.etree
 from cherrypy.lib import sessions
 from lib import common, storage, ajax, template
 from lib.configparser import ConfigParser
+from lib.storage import ProxyStorage
+from lib.zeroconfscanner import ZeroconfScanner
 from genshi import HTML
 from cStringIO import StringIO
 from urllib import urlencode
@@ -15,7 +17,12 @@ DEFAULT_BOWERBIRD_PORT = '8080'
 DATABASE_KEY = 'database'
 REQUIRED_KEYS = [DATABASE_KEY]
 
-SESSION_STATION_KEY = 'station'
+SESSION_STATION_NAME_KEY = 'station_name'
+SESSION_STATION_ADDRESS_KEY = 'station_address'
+CONNECT_FAILURE_REDIRECTION_TIMEOUT = 10 # in seconds
+
+# how long zeroconf will wait for responses when probing for bowerbirds
+ZEROCONF_SCAN_TIME_MS = 500
 
 UNIMPLEMENTED = '''<html>
 <head><title>Uninplemented</title></head>
@@ -33,36 +40,51 @@ class Root(object):
 		else:
 			self.bowerbird_port = DEFAULT_BOWERBIRD_PORT
 
-		# initialise database perhaps
+		self.scanner = ZeroconfScanner(common.ZEROCONF_TYPE, 
+				ZEROCONF_SCAN_TIME_MS)
 
 
 	@cherrypy.expose
 	@template.output('connect.html')
-	def connect(self, history=None, local=None, manual=None, **ignored):
+	def connect(self, address=None, remove=None, **ignored):
 		# if already connected, then just bounce to the status page
-		if cherrypy.session.has_key(SESSION_STATION_KEY):
+		if cherrypy.session.has_key(SESSION_STATION_ADDRESS_KEY):
 			raise cherrypy.HTTPRedirect('/status')
 
-		if manual:
-			# TODO check if there's a bowerbird on that address
-			cherrypy.session[SESSION_STATION_KEY] = manual
-			raise cherrypy.HTTPRedirect('/status')
+		if address:
+			# if "Remove" button has been clicked, delete entry from history
+			if remove:
+				self.db.removeConnection(address)
+			else:
+				# get the name from the address
+				try:
+					name = self.get_remote_name(address)
+				except urllib2.URLError:
+					return self.show_connection_failure(
+							error="could not be established", address=address)
 
-		return template.render(is_proxy=True, is_connected=False)
+				self.db.addConnection(name, address)
+				cherrypy.session[SESSION_STATION_ADDRESS_KEY] = address
+				cherrypy.session[SESSION_STATION_NAME_KEY] = name
+				raise cherrypy.HTTPRedirect('/status')
+
+		return template.render(is_proxy=True, is_connected=False,
+				previous_connections=self.db.getPreviousConnections(),
+				local_connections=self.findLocalBowerbirds())
 
 
 	@cherrypy.expose
 	def disconnect(self, **ignored):
 		# set disconnected
-		if cherrypy.session.has_key(SESSION_STATION_KEY):
-			del cherrypy.session[SESSION_STATION_KEY]
+		if cherrypy.session.has_key(SESSION_STATION_ADDRESS_KEY):
+			del cherrypy.session[SESSION_STATION_ADDRESS_KEY]
 		raise cherrypy.HTTPRedirect('/')
 
 
 	@cherrypy.expose
 	def index(self, **ignored):
 		# just redirect to status page if connected, otherwise connect page
-		if cherrypy.session.has_key(SESSION_STATION_KEY):
+		if cherrypy.session.has_key(SESSION_STATION_ADDRESS_KEY):
 			raise cherrypy.HTTPRedirect('/status')
 		else:
 			raise cherrypy.HTTPRedirect('/connect')
@@ -70,14 +92,12 @@ class Root(object):
 
 	@cherrypy.expose
 	def status(self, **kwargs):
-		# delete next line
-		cherrypy.session[SESSION_STATION_KEY] = 'localhost' #HACK
-
 		return self.tunnel_connection("status", kwargs)
 
 
 	@cherrypy.expose
 	def config(self, **kwargs):
+		# TODO catch station name changes and update connection history
 		return self.tunnel_connection("config", kwargs)
 
 
@@ -92,13 +112,30 @@ class Root(object):
 		return UNIMPLEMENTED
 
 
-	def assert_connected(self):
-		'''Asserts that a connection to a Bowerbird system exists. 
-		   Redirects to connect page if not connected'''
-		if not cherrypy.session.has_key(SESSION_STATION_KEY):
-			raise cherrypy.HTTPRedirect('/connect')
+	def findLocalBowerbirds(self):
+		bowerbirds = []
+		for service in self.scanner:
+			if (service['text'] == common.ZEROCONF_TEXT_TO_IDENTIFY_BOWERBIRD):
+				name = service['name']
+				# strip the wrapper from the name
+				name = name[name.find('[')+1 : name.rfind(']')]
+				bowerbirds.append({'name': name, 'address': service['address']})
+
+		return bowerbirds
 
 	
+	def get_remote_name(self, address):
+		return urllib2.urlopen('http://%s:%s/name' %
+				(address, self.bowerbird_port)).read()
+
+
+	def assert_connected(self):
+		'''Asserts that a connection to a Bowerbird system exists.
+		   Redirects to connect page if not connected'''
+		if not cherrypy.session.has_key(SESSION_STATION_ADDRESS_KEY):
+			raise cherrypy.HTTPRedirect('/connect')
+
+
 	# update the html from a remote Bowerbird to add disconnect links etc
 	# NOTE: html_source should be a file-like object with a "read" method
 	def update_html(self, html_source):
@@ -116,16 +153,27 @@ class Root(object):
 		return lxml.etree.tostring(dom, method='html', pretty_print=True)
 
 	@template.output('connection_failure.html')
-	def show_connection_failure(self):
-		if cherrypy.session.has_key(SESSION_STATION_KEY):
-			station_address = cherrypy.session[SESSION_STATION_KEY]
-			del cherrypy.session[SESSION_STATION_KEY]
+	def show_connection_failure(self, error='was lost', name=None, address=None):
+		if address:
+			station_address = address
+		elif cherrypy.session.has_key(SESSION_STATION_ADDRESS_KEY):
+			station_address = cherrypy.session[SESSION_STATION_ADDRESS_KEY]
+			del cherrypy.session[SESSION_STATION_ADDRESS_KEY]
 		else:
-			station_address = "unknown"
+			station_address = ""
 
-		return template.render(is_proxy=True, is_connected=False,
-				station_address=station_address)
-		
+		if name:
+			station_name = name
+		elif cherrypy.session.has_key(SESSION_STATION_NAME_KEY):
+			station_name = cherrypy.session[SESSION_STATION_NAME_KEY]
+			del cherrypy.session[SESSION_STATION_NAME_KEY]
+		else:
+			station_name = ""
+
+		return template.render(is_proxy=True, is_connected=False, error=error,
+				station_name=station_name, station_address=station_address,
+				timeout=CONNECT_FAILURE_REDIRECTION_TIMEOUT)
+
 
 	def tunnel_connection(self, page, kwargs):
 		'''tunnel connection back from remote Bowerbird system'''
@@ -134,8 +182,8 @@ class Root(object):
 
 		try:
 			return self.update_html(urllib2.urlopen('http://%s:%s/%s' %
-					(cherrypy.session[SESSION_STATION_KEY], self.bowerbird_port, 
-						page), urlencode(kwargs)))
+					(cherrypy.session[SESSION_STATION_ADDRESS_KEY], 
+						self.bowerbird_port, page), urlencode(kwargs)))
 		except urllib2.URLError:
 			return self.show_connection_failure()
 
@@ -164,11 +212,25 @@ def main(args):
 	if not loadWebConfig():
 		sys.exit(1)
 
+	# initialise storage
+	database_file = cherrypy.config[DATABASE_KEY]
+	if not os.path.exists(database_file):
+		sys.stderr.write('Warning: configured database file '
+				'"%s" does not exist. Creating a new one...\n'
+				% database_file)
+	db = ProxyStorage(database_file)
+	# make sure that database has key tables
+	if not db.hasRequiredTables():
+		sys.stderr.write('Warning: configured database file '
+				'"%s" missing required tables. Creating them...\n'
+				% database_file)
+		db.createRequiredTables()
+
+	cherrypy.engine.subscribe('stop_thread', db.stop)
+
 	path = os.path.dirname(os.path.realpath(args[0]))
 
 	try:
-		# HACK
-		db = {}
 		cherrypy.tree.mount(Root(db, path), '/', {
 			'/media': {
 				'tools.staticdir.on': True,
