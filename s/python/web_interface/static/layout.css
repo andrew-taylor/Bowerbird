@@ -204,14 +204,16 @@ table.month {
 
 th.month {
 	background-color: #565cff;
-	padding:1px 5px 1px 5px
+	padding: 1px 5px 1px 5px;
+	font-size: large
 }
 
 th.day {
 	background-color:#2c92ff;
 	width: 14%;
 	text-align: center;
-	border:1px solid  #0009ff
+	border:1px solid  #0009ff;
+	font-size: small
 }
 
 td.day {
