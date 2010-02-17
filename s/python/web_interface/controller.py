@@ -1,8 +1,8 @@
-import sys, os, os.path, shutil, errno, calendar, cherrypy
+import sys, os, os.path, shutil, errno, calendar, cherrypy, datetime
 from subprocess import Popen, PIPE
-from datetime import datetime
 from lib import common, ajax, template
 from lib.storage import BowerbirdStorage
+from lib.recordingshtmlcalendar import RecordingsHTMLCalendar
 from lib.sonogram import generateSonogram
 from lib.configparser import ConfigParser
 from lib.zeroconfservice import ZeroconfService
@@ -67,16 +67,16 @@ class Root(object):
 
 	@cherrypy.expose
 	def name(self, **ignored):
-		return self.get_station_name()
+		return self.getStationName()
 
 
 	@cherrypy.expose
 	@template.output('status.html')
 	def status(self, **ignored):
-		return template.render(station = self.get_station_name(),
-				uptime = self.get_uptime(),
-				disk_space = self.get_disk_space(),
-				local_time = self.get_local_time(),
+		return template.render(station = self.getStationName(),
+				uptime = self.getUptime(),
+				disk_space = self.getDiskSpace(),
+				local_time = self.getLocalTime(),
 				last_recording = "?? Poison Dart Frogs (18:00-18:30)",
 				next_recording = "?? Cane Toads (2:30-4:30)")
 
@@ -144,7 +144,7 @@ class Root(object):
 
 		if not values:
 			values = self.conf.get_values()
-		return template.render(station=self.get_station_name(),
+		return template.render(station=self.getStationName(),
 				config_timestamp=self.conf.get_timestamp(),
 				error=error, using_defaults=load_defaults, values=values,
 				file=self.conf.filename,
@@ -209,27 +209,34 @@ class Root(object):
 		else:
 			values = self.conf.get_schedules()
 
-		return template.render(station=self.get_station_name(), error=error,
+		return template.render(station=self.getStationName(), error=error,
 				using_defaults=load_defaults, values=values, add=add,
 				section=SCHEDULE_SECTION, file=self.conf.filename,
 				defaults_file=self.conf.defaults_filename)
 
 	@cherrypy.expose
 	@template.output('recordings.html')
-	def recordings(self, **ignored):
-		recording_calendar = calendar.HTMLCalendar(calendar.SUNDAY)
-		recordings = ["Cane Toads (2:30-4:30)",
-				"Poison Dart Frogs (18:00-18:30)"]
-		return template.render(station=self.get_station_name(),
-				recordings=recordings,
-				calendar=HTML(recording_calendar.formatmonth(2010,2,True)))
+	def recordings(self, view='month', day=None, month=None, year=None, 
+			**ignored):
+		today = datetime.date.today()
+		# slightly ugly syntax to convert to int and provide default
+		day = int(day or today.day)
+		month = int(month or today.month)
+		year = int(year or today.year)
+		day_to_show = datetime.date(year, month, day)
+
+		if view == 'month':
+			html = self.generateMonthView(today, day_to_show)
+		else:
+			html = "<h2>Unimplemented</h2>"
+		return template.render(station=self.getStationName(), html=HTML(html))
 
 
 #	@cherrypy.expose
 	@template.output('categories.html')
 	def categories(self, sort='label', sort_order='asc', **ignored):
 		categories = self.db.getCategories(sort, sort_order)
-		return template.render(station=self.get_station_name(),
+		return template.render(station=self.getStationName(),
 				categories=categories,
 				sort=sort, sort_order=sort_order)
 
@@ -246,7 +253,7 @@ class Root(object):
 		call_sonograms = {}
 		for call in calls:
 			call_sonograms[call['filename']] = self.getSonogram(call, FREQUENCY_SCALES[0], DEFAULT_FFT_STEP)
-		return template.render(station=self.get_station_name(),
+		return template.render(station=self.getStationName(),
 				category=self.db.getCategory(label),
 				calls=calls, call_sonograms=call_sonograms, sort=sort, sort_order=sort_order)
 
@@ -254,7 +261,7 @@ class Root(object):
 #	@cherrypy.expose
 	@template.output('calls.html')
 	def calls(self, sort='date_and_time', sort_order='asc', category=None, **ignored):
-		return template.render(station=self.get_station_name(),
+		return template.render(station=self.getStationName(),
 				calls=self.db.getCalls(sort, sort_order, category),
 				sort=sort, sort_order=sort_order)
 
@@ -285,7 +292,7 @@ class Root(object):
 					fft_step=fft_step, frequency_scale=frequency_scale,
 					frequency_scales=FREQUENCY_SCALES)
 		else:
-			return template.render(station=self.get_station_name(), call=call,
+			return template.render(station=self.getStationName(), call=call,
 					categories=",".join(self.db.getCategoryNames()),
 					sonogram_filename=self.getSonogram(call, frequency_scale, fft_step),
 					fft_step=fft_step, frequency_scale=frequency_scale,
@@ -293,8 +300,12 @@ class Root(object):
 					prev_next_files=self.db.getPrevAndNextCalls(call))
 
 
-	def get_station_name(self):
+	def getStationName(self):
 		return self.conf.get_value2(STATION_SECTION_NAME, STATION_NAME_KEY)
+
+
+	def generateMonthView(self, today, day_to_show):
+		return RecordingsHTMLCalendar(today, day_to_show, self.db).showMonth()
 
 
 	def updateConfigFromPostData(self, config, data):
@@ -362,11 +373,11 @@ class Root(object):
 		return ''
 
 
-	def get_uptime(self):
+	def getUptime(self):
 		return Popen("uptime", stdout=PIPE).communicate()[0]
 
 
-	def get_disk_space(self):
+	def getDiskSpace(self):
 		root_dir = self.conf.get_value2(CAPTURE_SECTION_NAME,
 				CAPTURE_ROOT_DIR_KEY)
 		if not os.path.exists(root_dir):
@@ -378,18 +389,18 @@ class Root(object):
 		percent_free = 100 - int(percent[:-1])
 		available = int(available)
 		return ("%s free (%d%%) Approx. %s recording time left"
-				% (pretty_size(available), percent_free,
-						pretty_time(available/RECORDING_KB_PER_SECOND)))
+				% (prettyPrintSize(available), percent_free,
+						prettyPrintTime(available/RECORDING_KB_PER_SECOND)))
 
 
-	def get_local_time(self):
-		now = datetime.now()
+	def getLocalTime(self):
+		now = datetime.datetime.today()
 		# TODO add info about sunrise/set relative time
 		# "18:36 (1 hour until sunset), 01 February 2010"
-		return now.strftime("%H:%M, %d %B %Y")
+		return now.strftime('%H:%M, %d %B %Y')
 
 
-def pretty_size(kilobytes):
+def prettyPrintSize(kilobytes):
 	sizes = [ (1024**3, "T"), (1024**2, "G"), (1024, "M"), (1, "k") ]
 	for size,unit in sizes:
 		if kilobytes > size:
@@ -397,7 +408,7 @@ def pretty_size(kilobytes):
 	return "error generating pretty size for %f" % kilobytes
 
 
-def pretty_time(seconds, show_seconds=False):
+def prettyPrintTime(seconds, show_seconds=False):
 	sizes = [ (365*24*60*60, "years"), (30*24*60*60, "months"),
 			(24*60*60, "days"), (60*60, "hours"),
 			(60, "minutes"), (1, "seconds") ]
@@ -464,7 +475,7 @@ def main(args):
 
 	# create zeroconf service
 	# TODO handle if avahi and/or dbus is not working
-	service = ZeroconfService(name="Bowerbird [%s]" % root.get_station_name(),
+	service = ZeroconfService(name="Bowerbird [%s]" % root.getStationName(),
 			port=cherrypy.config[SERVER_PORT_KEY], stype=common.ZEROCONF_TYPE,
 			text=common.ZEROCONF_TEXT_TO_IDENTIFY_BOWERBIRD)
 
