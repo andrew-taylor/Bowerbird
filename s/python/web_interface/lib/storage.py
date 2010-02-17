@@ -230,12 +230,10 @@ class ProxyStorage(Storage):
 			}
 
 	def addConnection(self, name, address):
-		print "addConnection",name, address
 		# check it's not a known address
 		response = self.runQuerySingleResponse(
 				'select name, times_connected from previous_connections '
 				'where address="%s"' % address)
-		print response
 		if response:
 			times_connected = response['times_connected'] + 1
 			self.runQuery('update previous_connections set name="%s", '

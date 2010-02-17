@@ -62,14 +62,20 @@ class ZeroconfScanner(object):
 
 	def __service_resolved(self, *args):
 		# workaround bug in avahi (or dbus perhaps)
-		arg9 = avahi.txt_array_to_string_array(args[9])
-		arg9.reverse()
-		text = ''.join(arg9)
-		self.__services.append({ 
+		new_service = { 
 				'name': unicode(args[2]), 
 				'address': unicode(args[7]),
-				'port':	int(args[8]),
-				'text': text})
+				'port':	int(args[8]) }
+		for entry in avahi.txt_array_to_string_array(args[9]):
+			# ignore duplicate keys
+			equals_pos = entry.find('=')
+			key = entry[:equals_pos]
+			data = entry[equals_pos+1:]
+			if not new_service.has_key(key):
+				new_service[key] = data
+			else:
+				print "duplicate entry in text array: ", entry
+		self.__services.append(new_service)
 
 	def __print_error(self, *args):
 		print 'error:', args

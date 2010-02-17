@@ -477,7 +477,7 @@ def main(args):
 	# TODO handle if avahi and/or dbus is not working
 	service = ZeroconfService(name="Bowerbird [%s]" % root.getStationName(),
 			port=cherrypy.config[SERVER_PORT_KEY], stype=common.ZEROCONF_TYPE,
-			text=common.ZEROCONF_TEXT_TO_IDENTIFY_BOWERBIRD)
+			magic=common.ZEROCONF_TEXT_TO_IDENTIFY_BOWERBIRD)
 
 	cherrypy.engine.start()
 	service.publish()

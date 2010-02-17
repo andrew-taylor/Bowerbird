@@ -115,7 +115,8 @@ class Root(object):
 	def findLocalBowerbirds(self):
 		bowerbirds = []
 		for service in self.scanner:
-			if (service['text'] == common.ZEROCONF_TEXT_TO_IDENTIFY_BOWERBIRD):
+			if (service.has_key('magic') and service['magic'] 
+					== common.ZEROCONF_TEXT_TO_IDENTIFY_BOWERBIRD):
 				name = service['name']
 				# strip the wrapper from the name
 				name = name[name.find('[')+1 : name.rfind(']')]
