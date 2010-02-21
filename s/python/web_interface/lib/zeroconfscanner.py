@@ -18,10 +18,11 @@ class ZeroconfScanner(object):
 
 		self.__services = []
 
-		self.gobject_loop = gobject.MainLoop()
 		self.bus = dbus.SystemBus(mainloop=DBusGMainLoop())
 		self.server = dbus.Interface(self.bus.get_object(avahi.DBUS_NAME, '/'),
 				'org.freedesktop.Avahi.Server')
+
+		self.gobject_loop = None
 
 		self.rescan()
 
@@ -33,15 +34,18 @@ class ZeroconfScanner(object):
 		return deepcopy(__services)
 
 	def abort_scan(self):
-		if self.gobject_loop.is_running:
-			self.gobject_loop.quit()
+		self.__quit_main_loop()
 
 	def __quit_main_loop(self):
-		if self.gobject_loop.is_running:
+		if self.gobject_loop and self.gobject_loop.is_running:
 			self.gobject_loop.quit()
+			self.gobject_loop = None
 		return False
 
 	def rescan(self):
+		# ensure previous loop is not running
+		self.__quit_main_loop()
+
 		self.__services = []
 		sbrowser = dbus.Interface(self.bus.get_object(avahi.DBUS_NAME,
 				self.server.ServiceBrowserNew(avahi.IF_UNSPEC,
@@ -51,6 +55,7 @@ class ZeroconfScanner(object):
 
 		gobject.timeout_add(self.scan_time_ms, self.__quit_main_loop)
 
+		self.gobject_loop = gobject.MainLoop()
 		self.gobject_loop.run()
 
 	def __add_server_to_list(self, interface, protocol, name, stype, domain, 
@@ -61,24 +66,28 @@ class ZeroconfScanner(object):
 			error_handler=self.__print_error)
 
 	def __service_resolved(self, *args):
-		# workaround bug in avahi (or dbus perhaps)
 		new_service = { 
 				'name': unicode(args[2]), 
 				'address': unicode(args[7]),
 				'port':	int(args[8]) }
 		for entry in avahi.txt_array_to_string_array(args[9]):
-			# ignore duplicate keys
 			equals_pos = entry.find('=')
 			key = entry[:equals_pos]
 			data = entry[equals_pos+1:]
+			# ignore duplicate keys
 			if not new_service.has_key(key):
 				new_service[key] = data
 			else:
 				print "duplicate entry in text array: ", entry
-		self.__services.append(new_service)
+
+		# prevent duplicates (until we figure out how to avoid this)
+		if self.__services.count(new_service):
+			print "duplicate service found:", new_service
+		else:
+			self.__services.append(new_service)
 
 	def __print_error(self, *args):
-		print 'error:', args
+		print 'error from zeroconf:', args
 
 
 def test():

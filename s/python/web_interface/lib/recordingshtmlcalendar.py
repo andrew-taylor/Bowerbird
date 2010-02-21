@@ -6,7 +6,6 @@ class RecordingsHTMLCalendar(Calendar):
 		self.db = recordings_db
 		self.today = today
 		self.date = date
-		print "showing calendar",today, date
 
 		# initialise calendar source
 		self.setfirstweekday(firstweekday)

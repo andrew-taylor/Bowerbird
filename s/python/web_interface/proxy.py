@@ -46,12 +46,13 @@ class Root(object):
 
 	@cherrypy.expose
 	@template.output('connect.html')
-	def connect(self, address=None, remove=None, **ignored):
+	def connect(self, address=None, remove=None, rescan=False, **ignored):
 		# if already connected, then just bounce to the status page
 		if cherrypy.session.has_key(SESSION_STATION_ADDRESS_KEY):
 			raise cherrypy.HTTPRedirect('/status')
 
-		if address:
+		# ignore address if "rescan" was requested
+		if not rescan and address:
 			# if "Remove" button has been clicked, delete entry from history
 			if remove:
 				self.db.removeConnection(address)
@@ -70,7 +71,7 @@ class Root(object):
 
 		return template.render(is_proxy=True, is_connected=False,
 				previous_connections=self.db.getPreviousConnections(),
-				local_connections=self.findLocalBowerbirds())
+				local_connections=self.findLocalBowerbirds(rescan))
 
 
 	@cherrypy.expose
@@ -112,7 +113,10 @@ class Root(object):
 		return UNIMPLEMENTED
 
 
-	def findLocalBowerbirds(self):
+	def findLocalBowerbirds(self, rescan=False):
+		if rescan:
+			self.scanner.rescan()
+
 		bowerbirds = []
 		for service in self.scanner:
 			if (service.has_key('magic') and service['magic'] 
