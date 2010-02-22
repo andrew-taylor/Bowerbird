@@ -1,4 +1,9 @@
-#!/bin/bash
+#!/bin/sh
 
 #echo To start web interface, run:
-PYTHONPATH=.. python proxy.py
+path=`readlink -e $0`
+base=`dirname $path`
+executable=python
+type python2.6 >/dev/null 2>&1 && executable=python2.6
+export PYTHONPATH=.. 
+$executable $base/proxy.py
