@@ -78,7 +78,7 @@ class Root(object):
 				disk_space = self.getDiskSpace(),
 				local_time = self.getLocalTime(),
 				last_recording = "?? Poison Dart Frogs (18:00-18:30)",
-				next_recording = "?? Cane Toads (2:30-4:30)")
+				next_recording = self.getNextRecording())
 
 
 	@cherrypy.expose
@@ -102,13 +102,13 @@ class Root(object):
 		elif apply:
 			# if someone else has modified the config, then warn the user
 			# before saving their changes (overwriting the other's changes)
-			if int(config_timestamp) == self.conf.get_timestamp():
+			if int(config_timestamp) == self.conf.getTimestamp():
 				self.updateConfigFromPostData(self.conf, data)
 
 				# update file
 				try:
-					self.conf.save_to_file()
-					self.conf.export_for_shell(self.conf.filename + ".sh")
+					self.conf.saveToFile()
+					self.conf.exportForShell(self.conf.filename + ".sh")
 					# bounce back to homepage
 					raise cherrypy.HTTPRedirect('/')
 				except IOError as e:
@@ -126,16 +126,16 @@ class Root(object):
 				# we don't have to duplicate the horrible POST-to-config code
 				temp_conf = ConfigParser()
 				self.updateConfigFromPostData(temp_conf, data)
-				values = temp_conf.get_values()
+				values = temp_conf.getValues()
 				# the page loading below will send the new config timestamp so
 				# we don't have to anything else here.
 
 		if load_defaults:
-			values = self.conf.get_default_values()
+			values = self.conf.getDefaultValues()
 		elif import_config:
 			if new_config.filename:
 				try:
-					values = self.conf.parse_file(new_config.file)
+					values = self.conf.parseFile(new_config.file)
 				except Exception as e:
 					values = None
 					error = 'Unable to parse config file: "%s"' % e
@@ -143,9 +143,9 @@ class Root(object):
 				error = 'No filename provided for config import'
 
 		if not values:
-			values = self.conf.get_values()
+			values = self.conf.getValues()
 		return template.render(station=self.getStationName(),
-				config_timestamp=self.conf.get_timestamp(),
+				config_timestamp=self.conf.getTimestamp(),
 				error=error, using_defaults=load_defaults, values=values,
 				file=self.conf.filename,
 				defaults_file=self.conf.defaults_filename)
@@ -160,7 +160,7 @@ class Root(object):
 			raise cherrypy.HTTPRedirect('/')
 		elif apply:
 			# clear all schedules and add them back in the order they were on the webpage
-			self.conf.clear_schedules()
+			self.conf.clearSchedules()
 			schedules = {}
 
 			# just get the labels
@@ -180,12 +180,12 @@ class Root(object):
 					schedule_key = schedules[id]
 					schedule_value = ("%s - %s"
 							% (data[start_key], data[finish_key]))
-					self.conf.set_schedule(schedule_key, schedule_value)
+					self.conf.setSchedule(schedule_key, schedule_value)
 
 			# update file
 			try:
-				self.conf.save_to_file()
-				self.conf.export_for_shell(self.conf.filename + ".sh")
+				self.conf.saveToFile()
+				self.conf.exportForShell(self.conf.filename + ".sh")
 				# bounce back to homepage
 				raise cherrypy.HTTPRedirect('/')
 			except IOError as e:
@@ -202,12 +202,12 @@ class Root(object):
 					label_key = "%s.label" % id
 					if data.has_key(label_key):
 						schedule_key = data[label_key]
-						self.conf.delete_schedule(schedule_key)
+						self.conf.deleteSchedule(schedule_key)
 
 		if load_defaults:
-			values = self.conf.get_default_schedules()
+			values = self.conf.getDefaultSchedules()
 		else:
-			values = self.conf.get_schedules()
+			values = self.conf.getSchedules()
 
 		return template.render(station=self.getStationName(), error=error,
 				using_defaults=load_defaults, values=values, add=add,
@@ -216,7 +216,7 @@ class Root(object):
 
 	@cherrypy.expose
 	@template.output('recordings.html')
-	def recordings(self, view='month', day=None, month=None, year=None, 
+	def recordings(self, view='month', day=None, month=None, year=None,
 			**ignored):
 		today = datetime.date.today()
 		# slightly ugly syntax to convert to int and provide default
@@ -280,11 +280,11 @@ class Root(object):
 
 		if call_filename and update_details:
 			self.db.updateCall(call_filename, label, category, example)
-			if ajax.is_xhr():
+			if ajax.isXmlHttpRequest():
 				return # ajax update doesn't require a response
 
 		call=self.db.getCall(call_filename)
-		if ajax.is_xhr():
+		if ajax.isXmlHttpRequest():
 			# only sonogram updates are possible here
 			assert(update_sonogram)
 			return template.render('_sonogram.html', ajah=True,
@@ -301,7 +301,7 @@ class Root(object):
 
 
 	def getStationName(self):
-		return self.conf.get_value2(STATION_SECTION_NAME, STATION_NAME_KEY)
+		return self.conf.getValue2(STATION_SECTION_NAME, STATION_NAME_KEY)
 
 
 	def generateMonthView(self, today, day_to_show):
@@ -310,7 +310,7 @@ class Root(object):
 
 	def updateConfigFromPostData(self, config, data):
 		# clear out the configuration and re-populate it
-		config.clear_config()
+		config.clearConfig()
 
 		# parse the data, then sort it so it can be entered in the same order we
 		# sent it (to preserve the order that gets mixed up by the POST data)
@@ -345,7 +345,7 @@ class Root(object):
 		section_indicies.sort()
 		for section_index in section_indicies:
 			key, value = sections[section_index]
-			config.set_smeta(key, value)
+			config.setSectionMeta(key, value)
 
 		# next insert the key meta data in sorted order
 		section_indicies = keys.keys()
@@ -358,11 +358,11 @@ class Root(object):
 				subname_indicies.sort()
 				for subname_index in subname_indicies:
 					key, value = keys[section_index][name_index][subname_index]
-					config.set_meta1(key, value)
+					config.setMeta1(key, value)
 
 		# now set the actual values
 		for key in values:
-			config.set_value1(key, values[key])
+			config.setValue1(key, values[key])
 
 
 	def getSonogram(self, call, frequency_scale, fft_step):
@@ -378,7 +378,7 @@ class Root(object):
 
 
 	def getDiskSpace(self):
-		root_dir = self.conf.get_value2(CAPTURE_SECTION_NAME,
+		root_dir = self.conf.getValue2(CAPTURE_SECTION_NAME,
 				CAPTURE_ROOT_DIR_KEY)
 		if not os.path.exists(root_dir):
 			return ("%s doesn't exist: Fix Config %s->%s"
@@ -394,10 +394,17 @@ class Root(object):
 
 
 	def getLocalTime(self):
-		now = datetime.datetime.today()
+		now = datetime.datetime.now()
 		# TODO add info about sunrise/set relative time
 		# "18:36 (1 hour until sunset), 01 February 2010"
 		return now.strftime('%H:%M, %d %B %Y')
+
+	def getNextRecording(self):
+		now = datetime.datetime.now()
+		for schedule in self.conf.getSchedules():
+			print schedule
+
+		return "??! I know nothing, Mr Fawlty!"
 
 
 def prettyPrintSize(kilobytes):
@@ -481,7 +488,7 @@ def main(args):
 
 	cherrypy.engine.start()
 	service.publish()
-	
+
 	cherrypy.engine.block()
 
 	service.unpublish()

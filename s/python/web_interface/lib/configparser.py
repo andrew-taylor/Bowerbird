@@ -16,7 +16,7 @@ SCHEDULE_COMMENTS = '''
 CONFIG_HEADER = '''# configuration file for bowerbird deployment
 
 # Some formatting of comments is required to provide nice looking edit
-# pages. General explanatory comments are welcome, but the last comment 
+# pages. General explanatory comments are welcome, but the last comment
 # line just before an item should be as described in the next
 # paragraph.
 
@@ -28,7 +28,7 @@ CONFIG_HEADER = '''# configuration file for bowerbird deployment
 # 3) variable type (float, string, int, time, etc) - Currently ignored
 # 4) units for value (for display)
 
-# leave this section header here to workaround 
+# leave this section header here to workaround
 # a strangeness in comment parsing'''
 
 # keys for cache
@@ -53,45 +53,45 @@ class ConfigParser(object):
 		self.filename = config_filename
 		self.cache = {}
 		if config_filename:
-			self.read_from_file(self.filename, self.cache)
+			self.__readFromFile(self.filename, self.cache)
 		else:
-			self.init_cache(self.cache)
+			self.__initCache(self.cache)
 
 		self.defaults_filename = config_defaults_filename
 		self.defaults_cache = {}
 		if config_defaults_filename:
-			self.read_from_file(self.defaults_filename, self.defaults_cache)
+			self.__readFromFile(self.defaults_filename, self.defaults_cache)
 		else:
-			self.init_cache(self.defaults_cache)
+			self.__initCache(self.defaults_cache)
 
 	# cache is a dictionary
-	def init_cache(self, cache):
+	def __initCache(self, cache):
 		cache[K_OBJ] = ConfigObj()
 		cache[K_TIME] = 0
 		cache[K_VAL] = OrderedDict()
 		cache[K_DICT] = OrderedDict()
 		cache[K_SCHED] = OrderedDict()
 
-	def get_raw_values(self):
+	def getRawValues(self):
 		return deepcopy(self.cache[K_DICT])
 
-	def get_values(self):
+	def getValues(self):
 		# update if file has been modified
-		self.read_from_file(self.filename, self.cache)
+		self.__readFromFile(self.filename, self.cache)
 		# return a copy
 		return deepcopy(self.cache[K_VAL])
 
-	def get_default_values(self):
+	def getDefaultValues(self):
 		# update if file has been modified
 		if self.defaults_filename:
-			self.read_from_file(self.defaults_filename, self.defaults_cache)
+			self.__readFromFile(self.defaults_filename, self.defaults_cache)
 			# return a copy
 			return deepcopy(self.defaults_cache[K_VAL])
 		return None
 
-	def get_value1(self, key):
+	def getValue1(self, key):
 		# update if file has been modified
-		self.read_from_file(self.filename, self.cache)
+		self.__readFromFile(self.filename, self.cache)
 
 		# use try/catch because most of the time key will be there
 		try:
@@ -99,22 +99,22 @@ class ConfigParser(object):
 		except KeyError:
 			return None
 
-	def get_value2(self, section, key):
-		return self.get_value1('.'.join((section, key)))
+	def getValue2(self, section, key):
+		return self.getValue1('.'.join((section, key)))
 
-	def set_value1(self, key, value):
+	def setValue1(self, key, value):
 		# update config obj
 		section, s_key = key.split('.')
 		if not self.cache[K_OBJ].has_key(section):
 			self.cache[K_OBJ][section] = {}
 		self.cache[K_OBJ][section][s_key] = value
 		# update cache(s)
-		self.update_cache_from_configobj(self.cache)
+		self.__updateCacheFromConfigObj(self.cache)
 
-	def set_value2(self, section, key, value):
-		self.set_value1('.'.join(section, key))
+	def setValue2(self, section, key, value):
+		self.setValue1('.'.join(section, key))
 
-	def set_meta1(self, key, meta):
+	def setMeta1(self, key, meta):
 		# update config obj
 		section, s_key = key.split('.')
 		if not self.cache[K_OBJ].has_key(section):
@@ -125,7 +125,7 @@ class ConfigParser(object):
 		(name, subname, type, units) = map(string.strip, meta_bits[:4])
 		description = ','.join(meta_bits[4:]).strip()
 
-		# don't write the description lines if they're empty 
+		# don't write the description lines if they're empty
 		# (otherwise, it inserts a blank line)
 		if description:
 			self.cache[K_OBJ][section].comments[s_key] = description.split(
@@ -136,12 +136,12 @@ class ConfigParser(object):
 			self.cache[K_OBJ][section].comments[s_key].append(
 					"# %s, %s, %s, %s" % (name, subname, type, units))
 		# update cache(s)
-		self.update_cache_from_configobj(self.cache)
+		self.__updateCacheFromConfigObj(self.cache)
 
-	def set_meta2(self, section, key, value):
-		self.set_meta1('.'.join(section, key))
+	def setMeta2(self, section, key, value):
+		self.setMeta1('.'.join(section, key))
 
-	def set_smeta(self, section, meta):
+	def setSectionMeta(self, section, meta):
 		# update config obj
 		if not self.cache[K_OBJ].has_key(section):
 			self.cache[K_OBJ][section] = {}
@@ -153,8 +153,8 @@ class ConfigParser(object):
 		# (to separate it from the next section)
 		if not description.startswith(COMMENTS_LINE_DELIMITER):
 			self.cache[K_OBJ].comments[section] = ['']
-		
-		# don't write the description lines if they're empty 
+
+		# don't write the description lines if they're empty
 		# (otherwise, it inserts a blank line)
 		if description:
 			self.cache[K_OBJ].comments[section].extend(description.split(
@@ -164,9 +164,9 @@ class ConfigParser(object):
 		if name != section:
 			self.cache[K_OBJ].comments[section].append("# " + name)
 		# update cache(s)
-		self.update_cache_from_configobj(self.cache)
+		self.__updateCacheFromConfigObj(self.cache)
 
-	def clear_config(self):
+	def clearConfig(self):
 		'''delete all config entries from cache (not including schedule)'''
 		# clear all values from both cache and raw cache
 		self.cache[K_VAL].clear();
@@ -187,47 +187,47 @@ class ConfigParser(object):
 		# update timestamp
 		self.cache[K_TIME] = time.time();
 
-	def get_schedules(self):
+	def getSchedules(self):
 		# update if file has been modified
-		self.read_from_file(self.filename, self.cache)
+		self.__readFromFile(self.filename, self.cache)
 		# return a copy
 		return deepcopy(self.cache[K_SCHED])
 
-	def get_default_schedules(self):
+	def getDefaultSchedules(self):
 		# update if file has been modified
 		if self.defaults_filename:
-			self.read_from_file(self.defaults_filename, self.defaults_cache)
+			self.__readFromFile(self.defaults_filename, self.defaults_cache)
 			# return a copy
 			return deepcopy(self.defaults_cache[K_SCHED])
 		return None
 
-	def get_schedule(self, label):
+	def getSchedule(self, label):
 		return self.cache[K_SCHED][label]
 
-	def set_schedule(self, label, schedule):
+	def setSchedule(self, label, schedule):
 		self.cache[K_SCHED][label] = schedule
 
 		# update config obj
 		if not self.cache[K_OBJ].has_key(SCHEDULE_SECTION):
 			self.cache[K_OBJ][SCHEDULE_SECTION] = {}
 		self.cache[K_OBJ][SCHEDULE_SECTION][label] = schedule
-	
-	def delete_schedule(self, label):
+
+	def deleteSchedule(self, label):
 		del(self.cache[K_SCHED][label])
 		# update config obj
 		del(self.cache[K_OBJ][SCHEDULE_SECTION][label])
 
-	def clear_schedules(self):
+	def clearSchedules(self):
 		self.cache[K_SCHED].clear()
 		# update config obj
 		self.cache[K_OBJ][SCHEDULE_SECTION].clear()
 
-	def get_timestamp(self):
+	def getTimestamp(self):
 		if self.filename and os.path.exists(self.filename):
 			return int(os.path.getmtime(self.filename))
 		return 0
 
-	def save_to_file(self):
+	def saveToFile(self):
 		try:
 			# update file
 			with open(self.filename, 'w') as save_file:
@@ -235,36 +235,36 @@ class ConfigParser(object):
 		except:
 			# if this fails we should re-read the file to keep them synced
 			self.cache[K_OBJ].reload()
-			self.cache[K_TIME] = self.get_timestamp();
+			self.cache[K_TIME] = self.getTimestamp();
 			raise
-	
-	
+
+
 	def export(self, export_filename):
 		with open(export_filename, 'w') as save_file:
 			self.cache[K_OBJ].write(save_file)
 
 
-	def export_for_shell(self, export_filename):
+	def exportForShell(self, export_filename):
 		with open(export_filename, 'w') as save_file:
 			convertConfig(self.cache[K_OBJ], save_file)
-		
 
-	def read_from_file(self, filename, cache):
+
+	def __readFromFile(self, filename, cache):
 		if cache and cache.has_key(K_OBJ):
 			# if already loaded and file hasn't changed then use cached value
 			# if config_obj exists, timestamp should too
-			obj_timestamp = self.get_timestamp()
+			obj_timestamp = self.getTimestamp()
 			if cache[K_TIME] < obj_timestamp:
 				cache[K_OBJ].reload()
 				cache[K_TIME] = obj_timestamp
 		else:
-			cache[K_OBJ] = ConfigObj(filename, list_values=False, 
+			cache[K_OBJ] = ConfigObj(filename, list_values=False,
 					write_empty_values=True)
-			cache[K_TIME] = self.get_timestamp()
+			cache[K_TIME] = self.getTimestamp()
 
-		self.update_cache_from_configobj(cache)
+		self.__updateCacheFromConfigObj(cache)
 
-	def update_cache_from_configobj(self, cache):
+	def __updateCacheFromConfigObj(self, cache):
 		cache[K_VAL] = OrderedDict()
 		cache[K_DICT] = OrderedDict()
 		cache[K_SCHED] = OrderedDict()
@@ -284,7 +284,7 @@ class ConfigParser(object):
 							section_comments[:-1])
 					# add an entry with the section metadata (conforming to the
 					# shape of the other entries)
-					section_dict[SECTION_META_KEY] = [(section_name, '', 
+					section_dict[SECTION_META_KEY] = [(section_name, '',
 							section, '', '', '', section_description)]
 
 				for key in cache[K_OBJ][section]:
@@ -309,7 +309,7 @@ class ConfigParser(object):
 								cache[K_OBJ][section].comments[key])
 					if not section_dict.has_key(name):
 						section_dict[name] = []
-					values = (name, subname, option_id, 
+					values = (name, subname, option_id,
 							cache[K_OBJ][section][key], input_type, units,
 							description)
 					# store here for display purposes
@@ -319,7 +319,7 @@ class ConfigParser(object):
 				if section_dict:
 					cache[K_VAL][section] = section_dict
 
-	def parse_file(self, file):
+	def parseFile(self, file):
 		'''
 		Parse the new file and return the values, but don't cache them.
 		The argument to this method can be anything that ConfigObj can take as an
@@ -328,6 +328,6 @@ class ConfigParser(object):
 		'''
 		cache = {}
 		cache[K_OBJ] = ConfigObj(file, list_values=False, write_empty_values=True)
-		self.update_cache_from_configobj(cache)
+		self.__updateCacheFromConfigObj(cache)
 
 		return cache[K_VAL]

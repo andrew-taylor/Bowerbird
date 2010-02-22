@@ -40,7 +40,7 @@ class Root(object):
 		else:
 			self.bowerbird_port = DEFAULT_BOWERBIRD_PORT
 
-		self.scanner = ZeroconfScanner(common.ZEROCONF_TYPE, 
+		self.scanner = ZeroconfScanner(common.ZEROCONF_TYPE,
 				ZEROCONF_SCAN_TIME_MS)
 
 
@@ -59,9 +59,9 @@ class Root(object):
 			else:
 				# get the name from the address
 				try:
-					name = self.get_remote_name(address)
+					name = self.getRemoteName(address)
 				except urllib2.URLError:
-					return self.show_connection_failure(
+					return self.showConnectionFailure(
 							error="could not be established", address=address)
 
 				self.db.addConnection(name, address)
@@ -93,18 +93,18 @@ class Root(object):
 
 	@cherrypy.expose
 	def status(self, **kwargs):
-		return self.tunnel_connection("status", kwargs)
+		return self.tunnelConnection("status", kwargs)
 
 
 	@cherrypy.expose
 	def config(self, **kwargs):
 		# TODO catch station name changes and update connection history
-		return self.tunnel_connection("config", kwargs)
+		return self.tunnelConnection("config", kwargs)
 
 
 	@cherrypy.expose
 	def schedule(self, **kwargs):
-		return self.tunnel_connection("schedule", kwargs)
+		return self.tunnelConnection("schedule", kwargs)
 
 
 	@cherrypy.expose
@@ -119,7 +119,7 @@ class Root(object):
 
 		bowerbirds = []
 		for service in self.scanner:
-			if (service.has_key('magic') and service['magic'] 
+			if (service.has_key('magic') and service['magic']
 					== common.ZEROCONF_TEXT_TO_IDENTIFY_BOWERBIRD):
 				name = service['name']
 				# strip the wrapper from the name
@@ -128,13 +128,13 @@ class Root(object):
 
 		return bowerbirds
 
-	
-	def get_remote_name(self, address):
+
+	def getRemoteName(self, address):
 		return urllib2.urlopen('http://%s:%s/name' %
 				(address, self.bowerbird_port)).read()
 
 
-	def assert_connected(self):
+	def assertConnected(self):
 		'''Asserts that a connection to a Bowerbird system exists.
 		   Redirects to connect page if not connected'''
 		if not cherrypy.session.has_key(SESSION_STATION_ADDRESS_KEY):
@@ -158,7 +158,7 @@ class Root(object):
 		return lxml.etree.tostring(dom, method='html', pretty_print=True)
 
 	@template.output('connection_failure.html')
-	def show_connection_failure(self, error='was lost', name=None, address=None):
+	def showConnectionFailure(self, error='was lost', name=None, address=None):
 		if address:
 			station_address = address
 		elif cherrypy.session.has_key(SESSION_STATION_ADDRESS_KEY):
@@ -180,17 +180,17 @@ class Root(object):
 				timeout=CONNECT_FAILURE_REDIRECTION_TIMEOUT)
 
 
-	def tunnel_connection(self, page, kwargs):
+	def tunnelConnection(self, page, kwargs):
 		'''tunnel connection back from remote Bowerbird system'''
 
-		self.assert_connected()
+		self.assertConnected()
 
 		try:
 			return self.update_html(urllib2.urlopen('http://%s:%s/%s' %
-					(cherrypy.session[SESSION_STATION_ADDRESS_KEY], 
+					(cherrypy.session[SESSION_STATION_ADDRESS_KEY],
 						self.bowerbird_port, page), urlencode(kwargs)))
 		except urllib2.URLError:
-			return self.show_connection_failure()
+			return self.showConnectionFailure()
 
 
 def loadWebConfig():

@@ -33,10 +33,10 @@ class ZeroconfScanner(object):
 	def services(self):
 		return deepcopy(__services)
 
-	def abort_scan(self):
-		self.__quit_main_loop()
+	def abortScan(self):
+		self.__quitMainLoop()
 
-	def __quit_main_loop(self):
+	def __quitMainLoop(self):
 		if self.gobject_loop and self.gobject_loop.is_running:
 			self.gobject_loop.quit()
 			self.gobject_loop = None
@@ -44,30 +44,30 @@ class ZeroconfScanner(object):
 
 	def rescan(self):
 		# ensure previous loop is not running
-		self.__quit_main_loop()
+		self.__quitMainLoop()
 
 		self.__services = []
 		sbrowser = dbus.Interface(self.bus.get_object(avahi.DBUS_NAME,
 				self.server.ServiceBrowserNew(avahi.IF_UNSPEC,
 				avahi.PROTO_UNSPEC, self.type, 'local',
 				dbus.UInt32(0))), avahi.DBUS_INTERFACE_SERVICE_BROWSER)
-		sbrowser.connect_to_signal("ItemNew", self.__add_server_to_list)
+		sbrowser.connect_to_signal("ItemNew", self.__addServerToList)
 
-		gobject.timeout_add(self.scan_time_ms, self.__quit_main_loop)
+		gobject.timeout_add(self.scan_time_ms, self.__quitMainLoop)
 
 		self.gobject_loop = gobject.MainLoop()
 		self.gobject_loop.run()
 
-	def __add_server_to_list(self, interface, protocol, name, stype, domain, 
+	def __addServerToList(self, interface, protocol, name, stype, domain,
 			flags):
-		self.server.ResolveService(interface, protocol, name, stype, 
-			domain, avahi.PROTO_UNSPEC, dbus.UInt32(0), 
-			reply_handler=self.__service_resolved, 
-			error_handler=self.__print_error)
+		self.server.ResolveService(interface, protocol, name, stype,
+			domain, avahi.PROTO_UNSPEC, dbus.UInt32(0),
+			reply_handler=self.__serviceResolved,
+			error_handler=self.__printError)
 
-	def __service_resolved(self, *args):
-		new_service = { 
-				'name': unicode(args[2]), 
+	def __serviceResolved(self, *args):
+		new_service = {
+				'name': unicode(args[2]),
 				'address': unicode(args[7]),
 				'port':	int(args[8]) }
 		for entry in avahi.txt_array_to_string_array(args[9]):
@@ -86,7 +86,7 @@ class ZeroconfScanner(object):
 		else:
 			self.__services.append(new_service)
 
-	def __print_error(self, *args):
+	def __printError(self, *args):
 		print 'error from zeroconf:', args
 
 
