@@ -21,7 +21,7 @@ def output(filename, method='html', encoding='utf-8', **options):
 		def wrapper(*args, **kwargs):
 			cherrypy.thread_data.template = loader.load(filename)
 			opt = options.copy()
-			if not ajax.is_xhr() and method == 'html':
+			if not ajax.isXmlHttpRequest() and method == 'html':
 				opt.setdefault('doctype', 'html')
 			serializer = get_serializer(method, **opt)
 			stream = func(*args, **kwargs)
