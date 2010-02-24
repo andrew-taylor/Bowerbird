@@ -70,7 +70,6 @@ class ConfigParser(object):
 		cache[K_TIME] = 0
 		cache[K_VAL] = OrderedDict()
 		cache[K_DICT] = OrderedDict()
-		cache[K_SCHED] = OrderedDict()
 
 	def getRawValues(self):
 		return deepcopy(self.cache[K_DICT])
@@ -176,51 +175,9 @@ class ConfigParser(object):
 		self.cache[K_OBJ].clear();
 		self.cache[K_OBJ].initial_comment = CONFIG_HEADER.split('\n')
 		self.cache[K_OBJ]['dummy'] = {}
-		# restore the schedule
-		self.cache[K_OBJ][SCHEDULE_SECTION] = {}
-		self.cache[K_OBJ].comments[SCHEDULE_SECTION] = SCHEDULE_COMMENTS.split(
-				'\n')
-		for label in self.cache[K_SCHED]:
-			self.cache[K_OBJ][SCHEDULE_SECTION][label] = self.cache[K_SCHED][
-					label]
 
 		# update timestamp
 		self.cache[K_TIME] = time.time();
-
-	def getSchedules(self):
-		# update if file has been modified
-		self.__readFromFile(self.filename, self.cache)
-		# return a copy
-		return deepcopy(self.cache[K_SCHED])
-
-	def getDefaultSchedules(self):
-		# update if file has been modified
-		if self.defaults_filename:
-			self.__readFromFile(self.defaults_filename, self.defaults_cache)
-			# return a copy
-			return deepcopy(self.defaults_cache[K_SCHED])
-		return None
-
-	def getSchedule(self, label):
-		return self.cache[K_SCHED][label]
-
-	def setSchedule(self, label, schedule):
-		self.cache[K_SCHED][label] = schedule
-
-		# update config obj
-		if not self.cache[K_OBJ].has_key(SCHEDULE_SECTION):
-			self.cache[K_OBJ][SCHEDULE_SECTION] = {}
-		self.cache[K_OBJ][SCHEDULE_SECTION][label] = schedule
-
-	def deleteSchedule(self, label):
-		del(self.cache[K_SCHED][label])
-		# update config obj
-		del(self.cache[K_OBJ][SCHEDULE_SECTION][label])
-
-	def clearSchedules(self):
-		self.cache[K_SCHED].clear()
-		# update config obj
-		self.cache[K_OBJ][SCHEDULE_SECTION].clear()
 
 	def getTimestamp(self):
 		if self.filename and os.path.exists(self.filename):
@@ -267,57 +224,51 @@ class ConfigParser(object):
 	def __updateCacheFromConfigObj(self, cache):
 		cache[K_VAL] = OrderedDict()
 		cache[K_DICT] = OrderedDict()
-		cache[K_SCHED] = OrderedDict()
 		for section in cache[K_OBJ]:
-			if section == SCHEDULE_SECTION:
-				# add to sched structure
-				for label in cache[K_OBJ][section]:
-					cache[K_SCHED][label] = cache[K_OBJ][section][label]
-			else:
-				section_dict = OrderedDict()
-				section_comments = cache[K_OBJ].comments[section]
-				# get last line of comment for section
-				if section_comments and section_comments[-1:][0]:
-					# remove '#' and spare whitespace
-					section_name = section_comments[-1:][0][1:].strip()
-					section_description = COMMENTS_LINE_DELIMITER.join(
-							section_comments[:-1])
-					# add an entry with the section metadata (conforming to the
-					# shape of the other entries)
-					section_dict[SECTION_META_KEY] = [(section_name, '',
-							section, '', '', '', section_description)]
+			section_dict = OrderedDict()
+			section_comments = cache[K_OBJ].comments[section]
+			# get last line of comment for section
+			if section_comments and section_comments[-1:][0]:
+				# remove '#' and spare whitespace
+				section_name = section_comments[-1:][0][1:].strip()
+				section_description = COMMENTS_LINE_DELIMITER.join(
+						section_comments[:-1])
+				# add an entry with the section metadata (conforming to the
+				# shape of the other entries)
+				section_dict[SECTION_META_KEY] = [(section_name, '',
+						section, '', '', '', section_description)]
 
-				for key in cache[K_OBJ][section]:
-					option_id = '.'.join((section, key))
-					key_comment = cache[K_OBJ][section].comments[key][-1:]
-					name = None
-					if key_comment and key_comment[0]:
-						# remove '#' then split and strip the spec comment
-						specs = [s.strip() for s in
-								key_comment[0][1:].split(',')]
-						if len(specs) == 4:
-							(name, subname, input_type, units) = specs
-							description = COMMENTS_LINE_DELIMITER.join(
-									cache[K_OBJ][section].comments[key][:-1])
-					if name == None:
-						# no (or invalid) spec in last comment so use defaults
-						name = key
-						subname = ''
-						input_type = 'string'
-						units = ''
+			for key in cache[K_OBJ][section]:
+				option_id = '.'.join((section, key))
+				key_comment = cache[K_OBJ][section].comments[key][-1:]
+				name = None
+				if key_comment and key_comment[0]:
+					# remove '#' then split and strip the spec comment
+					specs = [s.strip() for s in
+							key_comment[0][1:].split(',')]
+					if len(specs) == 4:
+						(name, subname, input_type, units) = specs
 						description = COMMENTS_LINE_DELIMITER.join(
-								cache[K_OBJ][section].comments[key])
-					if not section_dict.has_key(name):
-						section_dict[name] = []
-					values = (name, subname, option_id,
-							cache[K_OBJ][section][key], input_type, units,
-							description)
-					# store here for display purposes
-					section_dict[name].append(values)
-					# store here for easy access
-					cache[K_DICT][option_id] = values
-				if section_dict:
-					cache[K_VAL][section] = section_dict
+								cache[K_OBJ][section].comments[key][:-1])
+				if name == None:
+					# no (or invalid) spec in last comment so use defaults
+					name = key
+					subname = ''
+					input_type = 'string'
+					units = ''
+					description = COMMENTS_LINE_DELIMITER.join(
+							cache[K_OBJ][section].comments[key])
+				if not section_dict.has_key(name):
+					section_dict[name] = []
+				values = (name, subname, option_id,
+						cache[K_OBJ][section][key], input_type, units,
+						description)
+				# store here for display purposes
+				section_dict[name].append(values)
+				# store here for easy access
+				cache[K_DICT][option_id] = values
+			if section_dict:
+				cache[K_VAL][section] = section_dict
 
 	def parseFile(self, file):
 		'''

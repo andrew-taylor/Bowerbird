@@ -2,6 +2,7 @@
 .*.swp
 *.o
 *.pyc
+s/bowerbird_config.sh
 s/binaries-*
 s/util/test_data
 s/Makefile

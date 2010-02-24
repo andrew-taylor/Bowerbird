@@ -1,0 +1,14 @@
+# schedule file for bowerbird deployment
+
+# This file stores the times for scheduled captures.
+# Format of each line is "$title = $start - $finish".
+# Start and finish times can be absolute 24hour times or relative to sunrise
+# or sunset. Relative times start with "R" for sunrise-relative or "S" for
+# sunset-relative, then have the time offset, which can be positive or 
+# negative.
+
+Bowerbirds = 9:00 - 11:00
+Gray Tree Frogs = R -3:00 - S -5:00
+Poison Dart Frogs = 17:30 - 19:00
+Cane Toads = R -4:00 - R -2:00
+Red Dwarf = 12:28 - 12:30

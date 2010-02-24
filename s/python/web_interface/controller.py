@@ -1,12 +1,14 @@
-import sys, os, os.path, shutil, errno, calendar, cherrypy, datetime
+import sys, os, os.path, errno, cherrypy, datetime
 from subprocess import Popen, PIPE
+from genshi import HTML
+
 from lib import common, ajax, template
 from lib.storage import BowerbirdStorage
 from lib.recordingshtmlcalendar import RecordingsHTMLCalendar
 from lib.sonogram import generateSonogram
 from lib.configparser import ConfigParser
 from lib.zeroconfservice import ZeroconfService
-from genshi import HTML
+from bowerbird.scheduleparser import ScheduleParser, RecordingSpec
 
 # constants
 RECORDING_KB_PER_SECOND = 700
@@ -17,6 +19,7 @@ SERVER_PORT_KEY = 'server.socket_port'
 # parameters for parsing contents of web interface config file
 CONFIG_KEY = 'bowerbird_config'
 CONFIG_DEFAULTS_KEY = 'bowerbird_config_defaults'
+SCHEDULE_KEY = 'bowerbird_schedule'
 DATABASE_KEY = 'database'
 REQUIRED_KEYS = [CONFIG_KEY, DATABASE_KEY]
 CONFIG_CACHE_PATH = 'config/current_config'
@@ -56,7 +59,10 @@ class Root(object):
 		else:
 			defaults_filename = None
 
-		self.conf = ConfigParser(config_filename, defaults_filename)
+		self.__config = ConfigParser(config_filename, defaults_filename)
+
+		schedule_filename = cherrypy.config[SCHEDULE_KEY]
+		self.__schedule = ScheduleParser(config_filename, schedule_filename)
 
 
 	@cherrypy.expose
@@ -77,7 +83,7 @@ class Root(object):
 				uptime = self.getUptime(),
 				disk_space = self.getDiskSpace(),
 				local_time = self.getLocalTime(),
-				last_recording = "?? Poison Dart Frogs (18:00-18:30)",
+				last_recording = self.getLastRecording(),
 				next_recording = self.getNextRecording())
 
 
@@ -96,19 +102,19 @@ class Root(object):
 			# that we don't have to move the config file into the web-accessible
 			# filesystem hierarchy
 			return cherrypy.lib.static.serve_file(
-					os.path.realpath(self.conf.filename),
+					os.path.realpath(self.__config.filename),
 					"application/x-download", "attachment",
-					os.path.basename(self.conf.filename))
+					os.path.basename(self.__config.filename))
 		elif apply:
 			# if someone else has modified the config, then warn the user
 			# before saving their changes (overwriting the other's changes)
-			if int(config_timestamp) == self.conf.getTimestamp():
-				self.updateConfigFromPostData(self.conf, data)
+			if int(config_timestamp) == self.__config.getTimestamp():
+				self.updateConfigFromPostData(self.__config, data)
 
 				# update file
 				try:
-					self.conf.saveToFile()
-					self.conf.exportForShell(self.conf.filename + ".sh")
+					self.__config.saveToFile()
+					self.__config.exportForShell(self.__config.filename + ".sh")
 					# bounce back to homepage
 					raise cherrypy.HTTPRedirect('/')
 				except IOError as e:
@@ -131,11 +137,11 @@ class Root(object):
 				# we don't have to anything else here.
 
 		if load_defaults:
-			values = self.conf.getDefaultValues()
+			values = self.__config.getDefaultValues()
 		elif import_config:
 			if new_config.filename:
 				try:
-					values = self.conf.parseFile(new_config.file)
+					values = self.__config.parseFile(new_config.file)
 				except Exception as e:
 					values = None
 					error = 'Unable to parse config file: "%s"' % e
@@ -143,30 +149,30 @@ class Root(object):
 				error = 'No filename provided for config import'
 
 		if not values:
-			values = self.conf.getValues()
+			values = self.__config.getValues()
 		return template.render(station=self.getStationName(),
-				config_timestamp=self.conf.getTimestamp(),
+				config_timestamp=self.__config.getTimestamp(),
 				error=error, using_defaults=load_defaults, values=values,
-				file=self.conf.filename,
-				defaults_file=self.conf.defaults_filename)
+				file=self.__config.filename,
+				defaults_file=self.__config.defaults_filename)
 
 
 	@cherrypy.expose
 	@template.output('schedule.html')
-	def schedule(self, load_defaults=None, cancel=None, apply=None, add=None,
-			**data):
+	def schedule(self, cancel=None, apply=None, add=None, **data):
 		error = None
 		if cancel:
 			raise cherrypy.HTTPRedirect('/')
 		elif apply:
-			# clear all schedules and add them back in the order they were on the webpage
-			self.conf.clearSchedules()
+			# clear all schedules
+			# and add them back in the order they were on the webpage
+			self.__schedule.clearSchedules()
 			schedules = {}
 
 			# just get the labels
 			for key in data:
-				# each schedule comes in three parts: ?.label, ?.start, ?.finish
-				if key.endswith('label'):
+				# each schedule comes in three parts: ?.title, ?.start, ?.finish
+				if key.endswith('title'):
 					id = key.split('.')[0]
 					schedules[id] = data[key]
 
@@ -177,15 +183,16 @@ class Root(object):
 				start_key = "%s.start" % id
 				finish_key = "%s.finish" % id
 				if data.has_key(start_key) and data.has_key(finish_key):
-					schedule_key = schedules[id]
+					schedule_title = schedules[id]
 					schedule_value = ("%s - %s"
 							% (data[start_key], data[finish_key]))
-					self.conf.setSchedule(schedule_key, schedule_value)
+					self.__schedule.setSchedule(
+							ScheduleParser.parseRecordingSpec(schedules[id],
+							data[start_key], data[finish_key]))
 
 			# update file
 			try:
-				self.conf.saveToFile()
-				self.conf.exportForShell(self.conf.filename + ".sh")
+				self.__schedule.saveToFile()
 				# bounce back to homepage
 				raise cherrypy.HTTPRedirect('/')
 			except IOError as e:
@@ -197,22 +204,19 @@ class Root(object):
 			# find the remove key
 			for key in data:
 				if key.endswith('remove'):
-					# get the schedule key from the label
+					# get the schedule key from the title
 					id = key.split('.')[0]
-					label_key = "%s.label" % id
-					if data.has_key(label_key):
-						schedule_key = data[label_key]
-						self.conf.deleteSchedule(schedule_key)
+					title_key = "%s.title" % id
+					if data.has_key(title_key):
+						schedule_key = data[title_key]
+						self.__schedule.deleteSchedule(schedule_key)
 
-		if load_defaults:
-			values = self.conf.getDefaultSchedules()
-		else:
-			values = self.conf.getSchedules()
+		recording_specs = self.__schedule.getSchedules()
 
 		return template.render(station=self.getStationName(), error=error,
-				using_defaults=load_defaults, values=values, add=add,
-				section=SCHEDULE_SECTION, file=self.conf.filename,
-				defaults_file=self.conf.defaults_filename)
+				recording_specs=recording_specs, add=add,
+				section=SCHEDULE_SECTION, file=self.__schedule.filename)
+
 
 	@cherrypy.expose
 	@template.output('recordings.html')
@@ -252,15 +256,18 @@ class Root(object):
 		calls = self.db.getCalls(sort, sort_order, label)
 		call_sonograms = {}
 		for call in calls:
-			call_sonograms[call['filename']] = self.getSonogram(call, FREQUENCY_SCALES[0], DEFAULT_FFT_STEP)
+			call_sonograms[call['filename']] = self.getSonogram(call,
+					FREQUENCY_SCALES[0], DEFAULT_FFT_STEP)
 		return template.render(station=self.getStationName(),
 				category=self.db.getCategory(label),
-				calls=calls, call_sonograms=call_sonograms, sort=sort, sort_order=sort_order)
+				calls=calls, call_sonograms=call_sonograms, sort=sort,
+				sort_order=sort_order)
 
 
 #	@cherrypy.expose
 	@template.output('calls.html')
-	def calls(self, sort='date_and_time', sort_order='asc', category=None, **ignored):
+	def calls(self, sort='date_and_time', sort_order='asc', category=None,
+			**ignored):
 		return template.render(station=self.getStationName(),
 				calls=self.db.getCalls(sort, sort_order, category),
 				sort=sort, sort_order=sort_order)
@@ -288,20 +295,22 @@ class Root(object):
 			# only sonogram updates are possible here
 			assert(update_sonogram)
 			return template.render('_sonogram.html', ajah=True,
-					sonogram_filename=self.getSonogram(call, frequency_scale, fft_step),
-					fft_step=fft_step, frequency_scale=frequency_scale,
+					sonogram_filename=self.getSonogram(call, frequency_scale,
+							fft_step), fft_step=fft_step,
+					frequency_scale=frequency_scale,
 					frequency_scales=FREQUENCY_SCALES)
 		else:
 			return template.render(station=self.getStationName(), call=call,
 					categories=",".join(self.db.getCategoryNames()),
-					sonogram_filename=self.getSonogram(call, frequency_scale, fft_step),
-					fft_step=fft_step, frequency_scale=frequency_scale,
+					sonogram_filename=self.getSonogram(call, frequency_scale,
+							fft_step), fft_step=fft_step,
+					frequency_scale=frequency_scale,
 					frequency_scales=FREQUENCY_SCALES,
 					prev_next_files=self.db.getPrevAndNextCalls(call))
 
 
 	def getStationName(self):
-		return self.conf.getValue2(STATION_SECTION_NAME, STATION_NAME_KEY)
+		return self.__config.getValue2(STATION_SECTION_NAME, STATION_NAME_KEY)
 
 
 	def generateMonthView(self, today, day_to_show):
@@ -378,7 +387,7 @@ class Root(object):
 
 
 	def getDiskSpace(self):
-		root_dir = self.conf.getValue2(CAPTURE_SECTION_NAME,
+		root_dir = self.__config.getValue2(CAPTURE_SECTION_NAME,
 				CAPTURE_ROOT_DIR_KEY)
 		if not os.path.exists(root_dir):
 			return ("%s doesn't exist: Fix Config %s->%s"
@@ -399,12 +408,22 @@ class Root(object):
 		# "18:36 (1 hour until sunset), 01 February 2010"
 		return now.strftime('%H:%M, %d %B %Y')
 
+
+	def getLastRecording(self):
+		# find the most recent recording in the database?
+		# or should we scan the scheduled recordings and assume they occurred
+		return '?? Poison Dart Frogs (18:00-18:30)'
+
+
 	def getNextRecording(self):
 		now = datetime.datetime.now()
-		for schedule in self.conf.getSchedules():
-			print schedule
+		#times come out sorted, so just return the first one in the future
+		for recording_time in self.__schedule.getRecordingTimes(
+				days_to_schedule=2):
+			if recording_time.start > now:
+				return recording_time
 
-		return "??! I know nothing, Mr Fawlty!"
+		return None
 
 
 def prettyPrintSize(kilobytes):
@@ -440,7 +459,8 @@ def loadWebConfig():
 
 	for key in REQUIRED_KEYS:
 		if not cherrypy.config.has_key(key):
-			sys.stderr.write('Web config file "%s" is missing definition for "%s"\n'
+			sys.stderr.write(
+					'Web config file "%s" is missing definition for "%s"\n'
 					% (WEB_CONFIG, key))
 			return False
 

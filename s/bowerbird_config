@@ -17,20 +17,12 @@
 # a strangeness in comment parsing
 [dummy]
 
-# This section stores the times for scheduled captures.
-# It will always be moved back to the top, so don't bother moving it.
-[scheduled_capture]
-Bowerbirds = 9:00 -  11:00
-Gray Tree Frogs = R -8:00 - S -5:00
-Poison Dart Frogs = 18:00 -  18:30
-Cane Toads = R -4:00 - R -2:00
-
 # don't change this section name without changing the parameter in controller.py
 # Station Information
 [station_information]
 # don't change this key name without changing the parameter in controller.py
 # Location, Name, string, 
-name = Nourlangie Rock
+name = Frankie
 # Location, Timezone offset, float, hours
 tz_offset = 10
 # Location, Latitude, float, degrees
@@ -124,7 +116,7 @@ sound_buffer_size = 64000
 # Buffer, Frames, int, 
 sound_buffer_frames = 960000
 # Storage, Root Dir, string, 
-sound_file_root_dir = /var/lib
+sound_file_root_dir = /var/lib/bowerbird
 # Storage, File Ext., string, 
 sound_file_ext = wv
 # Storage, Details File Ext., string, 
