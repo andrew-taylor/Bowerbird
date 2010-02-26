@@ -15,7 +15,8 @@ WEB_CONFIG = 'bowerbird-proxy.conf'
 BOWERBIRD_PORT_KEY = 'bowerbird_socket_port'
 DEFAULT_BOWERBIRD_PORT = '8080'
 DATABASE_KEY = 'database'
-REQUIRED_KEYS = [DATABASE_KEY]
+ROOT_DIR_KEY = 'root_dir'
+REQUIRED_KEYS = [DATABASE_KEY, ROOT_DIR_KEY]
 
 SESSION_STATION_NAME_KEY = 'station_name'
 SESSION_STATION_ADDRESS_KEY = 'station_address'
@@ -31,15 +32,14 @@ UNIMPLEMENTED = '''<html>
 
 
 class Root(object):
-	def __init__(self, db, path):
-		self.db = db
+	def __init__(self, path, database_file, root_dir, bowerbird_port):
 		self.path = path
+		self.bowerbird_port = bowerbird_port
 
-		if cherrypy.config.has_key(BOWERBIRD_PORT_KEY):
-			self.bowerbird_port = cherrypy.config[BOWERBIRD_PORT_KEY]
-		else:
-			self.bowerbird_port = DEFAULT_BOWERBIRD_PORT
+		# initialise storage
+		self.db = ProxyStorage(database_file, root_dir)
 
+		# create the zeroconf scanner to detect local bowerbirds
 		self.scanner = ZeroconfScanner(common.ZEROCONF_TYPE,
 				ZEROCONF_SCAN_TIME_MS)
 
@@ -217,29 +217,21 @@ def main(args):
 	if not loadWebConfig():
 		sys.exit(1)
 
-	# initialise storage
-	database_file = cherrypy.config[DATABASE_KEY]
-	if not os.path.exists(database_file):
-		sys.stderr.write('Warning: configured database file '
-				'"%s" does not exist. Creating a new one...\n'
-				% database_file)
-	db = ProxyStorage(database_file)
-	# make sure that database has key tables
-	if not db.hasRequiredTables():
-		sys.stderr.write('Warning: configured database file '
-				'"%s" missing required tables. Creating them...\n'
-				% database_file)
-		db.createRequiredTables()
+	if cherrypy.config.has_key(BOWERBIRD_PORT_KEY):
+		bowerbird_port = cherrypy.config[BOWERBIRD_PORT_KEY]
+	else:
+		bowerbird_port = DEFAULT_BOWERBIRD_PORT
 
 	path = os.path.dirname(os.path.realpath(args[0]))
+	database_file = cherrypy.config[DATABASE_KEY]
+	root_dir = cherrypy.config[ROOT_DIR_KEY]
 
 	try:
-		cherrypy.tree.mount(Root(db, path), '/', {
-			'/media': {
+		cherrypy.tree.mount(Root(path, database_file, root_dir, bowerbird_port),
+			'/', { '/media': {
 				'tools.staticdir.on': True,
 				'tools.staticdir.dir': 'static'
-			}
-		})
+			}})
 	except IOError as e:
 		sys.stderr.write('Error: %s.\n' % e);
 		sys.exit(1)

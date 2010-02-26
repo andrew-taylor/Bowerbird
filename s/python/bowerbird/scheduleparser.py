@@ -26,6 +26,18 @@ CONFIG_USER = 'schedule_user'
 CONFIG_DAYS_KEY = 'schedule_days'
 
 
+SCHEDULE_HEADER = '''# schedule file for bowerbird deployment
+
+# This file stores the times for scheduled captures.
+# Format of each line is "$title = $start - $finish".
+# Start and finish times can be absolute 24hour times or relative to sunrise
+# or sunset. Relative times start with "R" for sunrise-relative or "S" for
+# sunset-relative, then have the time offset, which can be positive or
+# negative.
+
+'''
+
+
 class ScheduleParser(object):
 	def __init__(self, config_filename, schedule_filename):
 		self.__command = None
@@ -34,20 +46,19 @@ class ScheduleParser(object):
 		self.__tz_offset = None
 		self.__latitude = None
 		self.__longitude = None
+		self.__recording_specs = []
 
 		# get a sun calculating object
 		self.__sun = Sun()
 
 		# create a config object around the config file
 		self.__config = ConfigObj(config_filename)
-		self.__config_filename = config_filename
 		self.__config_timestamp = 0
 		self.updateConfigFromFile()
 
 		# create a config object around the schedule file
 		self.__schedule = ConfigObj(schedule_filename)
-		self.__filename = schedule_filename
-		self.__timestamp = 0
+		self.__timestamp = -1
 		self.updateFromFile()
 
 	@property
@@ -61,7 +72,7 @@ class ScheduleParser(object):
 	def assertCommandIsDefined(self):
 		if not self.__command:
 			sys.stderr.write('%s must be specified in the %s section of "%s"\n'
-					% (CONFIG_COMMAND, CONFIG_SECTION, self.__config_filename))
+					% (CONFIG_COMMAND, CONFIG_SECTION, self.__config.filename))
 			return False
 		return True
 
@@ -112,7 +123,7 @@ class ScheduleParser(object):
 
 	@property
 	def filename(self):
-		return self.__filename
+		return self.__schedule.filename
 
 
 	def updateConfigFromFile(self):
@@ -137,7 +148,7 @@ class ScheduleParser(object):
 			raise MissingConfigKeyError('%s and %s must be specified in the %s '
 					'section of "%s" (at least until we can talk to the GPS)\n'
 					% (CONFIG_LAT_KEY, CONFIG_LONG_KEY, CONFIG_SECTION,
-					self.__config_filename))
+					self.__config.filename))
 
 		# if timezone is not specified in config, then get it from python
 		if not self.__tz_offset:
@@ -161,6 +172,9 @@ class ScheduleParser(object):
 			return
 
 		self.__schedule.reload()
+		# if this is a new file (or has been modified, put header back)
+		if not self.__schedule.initial_comment:
+			self.__schedule.initial_comment = SCHEDULE_HEADER.split('\n')
 		self.__timestamp = file_timestamp
 		self.updateFromConfigObj()
 
@@ -213,19 +227,25 @@ class ScheduleParser(object):
 					cls.parseTimeSpec(spec_part2))
 
 
-	def getRecordingTimes(self, schedule_day=None, days_to_schedule=None):
+	def getSchedules(self, schedule_day=None, days_to_schedule=None):
 		# update specs if file has been modified
 		self.updateFromFile()
 
-		if not schedule_day:
-			schedule_day = datetime.datetime.today().replace(hour=0, minute=0,
-					second=0, microsecond=0)
+		if type(schedule_day) == datetime.datetime:
+			schedule_day = schedule_day.replace(hour=0, minute=0, second=0,
+					microsecond=0)
 		elif type(schedule_day) == datetime.date:
 			schedule_day = datetime.datetime(schedule_day.year,
 					schedule_day.month, schedule_day.day)
+		elif not schedule_day:
+			schedule_day = datetime.datetime.today().replace(hour=0, minute=0,
+					second=0, microsecond=0)
+		else:
+			raise TypeError('schedule_day must be datetime or date, not "%s"'
+					% type(schedule_day))
 
-		assert type(schedule_day) == datetime.datetime, ('invalid type for '
-				'schedule day "%s"' % type(schedule_day))
+		assert type(days_to_schedule) == int, ('invalid type for '
+				'days_to_schedule "%s"' % type(days_to_schedule))
 
 		if not days_to_schedule:
 			days_to_schedule = self.__days_to_schedule
@@ -253,7 +273,18 @@ class ScheduleParser(object):
 
 		return recording_times
 
-	def getSchedules(self):
+
+	def findScheduleCovering(self, start, finish):
+		# (search 1 day either side)
+ 		for schedule in self.getSchedules(start
+				- datetime.timedelta(1), (finish - start).days + 2):
+			# if either start or finish of recording file is in the schedule
+			if (start in schedule or finish in schedule):
+				return schedule
+		return None
+
+
+	def getScheduleSpecs(self):
 		# update if file has been modified
 		self.updateFromFile()
 
@@ -261,52 +292,42 @@ class ScheduleParser(object):
 		return deepcopy(self.__recording_specs)
 
 
-	def getSchedule(self, title):
+	def getScheduleSpec(self, title):
 		# update if file has been modified
 		self.updateFromFile()
 
-		return [spec for spec in self.__recording_specs if spec.title == title][0]
+		return (spec for spec in self.__recording_specs
+				if spec.title == title)[0]
 
-	def setSchedule(self, spec):
+	def setScheduleSpec(self, spec):
 		assert isinstance(spec, RecordingSpec)
 
 		self.__schedule[spec.title] = '%s - %s' % (spec.start, spec.finish)
 		self.updateFromConfigObj()
-		# if existing spec exists with that title, overwrite it
-#		for i in range(len(self.__recording_specs)):
-#			if self.__recording_specs[i].title == spec.title:
-#				self.__recording_specs[i] = spec
-#				break
-#		else:
-#			self.__recording_specs.append(spec)
 
-	def deleteSchedule(self, title):
+	def deleteScheduleSpec(self, title):
 		del(self.__schedule[title])
 		self.updateFromConfigObj()
-#		for i in range(len(self.__recording_specs)):
-#			if self.__recording_specs[i].title == title:
-#				del(self.__recording_specs[i])
 
-	def clearSchedules(self):
-		#del self.__recording_specs[:]
+	def clearScheduleSpecs(self):
 		self.__schedule.clear()
 		self.updateFromConfigObj()
 
 	def getTimestamp(self):
-		if self.__filename and os.path.exists(self.__filename):
-			return int(os.path.getmtime(self.__filename))
+		if (self.__schedule.filename
+				and os.path.exists(self.__schedule.filename)):
+			return int(os.path.getmtime(self.__schedule.filename))
 		return 0
 
 	def getConfigTimestamp(self):
-		if self.__config_filename and os.path.exists(self.__config_filename):
-			return int(os.path.getmtime(self.__config_filename))
+		if self.__config.filename and os.path.exists(self.__config.filename):
+			return int(os.path.getmtime(self.__config.filename))
 		return 0
 
 	def saveToFile(self):
 		try:
 			# update file
-			with open(self.__filename, 'w') as save_file:
-				self.__schedule.write(save_file)
+			self.__schedule.write()
 			self.__timestamp = self.getTimestamp();
 		except:
 			# if this fails we should re-read the file to keep them synced
@@ -346,8 +367,14 @@ class RecordingTime(object):
 	def getStartAndFinish(self):
 		return self.start, self.finish
 
+	def __contains__(self, time):
+		assert type(time) == datetime.datetime, (
+				'time must be of type datetime, called with "%s"'
+				% type(time))
+		return time >= self.start and time <= self.finish
+
 	def __str__(self):
-		return "%s: %s - %s" % (self.title, self.start.strftime('%H:%M'),
+		return '%s: %s - %s' % (self.title, self.start.strftime('%H:%M'),
 				self.finish.strftime('%H:%M'))
 
 

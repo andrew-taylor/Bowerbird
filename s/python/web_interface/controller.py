@@ -29,26 +29,16 @@ FREQUENCY_SCALES = ['Linear', 'Logarithmic']
 DEFAULT_FFT_STEP = 256 # in milliseconds
 SONOGRAM_DIRECTORY = os.path.join("static", "sonograms")
 
-# parameters for parsing the contents of the bowerbird config file
-STATION_SECTION_NAME = 'station_information'
-STATION_NAME_KEY = 'name'
-SCHEDULE_SECTION = 'scheduled_capture'
-
-# paramaters for monitoring disk usage by sound capture
-CAPTURE_SECTION_NAME = 'sound_capture'
-CAPTURE_ROOT_DIR_KEY = 'sound_file_root_dir'
-
 
 class Root(object):
-	def __init__(self, db, path):
-		self.db = db
+	def __init__(self, path, database_file):
 		self.path = path
 
+		# parse config file(s)
 		config_filename = cherrypy.config[CONFIG_KEY]
 		if not os.path.exists(config_filename):
 			raise IOError(errno.ENOENT, "Config file '%s' not found"
 					% config_filename)
-
 		if cherrypy.config.has_key(CONFIG_DEFAULTS_KEY):
 			defaults_filename = cherrypy.config[CONFIG_DEFAULTS_KEY]
 			# if defaults file doesn't exist, then don't use it
@@ -58,11 +48,15 @@ class Root(object):
 				defaults_filename = None
 		else:
 			defaults_filename = None
+		self._config = ConfigParser(config_filename, defaults_filename)
 
-		self.__config = ConfigParser(config_filename, defaults_filename)
-
+		# initialise the schedule manager
 		schedule_filename = cherrypy.config[SCHEDULE_KEY]
-		self.__schedule = ScheduleParser(config_filename, schedule_filename)
+		self._schedule = ScheduleParser(config_filename, schedule_filename)
+
+		# initialise storage
+		self._storage = BowerbirdStorage(database_file, self._config,
+				self._schedule)
 
 
 	@cherrypy.expose
@@ -98,23 +92,23 @@ class Root(object):
 		if cancel:
 			raise cherrypy.HTTPRedirect('/')
 		elif export_config:
-			# use cherrypy utility to push the file for download. This also means
-			# that we don't have to move the config file into the web-accessible
-			# filesystem hierarchy
+			# use cherrypy utility to push the file for download. This also
+			# means that we don't have to move the config file into the
+			# web-accessible filesystem hierarchy
 			return cherrypy.lib.static.serve_file(
-					os.path.realpath(self.__config.filename),
+					os.path.realpath(self._config.filename),
 					"application/x-download", "attachment",
-					os.path.basename(self.__config.filename))
+					os.path.basename(self._config.filename))
 		elif apply:
 			# if someone else has modified the config, then warn the user
 			# before saving their changes (overwriting the other's changes)
-			if int(config_timestamp) == self.__config.getTimestamp():
-				self.updateConfigFromPostData(self.__config, data)
+			if int(config_timestamp) == self._config.getTimestamp():
+				self.updateConfigFromPostData(self._config, data)
 
 				# update file
 				try:
-					self.__config.saveToFile()
-					self.__config.exportForShell(self.__config.filename + ".sh")
+					self._config.saveToFile()
+					self._config.exportForShell(self._config.filename + ".sh")
 					# bounce back to homepage
 					raise cherrypy.HTTPRedirect('/')
 				except IOError as e:
@@ -137,11 +131,11 @@ class Root(object):
 				# we don't have to anything else here.
 
 		if load_defaults:
-			values = self.__config.getDefaultValues()
+			values = self._config.getDefaultValues()
 		elif import_config:
 			if new_config.filename:
 				try:
-					values = self.__config.parseFile(new_config.file)
+					values = self._config.parseFile(new_config.file)
 				except Exception as e:
 					values = None
 					error = 'Unable to parse config file: "%s"' % e
@@ -149,12 +143,12 @@ class Root(object):
 				error = 'No filename provided for config import'
 
 		if not values:
-			values = self.__config.getValues()
+			values = self._config.getValues()
 		return template.render(station=self.getStationName(),
-				config_timestamp=self.__config.getTimestamp(),
+				config_timestamp=self._config.getTimestamp(),
 				error=error, using_defaults=load_defaults, values=values,
-				file=self.__config.filename,
-				defaults_file=self.__config.defaults_filename)
+				file=self._config.filename,
+				defaults_file=self._config.defaults_filename)
 
 
 	@cherrypy.expose
@@ -166,7 +160,7 @@ class Root(object):
 		elif apply:
 			# clear all schedules
 			# and add them back in the order they were on the webpage
-			self.__schedule.clearSchedules()
+			self._schedule.clearScheduleSpecs()
 			schedules = {}
 
 			# just get the labels
@@ -186,13 +180,13 @@ class Root(object):
 					schedule_title = schedules[id]
 					schedule_value = ("%s - %s"
 							% (data[start_key], data[finish_key]))
-					self.__schedule.setSchedule(
+					self._schedule.setScheduleSpec(
 							ScheduleParser.parseRecordingSpec(schedules[id],
 							data[start_key], data[finish_key]))
 
 			# update file
 			try:
-				self.__schedule.saveToFile()
+				self._schedule.saveToFile()
 				# bounce back to homepage
 				raise cherrypy.HTTPRedirect('/')
 			except IOError as e:
@@ -209,19 +203,26 @@ class Root(object):
 					title_key = "%s.title" % id
 					if data.has_key(title_key):
 						schedule_key = data[title_key]
-						self.__schedule.deleteSchedule(schedule_key)
+						self._schedule.deleteScheduleSpec(schedule_key)
 
-		recording_specs = self.__schedule.getSchedules()
+		recording_specs = self._schedule.getScheduleSpecs()
 
 		return template.render(station=self.getStationName(), error=error,
 				recording_specs=recording_specs, add=add,
-				section=SCHEDULE_SECTION, file=self.__schedule.filename)
+				file=self._schedule.filename)
 
 
 	@cherrypy.expose
 	@template.output('recordings.html')
 	def recordings(self, view='month', day=None, month=None, year=None,
-			**ignored):
+			rescan_disk=False, **ignored):
+		if rescan_disk:
+			self._storage.clearRecordings()
+
+		# check if the directory tree has changed
+		self._storage.updateRecordings()
+
+		# determine which day to highlight
 		today = datetime.date.today()
 		# slightly ugly syntax to convert to int and provide default
 		day = int(day or today.day)
@@ -232,14 +233,14 @@ class Root(object):
 		if view == 'month':
 			html = self.generateMonthView(today, day_to_show)
 		else:
-			html = "<h2>Unimplemented</h2>"
+			html = '<h2>Unimplemented</h2>That calendar format is not supported'
 		return template.render(station=self.getStationName(), html=HTML(html))
 
 
 #	@cherrypy.expose
 	@template.output('categories.html')
 	def categories(self, sort='label', sort_order='asc', **ignored):
-		categories = self.db.getCategories(sort, sort_order)
+		categories = self._storage.getCategories(sort, sort_order)
 		return template.render(station=self.getStationName(),
 				categories=categories,
 				sort=sort, sort_order=sort_order)
@@ -250,16 +251,16 @@ class Root(object):
 	def category(self, label=None, new_label=None, update_details=None,
 			sort='date_and_time', sort_order='asc', **ignored):
 		if update_details and new_label and new_label != label:
-			self.db.updateCategory(label, new_label)
+			self._storage.updateCategory(label, new_label)
 			raise cherrypy.HTTPRedirect('/category/%s' % new_label)
 
-		calls = self.db.getCalls(sort, sort_order, label)
+		calls = self._storage.getCalls(sort, sort_order, label)
 		call_sonograms = {}
 		for call in calls:
 			call_sonograms[call['filename']] = self.getSonogram(call,
 					FREQUENCY_SCALES[0], DEFAULT_FFT_STEP)
 		return template.render(station=self.getStationName(),
-				category=self.db.getCategory(label),
+				category=self._storage.getCategory(label),
 				calls=calls, call_sonograms=call_sonograms, sort=sort,
 				sort_order=sort_order)
 
@@ -269,7 +270,7 @@ class Root(object):
 	def calls(self, sort='date_and_time', sort_order='asc', category=None,
 			**ignored):
 		return template.render(station=self.getStationName(),
-				calls=self.db.getCalls(sort, sort_order, category),
+				calls=self._storage.getCalls(sort, sort_order, category),
 				sort=sort, sort_order=sort_order)
 
 
@@ -286,11 +287,11 @@ class Root(object):
 		fft_step = int(fft_step)
 
 		if call_filename and update_details:
-			self.db.updateCall(call_filename, label, category, example)
+			self._storage.updateCall(call_filename, label, category, example)
 			if ajax.isXmlHttpRequest():
 				return # ajax update doesn't require a response
 
-		call=self.db.getCall(call_filename)
+		call=self._storage.getCall(call_filename)
 		if ajax.isXmlHttpRequest():
 			# only sonogram updates are possible here
 			assert(update_sonogram)
@@ -301,20 +302,22 @@ class Root(object):
 					frequency_scales=FREQUENCY_SCALES)
 		else:
 			return template.render(station=self.getStationName(), call=call,
-					categories=",".join(self.db.getCategoryNames()),
+					categories=",".join(self._storage.getCategoryNames()),
 					sonogram_filename=self.getSonogram(call, frequency_scale,
 							fft_step), fft_step=fft_step,
 					frequency_scale=frequency_scale,
 					frequency_scales=FREQUENCY_SCALES,
-					prev_next_files=self.db.getPrevAndNextCalls(call))
+					prev_next_files=self._storage.getPrevAndNextCalls(call))
 
 
 	def getStationName(self):
-		return self.__config.getValue2(STATION_SECTION_NAME, STATION_NAME_KEY)
+		return self._config.getValue2(common.STATION_SECTION_NAME,
+				common.STATION_NAME_KEY)
 
 
 	def generateMonthView(self, today, day_to_show):
-		return RecordingsHTMLCalendar(today, day_to_show, self.db).showMonth()
+		return RecordingsHTMLCalendar(today, day_to_show,
+				self._storage).showMonth()
 
 
 	def updateConfigFromPostData(self, config, data):
@@ -387,11 +390,11 @@ class Root(object):
 
 
 	def getDiskSpace(self):
-		root_dir = self.__config.getValue2(CAPTURE_SECTION_NAME,
-				CAPTURE_ROOT_DIR_KEY)
+		root_dir = self._storage.getRootDir()
 		if not os.path.exists(root_dir):
 			return ("%s doesn't exist: Fix Config %s->%s"
-					% (root_dir, CAPTURE_SECTION_NAME, CAPTURE_ROOT_DIR_KEY))
+					% (root_dir, common.CAPTURE_SECTION_NAME,
+					common.CAPTURE_ROOT_DIR_KEY))
 		# split to remove title line, then split into fields
 		(_,_,_,available,percent,_) = Popen(["df", "-k", root_dir],
 				stdout=PIPE).communicate()[0].split('\n')[1].split()
@@ -418,7 +421,7 @@ class Root(object):
 	def getNextRecording(self):
 		now = datetime.datetime.now()
 		#times come out sorted, so just return the first one in the future
-		for recording_time in self.__schedule.getRecordingTimes(
+		for recording_time in self._schedule.getSchedules(
 				days_to_schedule=2):
 			if recording_time.start > now:
 				return recording_time
@@ -472,24 +475,11 @@ def main(args):
 	if not loadWebConfig():
 		sys.exit(1)
 
-	# initialise storage
 	database_file = cherrypy.config[DATABASE_KEY]
-	if not os.path.exists(database_file):
-		sys.stderr.write('Warning: configured database file '
-				'"%s" does not exist. Creating a new one...\n'
-				% database_file)
-	db = BowerbirdStorage(database_file)
-	# make sure that database has key tables
-	if not db.hasRequiredTables():
-		sys.stderr.write('Warning: configured database file '
-				'"%s" missing required tables. Creating them...\n'
-				% database_file)
-		db.createRequiredTables()
-
 	path = os.path.dirname(os.path.realpath(args[0]))
 
 	try:
-		root = Root(db, path)
+		root = Root(path, database_file)
 		cherrypy.tree.mount(root, '/', {
 			'/media': {
 				'tools.staticdir.on': True,

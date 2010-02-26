@@ -9,7 +9,7 @@ class RecordingsHTMLCalendar(Calendar):
 
 		# initialise calendar source
 		self.setfirstweekday(firstweekday)
-	
+
 	def showMonth(self):
 		return self.formatMonth(self.date.year, self.date.month, self.date.day)
 
@@ -30,16 +30,17 @@ class RecordingsHTMLCalendar(Calendar):
 		if date == self.date:
 			html += ' selected'
 
-		html += ('" style="height: %f%%"><div class="day_header">%d</div>' 
+		html += ('" style="height: %f%%"><div class="day_header">%d</div>'
 				% (90.0 / num_weeks, date.day))
 
 		if self.db:
 			for recording in self.db.getRecordings(date):
 				html += ('<div class="day_entry">\n'
 						'<span class="recording_time">%s</span>\n'
+						'<span class="recording_time">%s</span>\n'
 						'<span class="recording_title">%s</span>\n'
-						'</div>\n' % (compactTimeFormat(recording.start_time), 
-						recording.title))
+						'</div>\n' % (compactTimeFormat(recording.start_time),
+						compactTimeFormat(recording.finish_time), recording.title))
 
 		return html + '</td>'
 
@@ -63,7 +64,7 @@ class RecordingsHTMLCalendar(Calendar):
 		s = ''.join(self.formatWeekDay(i) for i in self.iterweekdays())
 		return '<tr>%s</tr>' % s
 
-	def formatMonthName(self, theyear, themonth, theday, withyear=True, 
+	def formatMonthName(self, theyear, themonth, theday, withyear=True,
 			withlinks=True):
 		"""
 		Return a month name as a table row.
@@ -94,27 +95,29 @@ class RecordingsHTMLCalendar(Calendar):
 					'&gt;</a>'
 					'%(s)s<a href="?day=%(d)d&month=%(m)d&year=%(ny)d">'
 					'&gt;&gt;</a>'
-					% {'d': theday, 'm': themonth, 'py': theyear-1, 
-						's': '&nbsp;&nbsp;', 'pm': prev_month, 
+					% {'d': theday, 'm': themonth, 'py': theyear-1,
+						's': '&nbsp;&nbsp;', 'pm': prev_month,
 						'pmy': prev_month_year, 'title': title,
-						'nm': next_month, 'nmy': next_month_year, 
+						'nm': next_month, 'nmy': next_month_year,
 						'ny': theyear+1	})
 
 		return '<tr><th colspan="7" class="month">%s</th></tr>' % title
+
 
 	def formatMonth(self, theyear, themonth, theday, withyear=True):
 		"""
 		Return a formatted month as a table.
 		"""
 		html = ('<table class="month">\n%s\n%s\n'
-				% (self.formatMonthName(theyear, themonth, theday, 
+				% (self.formatMonthName(theyear, themonth, theday,
 						withyear=withyear), self.formatWeekHeader()))
 		weeks = self.monthdatescalendar(theyear, themonth)
 		for week in weeks:
 			html += self.formatWeek(themonth, week, len(weeks)) + '\n'
 		return html + '</table>\n'
 
+
 def compactTimeFormat(time):
-	if time.minute == 0:
-		return time.strftime('%H')
-	return time.strftime('%H:%M')
+	#if time.minute == 0:
+	#	return time.strftime('%H')
+	return time.strftime('%H:%M:%S')
