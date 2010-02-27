@@ -274,14 +274,19 @@ class ScheduleParser(object):
 		return recording_times
 
 
-	def findScheduleCovering(self, start, finish):
+	def findSchedulesCovering(self, start, finish):
+		'''Find all schedules that cover the given period. It may be that there
+			are more than one, due to overlapping schedules, or one recording
+			may overlap the boundary between two'''
+		schedules = []
 		# (search 1 day either side)
  		for schedule in self.getSchedules(start
 				- datetime.timedelta(1), (finish - start).days + 2):
 			# if either start or finish of recording file is in the schedule
 			if (start in schedule or finish in schedule):
-				return schedule
-		return None
+				schedules.append(schedule)
+
+		return schedules
 
 
 	def getScheduleSpecs(self):

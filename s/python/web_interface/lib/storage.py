@@ -79,24 +79,28 @@ class Storage(object):
 			list.append(values)
 		return list
 
+
 	def runQueryRaw(self, query):
 		return self.__execSqlQuery(query, False)
 
+
 	def hasRequiredTables(self):
-		try:
-			for table in self.REQUIRED_TABLES:
-				self.runQueryRaw('select * from %s' % table)
-			return True
-		except apsw.Error:
-			return False;
+		for table in self.REQUIRED_TABLES:
+			if not self.runQueryRaw('pragma table_info("%s")' % table):
+				return False
+		return True
+		#try:
+		#	for table in self.REQUIRED_TABLES:
+		#		self.runQueryRaw('select * from %s' % table)
+		#	return True
+		#except apsw.Error:
+		#	return False;
+
 
 	def createRequiredTables(self):
 		for table in self.REQUIRED_TABLES:
-			try:
-				self.runQueryRaw('select * from %s' % table)
-			except apsw.Error:
-				self.runQueryRaw('create table %s (%s)'
-						% (table, self.REQUIRED_TABLE_INIT[table]))
+			self.runQueryRaw('create table if not exists %s (%s)'
+					% (table, self.REQUIRED_TABLE_INIT[table]))
 
 
 class Recording():
@@ -109,8 +113,8 @@ class Recording():
 		self.start_limit = convertIsoStringToDateTime(dict['start_limit'])
 		self.finish_limit = convertIsoStringToDateTime(dict['finish_limit'])
 
-	def isUntitled(self):
-		return title == UNTITLED
+	def isTitled(self):
+		return self.title != UNTITLED
 
 	def __str__(self):
 		return '%s (%d): %s - %s [%s - %s]' % (self.title, self.id,
@@ -171,13 +175,7 @@ class BowerbirdStorage(Storage):
 	def getRecordings(self, date):
 		query = ('select * from "%s" where start_date="%s"'
 				% (RECORDINGS_TABLE, date.isoformat()))
-		try:
-			return [Recording(row) for row in self.runQuery(query)]
-		except apsw.Error, inst:
-			# just ignore missing table for now
-			print inst
-
-		return []
+		return (Recording(row) for row in self.runQuery(query))
 
 
 	def clearRecordings(self):
@@ -215,52 +213,117 @@ class BowerbirdStorage(Storage):
 		for recording_file in self.getFilesWithoutRecording():
 #			print recording_file
 			# see if the recording file is in a scheduled timeslot
-			matched_schedule = self._schedule.findScheduleCovering(
+			matched_schedules = self._schedule.findSchedulesCovering(
 					recording_file.start, recording_file.finish)
 
-			self.addFileToAppropriateRecording(recording_file, matched_schedule)
+			self.addFileToAppropriateRecordings(recording_file,
+					matched_schedules)
 
-	def addFileToAppropriateRecording(self, recording_file, matched_schedule):
+	def addFileToAppropriateRecordings(self, recording_file, matched_schedules):
 		# see if there's any existing recordings that "overlap" the file
-		prev_recording = self.getRecordingAtTime(recording_file.start
+		prev_recordings = self.getRecordingsAtTime(recording_file.start
 				- ADJACENT_GAP_TOLERANCE)
-		next_recording = self.getRecordingAtTime(recording_file.finish
+		next_recordings = self.getRecordingsAtTime(recording_file.finish
 				+ ADJACENT_GAP_TOLERANCE)
-		#print "prev: %s %s" % ((recording_file.start - ADJACENT_GAP_TOLERANCE), prev_recording)
-		#print "next: %s %s" % ((recording_file.finish + ADJACENT_GAP_TOLERANCE), next_recording)
 
-		# file overlaps with two recordings (fills a gap) then only merge
-		# if both recordings and the file are from the same schedule
-		# (or the file is unmatched - but that shouldn't really happen)
-		if (prev_recording and next_recording
-				and (prev_recording.title == next_recording.title)
-				and (not matched_schedule
-						or matched_schedule.title == next_recording.title)):
-			# this is unlikely, but possible
-			#print 'merging %s with %s and %s' % (recording_file, prev_recording, next_recording)
-			self.mergeRecordingsAndFile(recording_file, prev_recording,
-					next_recording)
-		# if no recordings overlap, or they do overlap but have a different
-		# title to the matched_schedule then create a new recording
-		elif ((not prev_recording or (matched_schedule
-				and matched_schedule.title != prev_recording.title))
-				and (not next_recording or (matched_schedule
-				and matched_schedule.title != next_recording.title))):
-			#print 'creating new recording for %s' % recording_file
-			self.createNewRecordingFromFile(recording_file, matched_schedule)
-		else:
-			if (prev_recording and ((matched_schedule
-					and matched_schedule.title == prev_recording.title)
-					or (not matched_schedule
-					and (not next_recording or not prev_recording.isUntitled())))):
-				#print 'adding %s to %s' % (recording_file, prev_recording)
-				self.addFileToRecording(recording_file, prev_recording)
-			if (next_recording and ((matched_schedule
-					and matched_schedule.title == next_recording.title)
-					or (not matched_schedule
-					and (not prev_recording or not next_recording.isUntitled())))):
-				#print 'adding %s to %s' % (recording_file, next_recording)
-				self.addFileToRecording(recording_file, next_recording)
+		if matched_schedules:
+			# search first for merges of title-matched file, prev and next
+			# must iterate over a copy because we might remove a schedule
+			for match in matched_schedules[:]:
+				matched_prev = next((rec for rec in prev_recordings
+						if rec.title == match.title), None)
+				matched_next = next((rec for rec in next_recordings
+						if rec.title == match.title), None)
+				if matched_prev and matched_next:
+					self.mergeRecordings(matched_prev, matched_next,
+								recording_file)
+					# remove considerations for matching
+					matched_schedules.remove(match)
+					# if there's no more matched schedules, then return
+					if not matched_schedules:
+						return
+			# now search for recordings we could add the file to
+			# must iterate over a copy because we might remove a schedule
+			for match in matched_schedules[:]:
+				# search for title-matched recordings (next and prev)
+				for recording in (rec for rec in prev_recordings
+						+ next_recordings if rec.title == match.title):
+					self.addFileToRecording(recording, recording_file)
+					# remove considerations for matching
+					matched_schedules.remove(match)
+			# add the remaining matched schedules
+			for match in matched_schedules:
+				self.createNewRecordingFromFile(recording_file, match)
+
+		else: # matched_schedules
+			# remove untitled recordings from the list if titled recordings are
+			# also in there, because title recordings are "higher" priority
+			for recordings in next_recordings, prev_recordings:
+				found_untitled = None
+				found_titled = False
+				# first pass: see if there's a titled recording, and merge any
+				# overlapping untitled recordings
+				for recording in recordings:
+					if recording.isTitled():
+						found_titled = True
+					else:
+						if found_untitled:
+							mergeRecordings(untitled, recording)
+						else:
+							found_untitled = recording
+				# second pass, if required, remove untitled
+				if found_titled:
+					# must iterate over a copy because we might remove from list
+					for recording in recordings[:]:
+						if not recording.isTitled():
+							recordings.remove(recording)
+
+			# we must keep track of if we've matched a titled recording, because
+			# we can't then match an untitled recording
+			not_matched_titled = True
+
+			# first for titled recordings
+
+			# search first for merges of title-matched prev and next
+			# must use list comprehension instead of generator because we
+			# might remove entries from prev_recordings
+			for prev in [rec for rec in prev_recordings if rec.isTitled()]:
+				matched_next = next((rec for rec in next_recordings
+						if rec.title == prev.title), None)
+				if matched_next:
+					self.mergeRecordings(prev, matched_next, recording_file)
+					# remove considerations for matching
+					prev_recordings.remove(prev)
+					next_recordings.remove(matched_next)
+					if prev.isTitled():
+						not_matched_titled = False
+
+			# now search for recordings we could add the file to
+			# must use list comprehension instead of generator because we
+			# might remove entries from recordings lists
+			for recording in [rec for rec in prev_recordings if rec.isTitled()]:
+				self.addFileToRecording(recording, recording_file)
+				prev_recordings.remove(recording)
+				not_matched_titled = False
+			for recording in [rec for rec in next_recordings if rec.isTitled()]:
+				self.addFileToRecording(recording, recording_file)
+				next_recordings.remove(recording)
+				not_matched_titled = False
+
+			# if we haven't matched any titled recordings, then keep going
+			if not_matched_titled:
+				# check for possible merge between two untitled recordings
+				# (at this point we know no titled recordings remain, and there
+				# is, at most, one recording in each list)
+				if prev_recordings and next_recordings:
+					self.mergeRecordings(prev_recordings[0], next_recordings[0],
+							recording_file)
+				elif prev_recordings:
+					self.addFileToRecording(prev_recordings[0], recording_file)
+				elif next_recordings:
+					self.addFileToRecording(next_recordings[0], recording_file)
+				else:
+					self.createNewRecordingFromFile(recording_file)
 
 
 	def hasRecordingFile(self, file_path):
@@ -273,7 +336,7 @@ class BowerbirdStorage(Storage):
 		self.runQueryRaw(query)
 
 
-	def getRecordingAtTime(self, time):
+	def getRecordingsAtTime(self, time):
 		assert type(time) == datetime.datetime, ('time parameter must be a '
 				'datetime, not a "%s"' % type(time))
 		# check that the given time is not only overlaps the recording, but also
@@ -282,11 +345,7 @@ class BowerbirdStorage(Storage):
 				'and finish_time and "%(time)s" between start_limit and '
 				'finish_limit'
 				% {'table': RECORDINGS_TABLE, 'time': time.isoformat()})
-		result = self.runQuery(query)
-		assert len(result) <= 1, 'overlapping recordings: %s' % result
-		if result:
-			return Recording(result[0])
-		return None
+		return [Recording(row) for row in self.runQuery(query)]
 
 
 	def getFilesWithoutRecording(self):
@@ -300,17 +359,19 @@ class BowerbirdStorage(Storage):
 				self.runQuery(query))
 
 
-	def mergeRecordingsAndFile(self, recording_file, prev_recording,
-			next_recording):
-		'''Merges two recordings with the file that joins them. Requires merging
-			times in recordings table, and modifying links in links table'''
-		assert isinstance(recording_file, RecordingFile), (
-				'recording_file must be a RecordingFile, not a %s'
-				% recording_file.__class__.__name__)
+	def mergeRecordings(self, prev_recording, next_recording,
+			recording_file=None):
+		'''Merges two recordings (optionally with the file that joins them).
+			Requires merging times in recordings table, and modifying the links
+			table'''
 		assert isinstance(prev_recording, Recording), ('prev_recording must be '
 				'a Recording, not a %s' % prev_recording.__class__.__name__)
 		assert isinstance(next_recording, Recording), ('next_recording must be '
 				'a Recording, not a %s' % next_recording.__class__.__name__)
+		assert (recording_file is None
+				or isinstance(recording_file, RecordingFile)), (
+				'recording_file must be a RecordingFile, not a %s'
+				% recording_file.__class__.__name__)
 
 		# extend prev to include next
 		# limits and date should not need changing
@@ -322,16 +383,18 @@ class BowerbirdStorage(Storage):
 		query = ('update "%s" set recording_id=%d where recording_id=%d'
 				% (LINKS_TABLE, prev_recording.id, next_recording.id))
 		self.runQueryRaw(query)
-		# add new file to links
-		query = ('insert into "%s" values(NULL, %d, %d)'
-				% (LINKS_TABLE, prev_recording.id, recording_file.id))
-		self.runQueryRaw(query)
 		# delete the obsolete (next) recording
 		query = 'delete from recordings where id=%d' % next_recording.id
 		self.runQueryRaw(query)
 
+		if recording_file:
+			# add new file to links
+			query = ('insert into "%s" values(NULL, %d, %d)'
+					% (LINKS_TABLE, prev_recording.id, recording_file.id))
+			self.runQueryRaw(query)
 
-	def addFileToRecording(self, recording_file, recording):
+
+	def addFileToRecording(self, recording, recording_file):
 		assert isinstance(recording, Recording), ('next_recording must be '
 				'a Recording, not a %s' % next_recording.__class__.__name__)
 		assert isinstance(recording_file, RecordingFile), (
@@ -351,7 +414,7 @@ class BowerbirdStorage(Storage):
 		self.runQueryRaw(query)
 
 
-	def createNewRecordingFromFile(self, recording_file, matched_schedule):
+	def createNewRecordingFromFile(self, recording_file, matched_schedule=None):
 		assert isinstance(recording_file, RecordingFile), (
 				'recording_file parameter must be a RecordingFile, not a "%s"'
 				% recording_file.__class__.__name__)
@@ -421,6 +484,7 @@ class BowerbirdStorage(Storage):
 			print inst
 		return []
 
+
 	def getCategoryNames(self, sort_key=None, sort_order='asc'):
 		if sort_key:
 			query = ('select label from categories order by "%s" %s'
@@ -437,6 +501,7 @@ class BowerbirdStorage(Storage):
 			pass
 		return list
 
+
 	def getCategory(self, label):
 		try:
 			return self.runQuerySingleResponse(
@@ -446,15 +511,13 @@ class BowerbirdStorage(Storage):
 			pass
 		return OrderedDict()
 
+
 	def updateCategory(self, old_label, new_label):
-		try:
-			self.runQueryRaw('update categories set label="%s" where label="%s"'
-					% (new_label, old_label))
-			self.runQueryRaw('update calls set category="%s" where category="%s"'
-					% (new_label, old_label))
-		except apsw.Error:
-			# just ignore missing table for now
-			pass
+		self.runQueryRaw('update categories set label="%s" where label="%s"'
+				% (new_label, old_label))
+		self.runQueryRaw('update calls set category="%s" where category="%s"'
+				% (new_label, old_label))
+
 
 	def getCalls(self, sort_key='date_and_time', sort_order='asc',
 			category=None):
@@ -465,21 +528,13 @@ class BowerbirdStorage(Storage):
 			query = ('select * from calls order by %s %s'
 					% (sort_key , sort_order))
 
-		try:
-			return self.runQuery(query)
-		except apsw.Error:
-			# just ignore missing table for now
-			pass
-		return []
+		return self.runQuery(query)
+
 
 	def getCall(self, filename):
-		try:
-			return self.runQuerySingleResponse(
-					'select * from calls where filename="%s"' % filename)
-		except apsw.Error:
-			# just ignore missing table for now
-			pass
-		return OrderedDict()
+		return self.runQuerySingleResponse(
+				'select * from calls where filename="%s"' % filename)
+
 
 	def updateCall(self, filename, label, category, example):
 		if filename:
@@ -487,36 +542,28 @@ class BowerbirdStorage(Storage):
 				example = 'checked'
 			else:
 				example = ''
-			try:
-				self.__execSqlQuery('update calls set label="%s",category="%s",'
-						'example="%s" where filename="%s"'
+			self.__execSqlQuery('update calls set label="%s",category="%s",'
+					'example="%s" where filename="%s"'
 					% (label, category, example, filename))
-			except apsw.Error:
-				# just ignore missing table for now
-				pass
+
 
 	def getPrevAndNextCalls(self, call):
-		files = {}
-		try:
-			files['prev'] = self.runQuerySingleResponse('select * from calls '
+		return {
+				'prev': self.runQuerySingleResponse('select * from calls '
 					'where date_and_time < "%s" order by date_and_time desc '
-					'limit 1' % call['date_and_time'])
-			files['prev_in_cat'] = self.runQuerySingleResponse(
+					'limit 1' % call['date_and_time']),
+				'prev_in_cat': self.runQuerySingleResponse(
 					'select * from calls where category = "%s" and '
 					'date_and_time < "%s" order by date_and_time desc limit 1'
-					% (call['category'], call['date_and_time']))
-			files['next'] = self.runQuerySingleResponse('select * from calls '
+					% (call['category'], call['date_and_time'])),
+				'next': self.runQuerySingleResponse('select * from calls '
 					'where date_and_time > "%s" order by date_and_time asc '
-					'limit 1' % call['date_and_time'])
-			files['next_in_cat'] = self.runQuerySingleResponse(
+					'limit 1' % call['date_and_time']),
+				'next_in_cat': self.runQuerySingleResponse(
 					'select * from calls where category = "%s" and '
 					'date_and_time > "%s" order by date_and_time asc limit 1'
 					% (call['category'], call['date_and_time']))
-		except apsw.Error:
-			# just ignore missing table for now
-			pass
-
-		return files
+		}
 
 
 class ProxyStorage(Storage):
@@ -547,23 +594,15 @@ class ProxyStorage(Storage):
 
 
 	def removeConnection(self, address):
-		try:
-			self.runQueryRaw('delete from previous_connections where address="%s"'
-					% address)
-		except apsw.Error, inst:
-			# just ignore errors for now
-			print inst
+		self.runQueryRaw('delete from previous_connections where address="%s"'
+				% address)
 
 
-	def getPreviousConnections(self, sort_key='last_connected', sort_order='asc'):
+	def getPreviousConnections(self, sort_key='last_connected',
+			sort_order='asc'):
 		query = ('select * from previous_connections order by %s %s'
 				% (sort_key , sort_order))
-		try:
-			return self.runQuery(query)
-		except apsw.Error, inst:
-			# just ignore errors for now
-			print inst
-		return []
+		return self.runQuery(query)
 
 
 def getTimestampFromFilePath(file_path):
@@ -593,41 +632,66 @@ def getFormattedCurrentTime():
 	return datetime.datetime.now().ctime()
 
 
-if __name__ == '__main__':
-
+def test():
 	class FF():
 		def __init__(self, start, finish):
 			self.start = start
 			self.finish = finish
 		def __str__(self):
-			return 'FF(%s - %s)' % (self.start, self.finish)
+			return 'F(%s - %s)' % (self.start, self.finish)
 
 	class FR():
-		def __init__(self, title):
+		def __init__(self, title, tag):
 			self.title = title
-		def isUntitled(self):
-			return self.title == UNTITLED
+			self.tag = tag
+		def isTitled(self):
+			return self.title != 'u'
 		def __str__(self):
-			return 'FR(%s)' % self.title
+			#return 'R(%s, %s)' % (self.title,self.tag)
+			return self.title
 
-	rat = [None, FR(UNTITLED), FR('Title1'), FR('Title2'), FR('Title3')]
+	f1 = FR('s1','f')
+	f2 = FR('s2','f')
+	fs = [[], [f1], [f1,f2]]
+
+	rup = FR('u','p')
+	r1p = FR('s1','p')
+	r2p = FR('s2','p')
+	run = FR('u','n')
+	r1n = FR('s1','n')
+	r2n = FR('s2','n')
+	r3n = FR('s3','n')
+	rat = [[], [rup], [r1p], [rup,r1p], [r2p], [r1p,r2p],
+			[], [run], [r1n], [run,r1n], [r2n], [r1n,r2n],[r3n],[r2n,r3n],
+			[r1n,r2n,r3n]]
+
+	from copy import deepcopy
 
 	class BSTest(BowerbirdStorage):
 		def __init__(self):
 			pass
-		def getRecordingAtTime(self,time):
-			return rat[time.day - 1]
-		def mergeRecordingsAndFile(self, rfile, prev, next):
-			print 'merging %s with %s and %s' % (rfile, prev, next)
-		def createNewRecordingFromFile(self, rfile, schd):
-			print 'creating new recording for %s (%s)' % (rfile, schd)
-		def addFileToRecording(self, rfile, rec):
-			print 'adding %s to %s' % (rfile, rec)
+		def getRecordingsAtTime(self,time):
+			return deepcopy(rat[time.day - 1])
+		def mergeRecordings(self, prev, next, rfile):
+			print 'm(%s)' % prev.title,
+		def createNewRecordingFromFile(self, rfile, schd=None):
+			if schd:
+				print 'c(%s)' % schd.title,
+			else:
+				print "c(u)",
+		def addFileToRecording(self, rec, rfile):
+			print 'a(%s,%s)' % (rec.title, rec.tag),
 
-	for match in (rat[i] for i in (0,2)):
-		for p in xrange(4):
-			for n in xrange(5):
-				prev = datetime.date(2010, 12, p+1)
-				next = datetime.date(2010, 12, n+1)
-				print 'match(%s), prev(%s), next(%s)' % (match,rat[p],rat[n]),
-				BSTest().addFileToAppropriateRecording(FF(prev, next), match)
+	for match in fs:
+		for p in xrange(6):
+			for n in range(6,15):
+				prev = datetime.date(1, 1, p+1)
+				next = datetime.date(1, 1, n+1)
+				print ('%s\t%s\t%s\t'
+						% (map(str,match),map(str,rat[p]),map(str,rat[n]))),
+				BSTest().addFileToAppropriateRecordings(FF(prev, next),
+						deepcopy(match))
+				print
+
+if __name__ == '__main__':
+	test()
