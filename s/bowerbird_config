@@ -118,9 +118,9 @@ sound_buffer_frames = 960000
 # Storage, Root Dir, string, 
 sound_file_root_dir = /var/lib/bowerbird
 # Storage, File Ext., string, 
-sound_file_ext = wv
+sound_file_ext = .wv
 # Storage, Details File Ext., string, 
-sound_details_ext = details
+sound_details_ext = .details
 # 0: raw wav, 1: use builtin wavpack, 2: use shellcmd
 # Storage, Compression Type, int, 
 sound_compression_type = 2
