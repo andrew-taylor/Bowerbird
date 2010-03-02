@@ -1,6 +1,4 @@
-import sys, os, os.path, errno, cherrypy, datetime
-from subprocess import Popen, PIPE
-from genshi import HTML
+import sys, os, os.path, errno, cherrypy, datetime, subprocess, tempfile, genshi
 from cherrypy.lib import sessions
 
 from lib import common, ajax, template
@@ -38,7 +36,9 @@ SESSION_FILTER_KEY = 'filter'
 SESSION_DATE_KEY = 'date'
 SESSION_RECORD_ID_KEY = 'record_id'
 
-NO_FILTER_LABEL = 'All'
+NO_FILTER_TITLE = 'All'
+
+SOX_PATH = '/usr/bin/sox'
 
 
 class Root(object):
@@ -126,7 +126,7 @@ class Root(object):
 					# if save failed, put up error message and stay on the page
 					error = 'Error saving: %s' % e
 			else:
-				error = HTML('''WARNING:
+				error = genshi.HTML('''WARNING:
 						Configuration has been changed externally.<br />
 						If you wish to keep your changes and lose the external
 						changes, then click on 'Apply' again. <br />
@@ -226,20 +226,49 @@ class Root(object):
 	@cherrypy.expose
 	@template.output('recordings.html')
 	def recordings(self, view='month', year=None, month=None, day=None,
-			selected_recording_id=None, go_to_today=False,
-			filter=None, update_filter=None,
-			clear_selected_date=False, clear_selected_recording=False,
-			rescan_disk=False, **ignored):
+			recording_id=None, set_recording_id=False, go_to_today=False,
+			filter=None, update_filter=None, clear_selected_date=False,
+			export_recording=False, rescan_disk=False, **ignored):
 		# HACK: this helps development slightly
 		if ignored:
 			print "IGNORED",ignored
 
+		if export_recording and recording_id:
+			# convert id to int
+			recording_id = int(recording_id)
+
+			# cache for compactness
+			extension = self._storage.recording_ext
+
+			# concatenate all the files that make up this recording and send it
+			handle, recording_filename = tempfile.mkstemp(suffix=extension)
+			# close the file (because sox is going to play with it directly)
+			os.close(handle)
+			# build the command list (this is how subprocess wants it)
+			command_list = [SOX_PATH]
+			command_list.extend(self._storage.getFilesForRecordingAbsolute(
+					recording_id))
+			command_list.append(recording_filename)
+			t = datetime.datetime.today()
+			subprocess.check_call(command_list)
+			print "sox took %s" % str(datetime.datetime.today() - t)
+
+			# create the name of the served file from the recording
+			recording = self._storage.getRecording(recording_id)
+			served_filename = '%s %s%s' % (recording.title,
+					recording.start_time.strftime('%Y/%m/%d %H:%M'),
+					extension)
+
+			# use cherrypy utility to push the file for download. This also
+			# means that we don't have to move the config file into the
+			# web-accessible filesystem hierarchy
+			return cherrypy.lib.static.serve_file(
+					os.path.realpath(recording_filename),
+					"application/x-download", "attachment", served_filename)
+
 		if clear_selected_date:
 			if cherrypy.session.has_key(SESSION_DATE_KEY):
 				del cherrypy.session[SESSION_DATE_KEY]
-		if clear_selected_recording:
-			if cherrypy.session.has_key(SESSION_RECORD_ID_KEY):
-				del cherrypy.session[SESSION_RECORD_ID_KEY]
 
 		if rescan_disk:
 			self._storage.clearRecordings()
@@ -249,7 +278,7 @@ class Root(object):
 
 		# update filter
 		if update_filter:
-			if filter == NO_FILTER_LABEL:
+			if filter == NO_FILTER_TITLE:
 				filter = None
 				if cherrypy.session.has_key(SESSION_FILTER_KEY):
 					del cherrypy.session[SESSION_FILTER_KEY]
@@ -265,27 +294,34 @@ class Root(object):
 		selected_date = None
 		selected_recording = None
 		selected_recordings = None
-		# if passed a record id, get the record (and clear selected day)
-		if (selected_recording_id
-				or cherrypy.session.has_key(SESSION_RECORD_ID_KEY)):
-			if selected_recording_id:
-				cherrypy.session[SESSION_RECORD_ID_KEY] = int(
-						selected_recording_id)
 
+		# if setting recording id, then save it to session if we were passed one
+		# (or delete one saved in session if we weren't)
+		if set_recording_id:
+			if recording_id is not None:
+				cherrypy.session[SESSION_RECORD_ID_KEY] = int(recording_id)
+			elif cherrypy.session.has_key(SESSION_RECORD_ID_KEY):
+				del cherrypy.session[SESSION_RECORD_ID_KEY]
+
+		# if we have a recording id, then get the record (& clear selected day)
+		if cherrypy.session.has_key(SESSION_RECORD_ID_KEY):
 			selected_recording = self._storage.getRecording(
 					cherrypy.session[SESSION_RECORD_ID_KEY])
 
 			# ensure record is valid (or remove session key)
 			if not selected_recording:
 				del cherrypy.session[SESSION_RECORD_ID_KEY]
-			# enable filter to "filter out" selected recording
-			elif filter and selected_recording.title != filter:
+			# enable filter to "filter out" selected recording.
+			# if this happens, select date of filtered out recording to keep
+			# the same part of calendar being displayed
+			elif (filter and filter != NO_FILTER_TITLE
+					and selected_recording.title != filter):
+				selected_date = selected_recording.start_date
+				cherrypy.session[SESSION_DATE_KEY] = selected_date
 				selected_recording = None
 				del cherrypy.session[SESSION_RECORD_ID_KEY]
-
-
-			# clear day from session (record trumps day)
-			if cherrypy.session.has_key(SESSION_DATE_KEY):
+			# clear date from session (record trumps date)
+			elif cherrypy.session.has_key(SESSION_DATE_KEY):
 				del cherrypy.session[SESSION_DATE_KEY]
 		# only highlight selected date if it's specified (and no record is)
 		elif ((year and month and day)
@@ -329,7 +365,7 @@ class Root(object):
 				month = today.month
 
 		# get the schedule titles for the filter, and add a "show all" option
-		schedule_titles = [NO_FILTER_LABEL]
+		schedule_titles = [NO_FILTER_TITLE]
 		schedule_titles.extend(self._schedule.getScheduleTitles())
 		schedule_titles.append(UNTITLED)
 
@@ -342,7 +378,8 @@ class Root(object):
 
 		return template.render(station=self.getStationName(),
 				schedule_titles=schedule_titles, filter=filter,
-				calendar=HTML(calendar), selected_recording=selected_recording,
+				calendar=genshi.HTML(calendar),
+				selected_recording=selected_recording,
 				selected_recordings=selected_recordings)
 
 
@@ -490,7 +527,8 @@ class Root(object):
 
 
 	def getUptime(self):
-		return Popen("uptime", stdout=PIPE).communicate()[0]
+		return subprocess.Popen("uptime", stdout=subprocess.PIPE).communicate(
+				)[0]
 
 
 	def getDiskSpace(self):

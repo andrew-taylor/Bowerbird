@@ -12,7 +12,7 @@
 	<!--! Display selected recording -->
 	<div py:if="value_of('selected_recording')">
 	    <h2>Selected Recording
-		<a class="clear" href="?clear_selected_recording=1">[Clear]</a>
+		<a class="clear" href="?set_recording_id=1">[Clear]</a>
 	    </h2>
 	    <?python from lib.common import compactTimeFormat ?>
 	    <table class="selected_recordings">
@@ -32,12 +32,14 @@
 		    </td>
 		    <td class="selected_recordings">
 			<form method="POST" action="?">
-			    <input type="hidden" name="id"
-				    value="${selected_recording.id}" />
 			    <input type="hidden" name="filter"
 				    value="${selected_recording.title}" />
 			    <input type="submit" name="update_filter"
-				    value="Show Only These" />
+				    value="Show Only ${selected_recording.title}" />
+			    <input type="hidden" name="recording_id"
+				    value="${selected_recording.id}" />
+			    <input type="submit" name="export_recording"
+				    value="Export" />
 			</form>
 		    </td>
 		</tr>
@@ -66,14 +68,14 @@
 		    </td>
 		    <td class="selected_recordings">
 			<form method="POST" action="?">
-			    <input type="hidden" name="selected_recording_id"
+			    <input type="hidden" name="recording_id"
 				    value="${rec.id}" />
+			    <input type="submit" name="set_recording_id"
+				    value="Select" />
 			    <input type="hidden" name="filter"
 				    value="${rec.title}" />
-			    <input type="submit" name="clear_selected_date"
-				    value="Select" />
 			    <input type="submit" name="update_filter"
-				    value="Show Only These" />
+				    value="Show Only ${rec.title}" />
 			</form>
 		    </td>
 		</tr>

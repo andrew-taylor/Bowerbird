@@ -172,6 +172,15 @@ class BowerbirdStorage(Storage):
 		self._dir_timestamp = -1
 
 
+	@property
+	def recording_ext(self):
+		return self._recording_ext
+
+	@property
+	def file_duration(self):
+		return self._file_duration
+
+
 	def getRecording(self, record_id):
 		query = 'select * from "%s" where id=%d' % (RECORDINGS_TABLE, record_id)
 		return Recording(self.runQuerySingleResponse(query))
@@ -198,6 +207,12 @@ class BowerbirdStorage(Storage):
 		# and also keep track of new files added
 		new_files = []
 		for dir in os.listdir(self._root_dir):
+			# only scan directories that are dates
+			try:
+				date = datetime.datetime.strptime(dir, '%Y-%m-%d')
+			except:
+				continue
+
 			dir_path = os.path.join(self._root_dir, dir)
 			# directory timestamp is equal to when the last file was created
 			# so if it's old we know that there's no new files
@@ -206,7 +221,8 @@ class BowerbirdStorage(Storage):
 					and (force_rescan or dir_mtime > self._dir_timestamp)):
 				for recording_file in os.listdir(dir_path):
 					# ignore files with the wrong extension
-					if recording_file.endswith(self._recording_ext):
+					if (os.path.splitext(recording_file)[1]
+							== self._recording_ext):
 						file_path = os.path.join(dir, recording_file)
 						if not self.hasRecordingFile(file_path):
 							self.addRecordingFile(file_path)
@@ -353,6 +369,23 @@ class BowerbirdStorage(Storage):
 				'finish_limit'
 				% {'table': RECORDINGS_TABLE, 'time': time.isoformat()})
 		return [Recording(row) for row in self.runQuery(query)]
+
+
+	def getFilesForRecording(self, recording_id):
+		'''Return all files that are part of the given recording'''
+		query = ('select file.path from recording_files file, '
+				'recording_links link where file.id = link.file_id '
+				' and link.recording_id = %d' % recording_id)
+		return self.runQueryRaw(query)
+
+
+	def getFilesForRecordingAbsolute(self, recording_id):
+		'''Return all files that are part of the given recording'''
+		query = ('select file.path from recording_files file, '
+				'recording_links link where file.id = link.file_id '
+				' and link.recording_id = %d' % recording_id)
+		return [os.path.join(self._root_dir,path[0]) for path in
+				self.runQueryRaw(query)]
 
 
 	def getFilesWithoutRecording(self):
