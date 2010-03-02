@@ -226,7 +226,7 @@ class Root(object):
 	@cherrypy.expose
 	@template.output('recordings.html')
 	def recordings(self, view='month', year=None, month=None, day=None,
-			selected_record_id=None, go_to_today=False,
+			selected_recording_id=None, go_to_today=False,
 			filter=None, update_filter=None,
 			clear_selected_date=False, clear_selected_recording=False,
 			rescan_disk=False, **ignored):
@@ -266,11 +266,11 @@ class Root(object):
 		selected_recording = None
 		selected_recordings = None
 		# if passed a record id, get the record (and clear selected day)
-		if (selected_record_id
+		if (selected_recording_id
 				or cherrypy.session.has_key(SESSION_RECORD_ID_KEY)):
-			if selected_record_id:
+			if selected_recording_id:
 				cherrypy.session[SESSION_RECORD_ID_KEY] = int(
-						selected_record_id)
+						selected_recording_id)
 
 			selected_recording = self._storage.getRecording(
 					cherrypy.session[SESSION_RECORD_ID_KEY])

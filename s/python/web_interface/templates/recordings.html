@@ -8,7 +8,9 @@
   </head>
   <body>
     <h1>Recordings</h1>
-	<p py:if="value_of('selected_recording')">
+
+	<!--! Display selected recording -->
+	<div py:if="value_of('selected_recording')">
 	    <h2>Selected Recording
 		<a class="clear" href="?clear_selected_recording=1">[Clear]</a>
 	    </h2>
@@ -18,6 +20,7 @@
 		<th class="selected_recordings">Title</th>
 		<th class="selected_recordings">Date</th>
 		<th class="selected_recordings">Time</th>
+		<th class="selected_recordings">Actions</th>
 		</tr>
 		<tr>
 		    <td class="selected_recordings">${selected_recording.title}</td>
@@ -27,12 +30,23 @@
 			${compactTimeFormat(selected_recording.start_time)} to
 			${compactTimeFormat(selected_recording.finish_time)}
 		    </td>
-		    <td>Select Button</td>
+		    <td class="selected_recordings">
+			<form method="POST" action="?">
+			    <input type="hidden" name="id"
+				    value="${selected_recording.id}" />
+			    <input type="hidden" name="filter"
+				    value="${selected_recording.title}" />
+			    <input type="submit" name="update_filter"
+				    value="Show Only These" />
+			</form>
+		    </td>
 		</tr>
 	    </table>
 	    <hr />
-	</p>
-	<p py:if="value_of('selected_recordings')">
+	</div>
+
+	<!--! Display recordings for a selected date -->
+	<div py:if="value_of('selected_recordings')">
 	    <h2>Recordings for
 		${selected_recordings[0].start_date.strftime("%d %B %Y")}
 		<a class="clear" href="?clear_selected_date=1">[Clear]</a>
@@ -42,6 +56,7 @@
 		<tr>
 		<th class="selected_recordings">Title</th>
 		<th class="selected_recordings">Time</th>
+		<th class="selected_recordings">Actions</th>
 		</tr>
 		<tr py:for="rec in selected_recordings">
 		    <td class="selected_recordings">${rec.title}</td>
@@ -49,12 +64,25 @@
 			${compactTimeFormat(rec.start_time)} to
 			${compactTimeFormat(rec.finish_time)}
 		    </td>
-		    <td>Select Button</td>
+		    <td class="selected_recordings">
+			<form method="POST" action="?">
+			    <input type="hidden" name="selected_recording_id"
+				    value="${rec.id}" />
+			    <input type="hidden" name="filter"
+				    value="${rec.title}" />
+			    <input type="submit" name="clear_selected_date"
+				    value="Select" />
+			    <input type="submit" name="update_filter"
+				    value="Show Only These" />
+			</form>
+		    </td>
 		</tr>
 	    </table>
 	    <hr />
-	</p>
-	<p>
+	</div>
+
+	<!--! display calendar of recordings -->
+	<div>
 	    <div class="nav_buttons">
 		<form method="POST" action="?">
 		    <input type="submit" name="go_to_today" value="Go To Today" />
@@ -71,7 +99,7 @@
 		</form>
 	    </div>
 	    ${calendar}
-	</p>
+	</div>
 	<p>
 	    <form method="post">
 		<input type="submit" name="rescan_disk" value="Rescan Disk" />

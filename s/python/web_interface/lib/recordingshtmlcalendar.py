@@ -55,7 +55,7 @@ class RecordingsHTMLCalendar(Calendar):
 				else:
 					extra_div_class = ""
 				html += ('<div class="day_entry%s"><a class="block" '
-						'href="?year=%d&month=%d&selected_record_id=%d">\n'
+						'href="?year=%d&month=%d&selected_recording_id=%d">\n'
 						'<span class="recording_time">%s</span>\n'
 						'<span class="recording_title">%s</span>\n'
 						'</a></div>\n' % (extra_div_class, date.year,
