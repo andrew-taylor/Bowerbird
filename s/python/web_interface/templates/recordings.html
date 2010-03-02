@@ -8,8 +8,69 @@
   </head>
   <body>
     <h1>Recordings</h1>
+	<p py:if="value_of('selected_recording')">
+	    <h2>Selected Recording
+		<a class="clear" href="?clear_selected_recording=1">[Clear]</a>
+	    </h2>
+	    <?python from lib.common import compactTimeFormat ?>
+	    <table class="selected_recordings">
+		<tr>
+		<th class="selected_recordings">Title</th>
+		<th class="selected_recordings">Date</th>
+		<th class="selected_recordings">Time</th>
+		</tr>
+		<tr>
+		    <td class="selected_recordings">${selected_recording.title}</td>
+		    <td class="selected_recordings">
+			${selected_recording.start_date.strftime("%d/%m/%y")}</td>
+		    <td class="selected_recordings">
+			${compactTimeFormat(selected_recording.start_time)} to
+			${compactTimeFormat(selected_recording.finish_time)}
+		    </td>
+		    <td>Select Button</td>
+		</tr>
+	    </table>
+	    <hr />
+	</p>
+	<p py:if="value_of('selected_recordings')">
+	    <h2>Recordings for
+		${selected_recordings[0].start_date.strftime("%d %B %Y")}
+		<a class="clear" href="?clear_selected_date=1">[Clear]</a>
+	    </h2>
+	    <?python from lib.common import compactTimeFormat ?>
+	    <table class="selected_recordings">
+		<tr>
+		<th class="selected_recordings">Title</th>
+		<th class="selected_recordings">Time</th>
+		</tr>
+		<tr py:for="rec in selected_recordings">
+		    <td class="selected_recordings">${rec.title}</td>
+		    <td class="selected_recordings">
+			${compactTimeFormat(rec.start_time)} to
+			${compactTimeFormat(rec.finish_time)}
+		    </td>
+		    <td>Select Button</td>
+		</tr>
+	    </table>
+	    <hr />
+	</p>
 	<p>
-	    ${html}
+	    <div class="nav_buttons">
+		<form method="POST" action="?">
+		    <input type="submit" name="go_to_today" value="Go To Today" />
+		    &nbsp;
+		    Show only:
+		    <select py:if="value_of('schedule_titles')" name="filter">
+			<py:for each="title in schedule_titles" py:choose="">
+			    <option py:when="title == filter"
+				    selected="1">${title}</option>
+			    <option py:otherwise="">${title}</option>
+			</py:for>
+		    </select>
+		    <input type="submit" name="update_filter" value="Update" />
+		</form>
+	    </div>
+	    ${calendar}
 	</p>
 	<p>
 	    <form method="post">

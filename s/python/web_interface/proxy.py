@@ -1,13 +1,14 @@
 import cherrypy, os, sys, shutil, errno, calendar
 import urllib2, lxml.html, lxml.etree
 from cherrypy.lib import sessions
+from genshi import HTML
+from cStringIO import StringIO
+from urllib import urlencode
+
 from lib import common, storage, ajax, template
 from lib.configparser import ConfigParser
 from lib.storage import ProxyStorage
 from lib.zeroconfscanner import ZeroconfScanner
-from genshi import HTML
-from cStringIO import StringIO
-from urllib import urlencode
 
 # web interface config file
 WEB_CONFIG = 'bowerbird-proxy.conf'

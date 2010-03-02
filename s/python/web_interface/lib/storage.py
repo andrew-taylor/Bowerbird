@@ -172,9 +172,16 @@ class BowerbirdStorage(Storage):
 		self._dir_timestamp = -1
 
 
-	def getRecordings(self, date):
+	def getRecording(self, record_id):
+		query = 'select * from "%s" where id=%d' % (RECORDINGS_TABLE, record_id)
+		return Recording(self.runQuerySingleResponse(query))
+
+
+	def getRecordings(self, date, title_filter=None):
 		query = ('select * from "%s" where start_date="%s"'
 				% (RECORDINGS_TABLE, date.isoformat()))
+		if title_filter:
+			query += ' and title="%s"' % title_filter
 		return (Recording(row) for row in self.runQuery(query))
 
 

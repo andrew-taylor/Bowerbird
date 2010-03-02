@@ -1,9 +1,10 @@
 import sys, os, os.path, errno, cherrypy, datetime
 from subprocess import Popen, PIPE
 from genshi import HTML
+from cherrypy.lib import sessions
 
 from lib import common, ajax, template
-from lib.storage import BowerbirdStorage
+from lib.storage import BowerbirdStorage, UNTITLED
 from lib.recordingshtmlcalendar import RecordingsHTMLCalendar
 from lib.sonogram import generateSonogram
 from lib.configparser import ConfigParser
@@ -16,6 +17,7 @@ RECORDING_KB_PER_SECOND = 700
 # web interface config file
 WEB_CONFIG = 'bowerbird.conf'
 SERVER_PORT_KEY = 'server.socket_port'
+
 # parameters for parsing contents of web interface config file
 CONFIG_KEY = 'bowerbird_config'
 CONFIG_DEFAULTS_KEY = 'bowerbird_config_defaults'
@@ -28,6 +30,15 @@ CONFIG_CACHE_PATH = 'config/current_config'
 FREQUENCY_SCALES = ['Linear', 'Logarithmic']
 DEFAULT_FFT_STEP = 256 # in milliseconds
 SONOGRAM_DIRECTORY = os.path.join("static", "sonograms")
+
+# cherrypy sessions for recordings page
+SESSION_YEAR_KEY = 'year'
+SESSION_MONTH_KEY = 'month'
+SESSION_FILTER_KEY = 'filter'
+SESSION_DATE_KEY = 'date'
+SESSION_RECORD_ID_KEY = 'record_id'
+
+NO_FILTER_LABEL = 'All'
 
 
 class Root(object):
@@ -214,27 +225,125 @@ class Root(object):
 
 	@cherrypy.expose
 	@template.output('recordings.html')
-	def recordings(self, view='month', day=None, month=None, year=None,
+	def recordings(self, view='month', year=None, month=None, day=None,
+			selected_record_id=None, go_to_today=False,
+			filter=None, update_filter=None,
+			clear_selected_date=False, clear_selected_recording=False,
 			rescan_disk=False, **ignored):
+		# HACK: this helps development slightly
+		if ignored:
+			print "IGNORED",ignored
+
+		if clear_selected_date:
+			if cherrypy.session.has_key(SESSION_DATE_KEY):
+				del cherrypy.session[SESSION_DATE_KEY]
+		if clear_selected_recording:
+			if cherrypy.session.has_key(SESSION_RECORD_ID_KEY):
+				del cherrypy.session[SESSION_RECORD_ID_KEY]
+
 		if rescan_disk:
 			self._storage.clearRecordings()
 
 		# check if the directory tree has changed
 		self._storage.updateRecordings()
 
-		# determine which day to highlight
+		# update filter
+		if update_filter:
+			if filter == NO_FILTER_LABEL:
+				filter = None
+				if cherrypy.session.has_key(SESSION_FILTER_KEY):
+					del cherrypy.session[SESSION_FILTER_KEY]
+			else:
+				cherrypy.session[SESSION_FILTER_KEY] = filter
+		elif cherrypy.session.has_key(SESSION_FILTER_KEY):
+			filter = cherrypy.session[SESSION_FILTER_KEY]
+		else:
+			# filter should not be set without update_filter (unless sessioned)
+			filter = None
+
+		# the rest are inter-related so set defaults
+		selected_date = None
+		selected_recording = None
+		selected_recordings = None
+		# if passed a record id, get the record (and clear selected day)
+		if (selected_record_id
+				or cherrypy.session.has_key(SESSION_RECORD_ID_KEY)):
+			if selected_record_id:
+				cherrypy.session[SESSION_RECORD_ID_KEY] = int(
+						selected_record_id)
+
+			selected_recording = self._storage.getRecording(
+					cherrypy.session[SESSION_RECORD_ID_KEY])
+
+			# ensure record is valid (or remove session key)
+			if not selected_recording:
+				del cherrypy.session[SESSION_RECORD_ID_KEY]
+			# enable filter to "filter out" selected recording
+			elif filter and selected_recording.title != filter:
+				selected_recording = None
+				del cherrypy.session[SESSION_RECORD_ID_KEY]
+
+
+			# clear day from session (record trumps day)
+			if cherrypy.session.has_key(SESSION_DATE_KEY):
+				del cherrypy.session[SESSION_DATE_KEY]
+		# only highlight selected date if it's specified (and no record is)
+		elif ((year and month and day)
+				or cherrypy.session.has_key(SESSION_DATE_KEY)):
+			if day:
+				selected_date = datetime.date(int(year), int(month), int(day))
+				cherrypy.session[SESSION_DATE_KEY] = selected_date
+			else:
+				selected_date = cherrypy.session[SESSION_DATE_KEY]
+			# just convert generator to a list
+			selected_recordings = [rec for rec in
+					self._storage.getRecordings(selected_date, filter)]
+
+		# determine which days to highlight
+		# always show today
 		today = datetime.date.today()
-		# slightly ugly syntax to convert to int and provide default
-		day = int(day or today.day)
-		month = int(month or today.month)
-		year = int(year or today.year)
-		day_to_show = datetime.date(year, month, day)
+
+		# go to today button trumps other month/year settings
+		if go_to_today:
+			year = today.year
+			month = today.month
+			cherrypy.session[SESSION_YEAR_KEY] = year
+			cherrypy.session[SESSION_MONTH_KEY] = month
+		else:
+			# parse selected year (and check sessions)
+			if year:
+				year = int(year)
+				cherrypy.session[SESSION_YEAR_KEY] = year
+			elif cherrypy.session.has_key(SESSION_YEAR_KEY):
+				year = cherrypy.session[SESSION_YEAR_KEY]
+			else:
+				year = today.year
+
+			# parse selected month (and check sessions)
+			if month:
+				month = int(month)
+				cherrypy.session[SESSION_MONTH_KEY] = month
+			elif cherrypy.session.has_key(SESSION_MONTH_KEY):
+				month = cherrypy.session[SESSION_MONTH_KEY]
+			else:
+				month = today.month
+
+		# get the schedule titles for the filter, and add a "show all" option
+		schedule_titles = [NO_FILTER_LABEL]
+		schedule_titles.extend(self._schedule.getScheduleTitles())
+		schedule_titles.append(UNTITLED)
 
 		if view == 'month':
-			html = self.generateMonthView(today, day_to_show)
+			calendar = RecordingsHTMLCalendar(year, month, today, self._storage,
+					filter, selected_date, selected_recording).showMonth()
 		else:
-			html = '<h2>Unimplemented</h2>That calendar format is not supported'
-		return template.render(station=self.getStationName(), html=HTML(html))
+			calendar = ('<h2>Unimplemented</h2>'
+					'That calendar format is not supported')
+
+		return template.render(station=self.getStationName(),
+				schedule_titles=schedule_titles, filter=filter,
+				calendar=HTML(calendar), selected_recording=selected_recording,
+				selected_recordings=selected_recordings)
 
 
 #	@cherrypy.expose
@@ -313,11 +422,6 @@ class Root(object):
 	def getStationName(self):
 		return self._config.getValue2(common.STATION_SECTION_NAME,
 				common.STATION_NAME_KEY)
-
-
-	def generateMonthView(self, today, day_to_show):
-		return RecordingsHTMLCalendar(today, day_to_show,
-				self._storage).showMonth()
 
 
 	def updateConfigFromPostData(self, config, data):
@@ -458,6 +562,7 @@ def loadWebConfig():
 	# set static directories to be relative to script
 	cherrypy.config.update({
 			'tools.staticdir.root': os.path.abspath(os.path.dirname(__file__)),
+			'tools.sessions.on': True
 			})
 
 	for key in REQUIRED_KEYS:

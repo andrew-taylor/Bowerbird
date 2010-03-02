@@ -53,7 +53,7 @@
 				// add a new row before it
 				$(this).parents("tr").before('<tr id="'+new_id+'" class="schedule">'
 					+ '<td class="schedule">'
-					+ '<input name="'+new_id+'.title" class="schedule_desc required" minlength="3" type="text" value="" />'
+					+ '<input name="'+new_id+'.title" class="schedule_title required" minlength="3" type="text" value="" />'
 					+ '</td><td class="schedule">'
 					${time_edit_js("'+new_id+'.start", "")}
 					+ '</td><td class="schedule">'
@@ -83,7 +83,7 @@
 <form id="scheduleForm" action="" method="post">
 	<table class="schedule">
 		<tr>
-			<th class="schedule">Description</th>
+			<th class="schedule">Title</th>
 			<th class="schedule">Start Time</th>
 			<th class="schedule">Finish Time</th>
 		</tr>
@@ -91,7 +91,7 @@
 			<tr class="schedule" id="${i}">
 				<td class="schedule">
 					<input name="${'%d.title' % i}"
-							class="schedule_desc required" type="text"
+							class="schedule_title required" type="text"
 							value="${spec.title}" />
 				</td>
 				<td class="schedule">${time_edit('%d.start' % i, spec.start)}</td>
@@ -113,7 +113,7 @@
 		<!--! new entry row -->
 		<tr py:if="add" py:with="i=len(values)" name="${i}">
 			<td class="schedule">
-				<input name="${'%d.title'%i}" class="schedule_desc" type="text"
+				<input name="${'%d.title'%i}" class="schedule_title" type="text"
 						value="new schedule" />
 			</td>
 			<td class="schedule">${time_edit('%d.start'%i, '')}</td>

@@ -38,7 +38,7 @@
           ${select('*[local-name()!="h1"]|text()')}
         </div>
         <div id="footer">
-		  <p>Copyright &copy; 2009 Andrew Taylor</p>
+		  <p>Copyright &copy; 2010 Andrew Taylor</p>
         </div>
 	  </div>
     </body>
@@ -50,9 +50,9 @@
 	  <!--! The keys of this dictionary should be the database column
 		  names to sort on -->
 	  <tr py:with="headings=(('date_and_time','Time'), ('label','Label'),
-			  ('category','Category'), ('length','Length'), 
-			  ('frequency','Frequency'), ('harmonics','Harmonics'), 
-			  ('AM','AM'), ('FM','FM'), ('bandwidth','Bandwidth'), 
+			  ('category','Category'), ('length','Length'),
+			  ('frequency','Frequency'), ('harmonics','Harmonics'),
+			  ('AM','AM'), ('FM','FM'), ('bandwidth','Bandwidth'),
 			  ('energy','Energy'))">
 		  <th py:for="key,heading in headings" py:choose="">
 			  <a py:when="key == sort and sort_order=='asc'"

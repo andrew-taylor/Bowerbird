@@ -26,3 +26,16 @@ class MissingConfigKeyError(RuntimeError):
 		self.value = value
 	def __str__(self):
 		return repr(self.value)
+
+import datetime
+
+def compactTimeFormat(time):
+	# first round time to nearest minute
+	if time.second * 1000000 + time.microsecond > 30000000:
+		my_time = time + datetime.timedelta(minutes=1)
+	else:
+		my_time = time
+
+	if my_time.minute == 0:
+		return my_time.strftime('%H')
+	return my_time.strftime('%H:%M')

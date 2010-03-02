@@ -34,7 +34,6 @@ SCHEDULE_HEADER = '''# schedule file for bowerbird deployment
 # or sunset. Relative times start with "R" for sunrise-relative or "S" for
 # sunset-relative, then have the time offset, which can be positive or
 # negative.
-
 '''
 
 
@@ -60,6 +59,7 @@ class ScheduleParser(object):
 		self.__schedule = ConfigObj(schedule_filename)
 		self.__timestamp = -1
 		self.updateFromFile()
+
 
 	@property
 	def command(self):
@@ -301,8 +301,9 @@ class ScheduleParser(object):
 		# update if file has been modified
 		self.updateFromFile()
 
-		return (spec for spec in self.__recording_specs
-				if spec.title == title)[0]
+		return next((spec for spec in self.__recording_specs
+				if spec.title == title), None)
+
 
 	def setScheduleSpec(self, spec):
 		assert isinstance(spec, RecordingSpec)
@@ -310,13 +311,23 @@ class ScheduleParser(object):
 		self.__schedule[spec.title] = '%s - %s' % (spec.start, spec.finish)
 		self.updateFromConfigObj()
 
+
 	def deleteScheduleSpec(self, title):
 		del(self.__schedule[title])
 		self.updateFromConfigObj()
 
+
 	def clearScheduleSpecs(self):
 		self.__schedule.clear()
 		self.updateFromConfigObj()
+
+
+	def getScheduleTitles(self):
+		# update if file has been modified
+		self.updateFromFile()
+
+		return [deepcopy(spec.title) for spec in self.__recording_specs]
+
 
 	def getTimestamp(self):
 		if (self.__schedule.filename
@@ -324,10 +335,12 @@ class ScheduleParser(object):
 			return int(os.path.getmtime(self.__schedule.filename))
 		return 0
 
+
 	def getConfigTimestamp(self):
 		if self.__config.filename and os.path.exists(self.__config.filename):
 			return int(os.path.getmtime(self.__config.filename))
 		return 0
+
 
 	def saveToFile(self):
 		try:
@@ -340,10 +353,10 @@ class ScheduleParser(object):
 			self.__timestamp = self.getTimestamp();
 			raise
 
+
 	def export(self, export_filename):
 		with open(export_filename, 'w') as save_file:
 			self.__schedule.write(save_file)
-
 
 
 
@@ -355,8 +368,10 @@ class RecordingSpec(object):
 		self.start = start
 		self.finish = finish
 
+
 	def __str__(self):
 		return "%s: %s - %s" % (self.title, self.start, self.finish)
+
 
 
 class RecordingTime(object):
@@ -369,8 +384,10 @@ class RecordingTime(object):
 		self.start = start
 		self.finish = finish
 
+
 	def getStartAndFinish(self):
 		return self.start, self.finish
+
 
 	def __contains__(self, time):
 		assert type(time) == datetime.datetime, (
@@ -378,9 +395,11 @@ class RecordingTime(object):
 				% type(time))
 		return time >= self.start and time <= self.finish
 
+
 	def __str__(self):
 		return '%s: %s - %s' % (self.title, self.start.strftime('%H:%M'),
 				self.finish.strftime('%H:%M'))
+
 
 
 class TimeSpec(object):
@@ -389,6 +408,7 @@ class TimeSpec(object):
 		ABSOLUTE = 1
 		SUNRISE = 2
 		SUNSET = 3
+
 
 		def __init__(self, string):
 			if string == '':
@@ -400,6 +420,7 @@ class TimeSpec(object):
 			else:
 				raise ValueError('Unknown TimeSpec Type: ' + string)
 
+
 		def __str__(self):
 			if self.value == self.ABSOLUTE:
 				return ''
@@ -410,9 +431,11 @@ class TimeSpec(object):
 			else:
 				return 'Unknown'
 
+
 		def isAbsolute(self): return self.value == self.ABSOLUTE
 		def isSunriseRelative(self): return self.value == self.SUNRISE
 		def isSunsetRelative(self): return self.value == self.SUNSET
+
 
 	def __init__(self, offset_type, hours, minutes):
 		assert isinstance(offset_type, self.Type)
@@ -420,6 +443,7 @@ class TimeSpec(object):
 		assert type(minutes) == int
 		self.type = offset_type
 		self.offset = datetime.timedelta(hours=hours, minutes=minutes)
+
 
 	def __str__(self):
 		# handle negative offsets
@@ -431,6 +455,7 @@ class TimeSpec(object):
 		return "%s%d:%02d" % (type_prefix, hours, minutes)
 
 
+
 class MissingConfigKeyError(RuntimeError):
 	def __init__(self, value):
 		self.value = value
@@ -438,8 +463,10 @@ class MissingConfigKeyError(RuntimeError):
 		return repr(self.value)
 
 
+
 def test():
 	return 0
+
 
 if __name__ == '__main__':
 	test()
