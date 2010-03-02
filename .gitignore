@@ -8,3 +8,6 @@ s/util/test_data
 s/Makefile
 s/python/web_interface/static/sonograms/*
 miscellaneous_source/usbreset
+/field_file_system/GatherUpCode
+/s/python/web_interface/Bowerbird UI.geany
+/s/python/web_interface/geany_run_script.sh
