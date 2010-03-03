@@ -186,8 +186,16 @@ class BowerbirdStorage(Storage):
 		return Recording(self.runQuerySingleResponse(query))
 
 
-	def getRecordings(self, date=None, title=None, min_start=None,
-			max_finish=None):
+	def getRecordings(self, date=None, title=None, min_start_date=None,
+			max_finish_date=None):
+		assert date==None or type(date) == datetime.date, (
+				'date parameter must be a date, not a "%s"' % type(date))
+		assert min_start_date==None or type(min_start_date) == datetime.date, (
+				'date parameter must be a date, not a "%s"'
+				% type(min_start_date))
+		assert max_finish_date==None or type(max_finish_date) == datetime.date, (
+				'date parameter must be a date, not a "%s"'
+				% type(max_finish_date))
 		query = 'select * from "%s"' % RECORDINGS_TABLE
 		conjunction = 'where'
 		if date:
@@ -196,12 +204,16 @@ class BowerbirdStorage(Storage):
 		if title:
 			query += ' %s title = "%s"' % (conjunction, title)
 			conjunction = 'and'
-		if min_start:
-			query += ' %s start_time >= "%s"' % (conjunction, min_start)
+		if min_start_date:
+			query += ' %s start_time >= "%s"' % (conjunction, min_start_date)
 			conjunction = 'and'
-		if max_finish:
-			query += ' %s finish_time <= "%s"' % (conjunction, max_finish)
+		if max_finish_date:
+			# add a day to finish day and check inequality
+			query += ' %s finish_time < "%s"' % (conjunction,
+					max_finish_date + datetime.timedelta(1))
 			conjunction = 'and'
+		# sort increasing by start time
+		query += ' order by start_time'
 		return (Recording(row) for row in self.runQuery(query))
 
 

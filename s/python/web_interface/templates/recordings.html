@@ -20,11 +20,94 @@
 	    </ol>
 	</div>
 
+	<!--! display calendar of recordings -->
+	<div>
+	    <form method="POST" action="?">
+		<div class="nav_buttons">
+		    <input type="submit" name="go_to_start" value="Go To Start" />
+		    <input type="submit" name="go_to_finish" value="Go To Finish" />
+		    <input type="submit" name="go_to_today" value="Go To Today" />
+		</div>
+		<div class="filter_buttons">
+		    Show:
+		    <select py:if="value_of('schedule_titles')" name="filter_title">
+			<py:for each="t_label,t_value in schedule_titles" py:choose="">
+			    <option py:when="t_value == filter_title"
+				    value="${t_value}" selected="1">${t_label}
+			    </option>
+			    <option py:otherwise="" value="${t_value}">
+				    ${t_label}</option>
+			</py:for>
+		    </select>
+		    &nbsp; Start:
+		    <input class="datetime" type="text" id="start"
+			    name="filter_start" value="${filter_start}" />
+		    <input type="image" id="start_trigger"
+			src="/media/calendar.png" />
+		    &nbsp; Finish:
+		    <input class="datetime" type="text" id="finish"
+			    name="filter_finish" value="${filter_finish}" />
+		    <input type="image" id="finish_trigger"
+			src="/media/calendar.png" />
+		    &nbsp;
+		    <input type="submit" name="update_filter" value="Update" />
+		    <input type="submit" name="reset_filter" value="Reset" />
+		</div>
+	    </form>
+
+	    <?python
+		if value_of('selected_recording'):
+		    default_start = selected_recording.start_time.ctime()
+		    default_finish = selected_recording.finish_time.ctime()
+		elif value_of('selected_recordings'):
+		    default_start = selected_recordings[0].start_time.ctime()
+		    default_finish = selected_recordings[-1].finish_time.ctime()
+		else:
+		    # TODO set to the 15th of the current month
+		    default_start = ''
+		    default_finish = ''
+	    ?>
+	    <script type="text/javascript">
+	      Calendar.setup(
+		{
+		  inputField  : "start",         // ID of the input field
+		  ifFormat    : "%d/%m/%Y",    // the date format
+		  button      : "start_trigger",       // ID of the button
+		  date        : "${default_start}",
+		  timeFormat  : "24",
+		  singleClick : true,
+		  weekNumbers : false,
+		  range       : [1900,2999],
+		  step        : 1
+		}
+	      );
+	      Calendar.setup(
+		{
+		  inputField  : "finish",         // ID of the input field
+		  ifFormat    : "%d/%m/%Y",    // the date format
+		  button      : "finish_trigger",       // ID of the button
+		  date        : "${default_finish}",
+		  timeFormat  : "24",
+		  singleClick : true,
+		  weekNumbers : false,
+		  range       : [1900,2999],
+		  step        : 1
+		}
+	      );
+	    </script>
+
+	    ${calendar}
+	</div>
+
+	<py:choose test="">
 	<!--! Display selected recording -->
-	<div py:if="value_of('selected_recording')">
+	<div py:when="value_of('selected_recording')">
+	    <form method="POST" action="?">
 	    <h2>Selected Recording
-		<a class="clear" href="?set_recording_id=1">[Clear]</a>
+		<input class="clear" type="submit"
+			name="set_recording_id" value="X" />
 	    </h2>
+	    </form>
 	    <?python from lib.common import compactTimeFormat ?>
 	    <table class="selected_recordings">
 		<tr>
@@ -51,122 +134,77 @@
 				    value="Set Start" />
 			    <input type="submit" name="set_filter_finish"
 				    value="Set Finish" />
-			    <input type="submit" name="export_recording"
-				    value="Export" />
 			</form>
 		    </td>
 		</tr>
 	    </table>
-	    <hr />
 	</div>
 
 	<!--! Display recordings for a selected date -->
-	<div py:if="value_of('selected_recordings')">
-	    <h2>Recordings for
-		${selected_recordings[0].start_date.strftime("%d %B %Y")}
-		<a class="clear" href="?clear_selected_date=1">[Clear]</a>
+	<div py:when="value_of('selected_recordings')">
+	    <?python
+		if value_of('selected_date'):
+		    heading = ('Recordings for %s'
+			    % selected_date.strftime("%d %B %Y"))
+		    clear_button_name = 'clear_selected_date'
+		else:
+		    heading = 'Selected Recordings'
+		    clear_button_name = 'reset_filter'
+	    ?>
+	    <form method="POST" action="?">
+	    <h2>${heading}
+		<input class="clear" type="submit"
+			name="${clear_button_name}" value="X" />
+		<py:if test="value_of('selected_date')">
+		<input type="submit" name="set_filter_start"
+			value="Set Start" />
+		<input type="submit" name="set_filter_finish"
+			value="Set Finish" />
+		</py:if>
 	    </h2>
+	    </form>
 	    <?python from lib.common import compactTimeFormat ?>
 	    <table class="selected_recordings">
 		<tr>
 		<th class="selected_recordings">Title</th>
+		<th py:if="not value_of('selected_date')"
+		    class="selected_recordings">Date</th>
 		<th class="selected_recordings">Time</th>
 		<th class="selected_recordings">Actions</th>
+		<th class="selected_recordings">Update Filter</th>
 		</tr>
 		<tr py:for="rec in selected_recordings">
+		    <form method="POST" action="?">
+		    <input type="hidden" name="recording_id" value="${rec.id}" />
 		    <td class="selected_recordings">${rec.title}</td>
+		    <td py:if="not value_of('selected_date')"
+			class="selected_recordings">${rec.start_date}</td>
 		    <td class="selected_recordings">
 			${compactTimeFormat(rec.start_time)} to
 			${compactTimeFormat(rec.finish_time)}
 		    </td>
 		    <td class="selected_recordings">
-			<form method="POST" action="?">
-			    <input type="hidden" name="recording_id"
-				    value="${rec.id}" />
-			    <input type="submit" name="set_recording_id"
-				    value="Select" />
-			    <input type="submit" name="set_filter_title"
-				    value="Show ${rec.title}" />
-			    <input type="submit" name="set_filter_start"
-				    value="Set Start" />
-			    <input type="submit" name="set_filter_finish"
-				    value="Set Finish" />
-			</form>
+			<input type="submit" name="set_recording_id"
+				value="Select" />
+			<input type="submit" name="export_recording"
+				value="Export" />
 		    </td>
+		    <td class="selected_recordings">
+			<input type="submit" name="set_filter_title"
+				value="Show ${rec.title}" />
+			<py:if test="not value_of('selected_date')">
+			<input type="submit" name="set_filter_start"
+				value="Set Start" />
+			<input type="submit" name="set_filter_finish"
+				value="Set Finish" />
+			</py:if>
+		    </td>
+		    </form>
 		</tr>
 	    </table>
-	    <hr />
 	</div>
+	</py:choose>
 
-	<!--! display calendar of recordings -->
-	<div>
-	    <div class="nav_buttons">
-		<form method="POST" action="?">
-		    <input type="submit" name="go_to_today" value="Go To Today" />
-		    &nbsp; Show:
-		    <select py:if="value_of('schedule_titles')" name="filter_title">
-			<py:for each="title in schedule_titles" py:choose="">
-			    <option py:when="title == filter_title"
-				    selected="1">${title}</option>
-			    <option py:otherwise="">${title}</option>
-			</py:for>
-		    </select>
-		    &nbsp; Start:
-		    <input class="datetime" type="text" id="start"
-			    name="filter_start" value="${filter_start}" />
-		    <button class="datetime" id="start_trigger">...</button>
-		    &nbsp; Finish:
-		    <input class="datetime" type="text" id="finish"
-			    name="filter_finish" value="${filter_finish}" />
-		    <button class="datetime" id="finish_trigger">...</button>
-		    <input type="submit" name="update_filter" value="Update" />
-		    <input type="submit" name="reset_filter" value="Reset" />
-		</form>
-		<?python
-		    if value_of('selected_recording'):
-			default_start = selected_recording.start_time.ctime()
-			default_finish = selected_recording.finish_time.ctime()
-		    elif value_of('selected_recordings'):
-			default_start = selected_recordings[0].start_time.ctime()
-			default_finish = selected_recordings[-1].finish_time.ctime()
-		    else:
-			# leave it blank and calendar will fill in today's date
-			default_start = ''
-			default_finish = ''
-		?>
-		<script type="text/javascript">
-		  Calendar.setup(
-		    {
-		      inputField  : "start",         // ID of the input field
-		      ifFormat    : "%d/%m/%Y %H:%M",    // the date format
-		      button      : "start_trigger",       // ID of the button
-		      date        : "${default_start}",
-		      showsTime   : true,
-		      timeFormat  : "24",
-		      singleClick : true,
-		      weekNumbers : false,
-		      range       : [1900,2999],
-		      step        : 1
-		    }
-		  );
-		  Calendar.setup(
-		    {
-		      inputField  : "finish",         // ID of the input field
-		      ifFormat    : "%d/%m/%Y %H:%M",    // the date format
-		      button      : "finish_trigger",       // ID of the button
-		      date        : "${default_finish}",
-		      showsTime   : true,
-		      timeFormat  : "24",
-		      singleClick : true,
-		      weekNumbers : false,
-		      range       : [1900,2999],
-		      step        : 1
-		    }
-		  );
-		</script>
-	    </div>
-	    ${calendar}
-	</div>
 	<p>
 	    <form method="post">
 		<input type="submit" name="rescan_disk" value="Rescan Disk" />

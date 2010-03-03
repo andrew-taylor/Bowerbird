@@ -6,15 +6,15 @@ from lib.common import compactTimeFormat
 class RecordingsHTMLCalendar(Calendar):
 
 	def __init__(self, year, month, today, storage=None, filter_title=None,
-			filter_start=None, filter_finish=None, selected_date=None,
+			filter_start_date=None, filter_finish_date=None, selected_date=None,
 			selected_record=None, firstweekday=SUNDAY):
 		self.year = year
 		self.month = month
 		self.today = today
 		self.storage = storage
 		self.filter_title = filter_title
-		self.filter_start = filter_start
-		self.filter_finish = filter_finish
+		self.filter_start_date = filter_start_date
+		self.filter_finish_date = filter_finish_date
 		self.selected_date = selected_date
 		self.selected_record = selected_record
 
@@ -60,10 +60,10 @@ class RecordingsHTMLCalendar(Calendar):
 						and recording.id == self.selected_record.id):
 					extra_div_class += " selected_entry"
 				if ((self.filter_title and self.filter_title != recording.title)
-						or (self.filter_start
-						and self.filter_start > recording.finish_time)
-						or (self.filter_finish
-						and self.filter_finish < recording.start_time)):
+						or (self.filter_start_date and self.filter_start_date
+						> recording.finish_time.date())
+						or (self.filter_finish_date and self.filter_finish_date
+						< recording.start_time.date())):
 					extra_div_class += " filtered_out"
 				html += ('<div class="day_entry%s"><a class="block" '
 						'href="?year=%d&month=%d&recording_id=%d'

@@ -291,17 +291,16 @@ td.selected_recordings {
 	padding: 3px 10px;
 }
 
-a.clear {
-	font-size: smaller;
-	font-variant: small-caps
+input.clear {
+	padding: 0px 2px;
 }
 
-div.nav_buttons {
+div.nav_buttons, div.filter_buttons {
 	margin: 5pt 0pt
 }
 
 input.datetime {
-	width: 90pt
+	width: 60pt
 }
 
 button.datetime {
