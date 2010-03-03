@@ -191,8 +191,8 @@ input.call_navigation {
 }
 
 .error {
-	color: black;
-	background-color: red
+	background-color: black;
+	color: red
 }
 
 table.month {
@@ -231,7 +231,7 @@ div.day_header {
 
 td.noday {
 	background-color:#d2d2d2;
-	#color: #8082a2;
+	/*color: #8082a2;*/
 	border: 1px solid  #8082a2;
 	vertical-align: top
 }

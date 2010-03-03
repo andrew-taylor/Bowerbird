@@ -12,6 +12,13 @@
   </head>
   <body>
     <h1>Recordings</h1>
+	<!--! Display any errors -->
+	<div py:if="value_of('errors')" class="error">
+	    <h2>Errors</h2>
+	    <ol>
+		<li py:for="error in errors">${error}</li>
+	    </ol>
+	</div>
 
 	<!--! Display selected recording -->
 	<div py:if="value_of('selected_recording')">
@@ -137,7 +144,9 @@
 		      showsTime   : true,
 		      timeFormat  : "24",
 		      singleClick : true,
-		      weekNumbers : false
+		      weekNumbers : false,
+		      range       : [1900,2999],
+		      step        : 1
 		    }
 		  );
 		  Calendar.setup(
@@ -149,7 +158,9 @@
 		      showsTime   : true,
 		      timeFormat  : "24",
 		      singleClick : true,
-		      weekNumbers : false
+		      weekNumbers : false,
+		      range       : [1900,2999],
+		      step        : 1
 		    }
 		  );
 		</script>

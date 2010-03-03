@@ -43,7 +43,8 @@ NO_FILTER_TITLE = 'All Recordings'
 
 SOX_PATH = '/usr/bin/sox'
 
-DATETIME_RE = re.compile('([0-9]+)/([0-9]+)/([0-9]+)(?: ([0-9]+):([0-9]+)){0,1}')
+DATETIME_RE = re.compile(
+		'^([0-9]+)/([0-9]+)/([0-9]+)(?: ([0-9]+):([0-9]+)){0,1}$')
 DATETIME_UI_FORMAT = '%d/%m/%Y %H:%M'
 
 
@@ -242,6 +243,9 @@ class Root(object):
 		if ignored:
 			print "IGNORED",ignored
 
+		# initialise error list
+		errors = []
+
 		if reset_filter:
 			filter_title = None
 			clearSession(SESSION_FILTER_TITLE_KEY)
@@ -303,15 +307,25 @@ class Root(object):
 
 			# filtering on start date & time
 			if filter_start is not None:
-				filter_start = parseDateTime(filter_start)
 				if filter_start:
-					setSession(SESSION_FILTER_START_KEY, filter_start)
+					try:
+						filter_start = parseDateTime(filter_start)
+						setSession(SESSION_FILTER_START_KEY, filter_start)
+					except ValueError, inst:
+						errors.append('Errror parsing filter start time: %s'
+								% inst)
+						filter_start = getSession(SESSION_FILTER_START_KEY)
 				else:
 					clearSession(SESSION_FILTER_START_KEY)
 			if filter_finish is not None:
-				filter_finish = parseDateTime(filter_finish)
 				if filter_finish:
-					setSession(SESSION_FILTER_FINISH_KEY, filter_finish)
+					try:
+						filter_finish = parseDateTime(filter_finish)
+						setSession(SESSION_FILTER_FINISH_KEY, filter_finish)
+					except ValueError, inst:
+						errors.append('Errror parsing filter finish time: %s'
+								% inst)
+						filter_finish = getSession(SESSION_FILTER_FINISH_KEY)
 				else:
 					clearSession(SESSION_FILTER_FINISH_KEY)
 		elif recording_id and (set_filter_title or set_filter_start
@@ -429,7 +443,7 @@ class Root(object):
 			calendar = ('<h2>Unimplemented</h2>'
 					'That calendar format is not supported')
 
-		return template.render(station=self.getStationName(),
+		return template.render(station=self.getStationName(), errors=errors,
 				schedule_titles=schedule_titles, filter_title=filter_title,
 				filter_start=outputDateTime(filter_start),
 				filter_finish=outputDateTime(filter_finish),
@@ -647,9 +661,19 @@ def outputDateTime(date):
 def parseDateTime(date_string):
 	match = DATETIME_RE.match(date_string)
 	if match:
-		day, month, year, hour, minute = map(int, match.groups())
+		day, month, year, hour, minute = match.groups()
+		day, month, year = map(int, (day, month, year))
+		if year < 1900:
+			raise ValueError('Invalid year=%d: must be >= 1900' % year)
+		if hour:
+			hour = int(hour)
+			minute = int(minute)
+		else:
+			hour = 0
+			minute = 0
 		return datetime.datetime(year, month, day, hour, minute)
-	return None
+	raise ValueError('Invalid date/time string: "%s". Must be of the form: '
+			'days/months/years [hours:minutes]' % date_string)
 
 
 def prettyPrintSize(kilobytes):
