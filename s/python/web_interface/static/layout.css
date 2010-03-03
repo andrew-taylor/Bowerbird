@@ -2,8 +2,10 @@ body {
 	background-color:#7a7bff;
 }
 
-a {
-	text-decoration:none
+a:link, a:visited, a:active, a:hover {
+	text-decoration:none;
+	color: inherit;
+	font-weight: inherit
 }
 
 #wrap {
@@ -228,10 +230,16 @@ div.day_header {
 }
 
 td.noday {
-	background-color: #c8c9dc;
-	color: #8082a2;
+	background-color:#d2d2d2;
+	#color: #8082a2;
 	border: 1px solid  #8082a2;
 	vertical-align: top
+}
+
+div.noday_header {
+	text-align: right;
+	font-size: small;
+	background-color:#b2bbc3
 }
 
 td.today {
@@ -258,6 +266,11 @@ div.day_entry {
 div.selected_entry {
 	background-color: white
 }
+
+div.filtered_out {
+	color: gray
+}
+
 
 
 table.selected_recordings {
@@ -286,3 +299,13 @@ a.clear {
 div.nav_buttons {
 	margin: 5pt 0pt
 }
+
+input.datetime {
+	width: 90pt
+}
+
+button.datetime {
+	padding:0px 1px 
+}
+
+

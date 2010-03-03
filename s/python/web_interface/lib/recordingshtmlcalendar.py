@@ -5,13 +5,16 @@ from lib.common import compactTimeFormat
 
 class RecordingsHTMLCalendar(Calendar):
 
-	def __init__(self, year, month, today, storage=None, filter=None,
-			selected_date=None, selected_record=None, firstweekday=SUNDAY):
+	def __init__(self, year, month, today, storage=None, filter_title=None,
+			filter_start=None, filter_finish=None, selected_date=None,
+			selected_record=None, firstweekday=SUNDAY):
 		self.year = year
 		self.month = month
 		self.today = today
 		self.storage = storage
-		self.filter = filter
+		self.filter_title = filter_title
+		self.filter_start = filter_start
+		self.filter_finish = filter_finish
 		self.selected_date = selected_date
 		self.selected_record = selected_record
 
@@ -25,10 +28,12 @@ class RecordingsHTMLCalendar(Calendar):
 		"""
 		Return a day as a table cell.
 		"""
-		if date.month != themonth:
-			html = '<td class="noday' # day outside month
+		if date.month == themonth:
+			day_class = 'day'
 		else:
-			html = '<td class="day'
+			day_class = 'noday' # day outside month
+
+		html = '<td class="%s' % day_class
 
 		# if this is today then highlight it
 		if date == self.today:
@@ -42,18 +47,24 @@ class RecordingsHTMLCalendar(Calendar):
 				and date == self.selected_record.start_date)):
 			html += ' selected'
 
-		html += ('" style="height: %f%%"><div class="day_header">'
-				'<a class="block" href="%s">%s%d</a></div>'
-				% (90.0 / num_weeks, date.strftime('?year=%Y&month=%m&day=%d')
-				+ '&set_recording_id=1', today_text, date.day))
+		html += ('" style="height: %f%%"><div class="%s_header">'
+				'<a class="block" '
+				'href="?year=%d&month=%d&day=%d&set_recording_id=1">'
+				'%s%d</a></div>' % (90.0 / num_weeks, day_class,
+				date.year, date.month, date.day, today_text, date.day))
 
 		if self.storage:
-			for recording in self.storage.getRecordings(date, self.filter):
+			for recording in self.storage.getRecordings(date):
+				extra_div_class = ""
 				if (self.selected_record
 						and recording.id == self.selected_record.id):
-					extra_div_class = " selected_entry"
-				else:
-					extra_div_class = ""
+					extra_div_class += " selected_entry"
+				if ((self.filter_title and self.filter_title != recording.title)
+						or (self.filter_start
+						and self.filter_start > recording.finish_time)
+						or (self.filter_finish
+						and self.filter_finish < recording.start_time)):
+					extra_div_class += " filtered_out"
 				html += ('<div class="day_entry%s"><a class="block" '
 						'href="?year=%d&month=%d&recording_id=%d'
 						'&set_recording_id=1">\n'

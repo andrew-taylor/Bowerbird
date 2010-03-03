@@ -186,11 +186,22 @@ class BowerbirdStorage(Storage):
 		return Recording(self.runQuerySingleResponse(query))
 
 
-	def getRecordings(self, date, title_filter=None):
-		query = ('select * from "%s" where start_date="%s"'
-				% (RECORDINGS_TABLE, date.isoformat()))
-		if title_filter:
-			query += ' and title="%s"' % title_filter
+	def getRecordings(self, date=None, title=None, min_start=None,
+			max_finish=None):
+		query = 'select * from "%s"' % RECORDINGS_TABLE
+		conjunction = 'where'
+		if date:
+			query += ' %s start_date = "%s"' % (conjunction, date.isoformat())
+			conjunction = 'and'
+		if title:
+			query += ' %s title = "%s"' % (conjunction, title)
+			conjunction = 'and'
+		if min_start:
+			query += ' %s start_time >= "%s"' % (conjunction, min_start)
+			conjunction = 'and'
+		if max_finish:
+			query += ' %s finish_time <= "%s"' % (conjunction, max_finish)
+			conjunction = 'and'
 		return (Recording(row) for row in self.runQuery(query))
 
 

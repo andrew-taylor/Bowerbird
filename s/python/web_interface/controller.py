@@ -1,4 +1,5 @@
 import sys, os, os.path, errno, cherrypy, datetime, subprocess, tempfile, genshi
+import re
 from cherrypy.lib import sessions
 
 from lib import common, ajax, template
@@ -32,13 +33,18 @@ SONOGRAM_DIRECTORY = os.path.join("static", "sonograms")
 # cherrypy sessions for recordings page
 SESSION_YEAR_KEY = 'year'
 SESSION_MONTH_KEY = 'month'
-SESSION_FILTER_KEY = 'filter'
+SESSION_FILTER_TITLE_KEY = 'filter_title'
+SESSION_FILTER_START_KEY = 'filter_start'
+SESSION_FILTER_FINISH_KEY = 'filter_finish'
 SESSION_DATE_KEY = 'date'
 SESSION_RECORD_ID_KEY = 'record_id'
 
-NO_FILTER_TITLE = 'All'
+NO_FILTER_TITLE = 'All Recordings'
 
 SOX_PATH = '/usr/bin/sox'
+
+DATETIME_RE = re.compile('([0-9]+)/([0-9]+)/([0-9]+)(?: ([0-9]+):([0-9]+)){0,1}')
+DATETIME_UI_FORMAT = '%d/%m/%Y %H:%M'
 
 
 class Root(object):
@@ -227,11 +233,22 @@ class Root(object):
 	@template.output('recordings.html')
 	def recordings(self, view='month', year=None, month=None, day=None,
 			recording_id=None, set_recording_id=False, go_to_today=False,
-			filter=None, update_filter=None, clear_selected_date=False,
-			export_recording=False, rescan_disk=False, **ignored):
+			filter_title=None, filter_start=None, filter_finish=None,
+			update_filter=None, reset_filter=None, clear_selected_date=False,
+			set_filter_title=None, set_filter_start=None,
+			set_filter_finish=None, export_recording=False, rescan_disk=False,
+			**ignored):
 		# HACK: this helps development slightly
 		if ignored:
 			print "IGNORED",ignored
+
+		if reset_filter:
+			filter_title = None
+			clearSession(SESSION_FILTER_TITLE_KEY)
+			filter_start = None
+			clearSession(SESSION_FILTER_START_KEY)
+			filter_finish = None
+			clearSession(SESSION_FILTER_FINISH_KEY)
 
 		if export_recording and recording_id:
 			# convert id to int
@@ -267,8 +284,7 @@ class Root(object):
 					"application/x-download", "attachment", served_filename)
 
 		if clear_selected_date:
-			if cherrypy.session.has_key(SESSION_DATE_KEY):
-				del cherrypy.session[SESSION_DATE_KEY]
+			clearSession(SESSION_DATE_KEY)
 
 		if rescan_disk:
 			self._storage.clearRecordings()
@@ -276,19 +292,53 @@ class Root(object):
 		# check if the directory tree has changed
 		self._storage.updateRecordings()
 
-		# update filter
+		# update filters
 		if update_filter:
-			if filter == NO_FILTER_TITLE:
-				filter = None
-				if cherrypy.session.has_key(SESSION_FILTER_KEY):
-					del cherrypy.session[SESSION_FILTER_KEY]
+			# filtering on title
+			if filter_title == NO_FILTER_TITLE:
+				filter_title = None
+				clearSession(SESSION_FILTER_TITLE_KEY)
 			else:
-				cherrypy.session[SESSION_FILTER_KEY] = filter
-		elif cherrypy.session.has_key(SESSION_FILTER_KEY):
-			filter = cherrypy.session[SESSION_FILTER_KEY]
+				setSession(SESSION_FILTER_TITLE_KEY, filter_title)
+
+			# filtering on start date & time
+			if filter_start is not None:
+				filter_start = parseDateTime(filter_start)
+				if filter_start:
+					setSession(SESSION_FILTER_START_KEY, filter_start)
+				else:
+					clearSession(SESSION_FILTER_START_KEY)
+			if filter_finish is not None:
+				filter_finish = parseDateTime(filter_finish)
+				if filter_finish:
+					setSession(SESSION_FILTER_FINISH_KEY, filter_finish)
+				else:
+					clearSession(SESSION_FILTER_FINISH_KEY)
+		elif recording_id and (set_filter_title or set_filter_start
+				or set_filter_finish):
+			# handle requests to update the filter from a given recording
+			recording = self._storage.getRecording(int(recording_id))
+			if set_filter_title:
+				filter_title = recording.title
+				setSession(SESSION_FILTER_TITLE_KEY, filter_title)
+				filter_start = getSession(SESSION_FILTER_START_KEY)
+				filter_finish = getSession(SESSION_FILTER_FINISH_KEY)
+			elif set_filter_start:
+				filter_start = recording.start_time
+				setSession(SESSION_FILTER_START_KEY, filter_start)
+				filter_title = getSession(SESSION_FILTER_TITLE_KEY)
+				filter_finish = getSession(SESSION_FILTER_FINISH_KEY)
+			elif set_filter_finish:
+				filter_finish = recording.finish_time
+				setSession(SESSION_FILTER_FINISH_KEY, filter_finish)
+				filter_title = getSession(SESSION_FILTER_TITLE_KEY)
+				filter_start = getSession(SESSION_FILTER_START_KEY)
 		else:
 			# filter should not be set without update_filter (unless sessioned)
-			filter = None
+			# getSession returns None when key is not found
+			filter_title = getSession(SESSION_FILTER_TITLE_KEY)
+			filter_start = getSession(SESSION_FILTER_START_KEY)
+			filter_finish = getSession(SESSION_FILTER_FINISH_KEY)
 
 		# the rest are inter-related so set defaults
 		selected_date = None
@@ -299,70 +349,72 @@ class Root(object):
 		# (or delete one saved in session if we weren't)
 		if set_recording_id:
 			if recording_id is not None:
-				cherrypy.session[SESSION_RECORD_ID_KEY] = int(recording_id)
-			elif cherrypy.session.has_key(SESSION_RECORD_ID_KEY):
-				del cherrypy.session[SESSION_RECORD_ID_KEY]
+				setSession(SESSION_RECORD_ID_KEY, int(recording_id))
+			else:
+				clearSession(SESSION_RECORD_ID_KEY)
 
 		# if we have a recording id, then get the record (& clear selected day)
-		if cherrypy.session.has_key(SESSION_RECORD_ID_KEY):
-			selected_recording = self._storage.getRecording(
-					cherrypy.session[SESSION_RECORD_ID_KEY])
+		recording_id = getSession(SESSION_RECORD_ID_KEY)
+		if recording_id:
+			selected_recording = self._storage.getRecording(recording_id)
 
 			# ensure record is valid (or remove session key)
 			if not selected_recording:
-				del cherrypy.session[SESSION_RECORD_ID_KEY]
+				clearSession(SESSION_RECORD_ID_KEY)
 			# enable filter to "filter out" selected recording.
 			# if this happens, select date of filtered out recording to keep
 			# the same part of calendar being displayed
-			elif (filter and filter != NO_FILTER_TITLE
-					and selected_recording.title != filter):
-				selected_date = selected_recording.start_date
-				cherrypy.session[SESSION_DATE_KEY] = selected_date
-				selected_recording = None
-				del cherrypy.session[SESSION_RECORD_ID_KEY]
+			#elif ((filter_title and filter_title != NO_FILTER_TITLE
+			#		and selected_recording.title != filter_title)
+			#		or (filter_start
+			#		and filter_start > selected_recording.finish_time)
+			#		or (filter_finish
+			#		and filter_finish < selected_recording.start_time)):
+			#	selected_date = selected_recording.start_date
+			#	setSession(SESSION_DATE_KEY, selected_date)
+			#	selected_recording = None
+			#	clearSession(SESSION_RECORD_ID_KEY)
 			# clear date from session (record trumps date)
-			elif cherrypy.session.has_key(SESSION_DATE_KEY):
-				del cherrypy.session[SESSION_DATE_KEY]
-		# only highlight selected date if it's specified (and no record is)
-		elif ((year and month and day)
-				or cherrypy.session.has_key(SESSION_DATE_KEY)):
-			if day:
-				selected_date = datetime.date(int(year), int(month), int(day))
-				cherrypy.session[SESSION_DATE_KEY] = selected_date
 			else:
-				selected_date = cherrypy.session[SESSION_DATE_KEY]
-			# just convert generator to a list
-			selected_recordings = [rec for rec in
-					self._storage.getRecordings(selected_date, filter)]
+				clearSession(SESSION_DATE_KEY)
+		# only highlight selected date if it's specified (and no record is)
+		else:
+			if year and month and day:
+				selected_date = datetime.date(int(year), int(month), int(day))
+				setSession(SESSION_DATE_KEY, selected_date)
+			else:
+				selected_date = getSession(SESSION_DATE_KEY)
+
+			if selected_date:
+				# must convert generator to a list
+				selected_recordings = [rec for rec in
+						self._storage.getRecordings(selected_date,
+						filter_title, filter_start, filter_finish)]
 
 		# determine which days to highlight
 		# always show today
 		today = datetime.date.today()
 
-		# go to today button trumps other month/year settings
+		# "go to today" button trumps other month/year settings
 		if go_to_today:
 			year = today.year
 			month = today.month
-			cherrypy.session[SESSION_YEAR_KEY] = year
-			cherrypy.session[SESSION_MONTH_KEY] = month
+			setSession(SESSION_YEAR_KEY, year)
+			setSession(SESSION_MONTH_KEY, month)
 		else:
 			# parse selected year (and check sessions)
 			if year:
 				year = int(year)
-				cherrypy.session[SESSION_YEAR_KEY] = year
-			elif cherrypy.session.has_key(SESSION_YEAR_KEY):
-				year = cherrypy.session[SESSION_YEAR_KEY]
+				setSession(SESSION_YEAR_KEY, year)
 			else:
-				year = today.year
+				year = getSession(SESSION_YEAR_KEY) or today.year
 
 			# parse selected month (and check sessions)
 			if month:
 				month = int(month)
-				cherrypy.session[SESSION_MONTH_KEY] = month
-			elif cherrypy.session.has_key(SESSION_MONTH_KEY):
-				month = cherrypy.session[SESSION_MONTH_KEY]
+				setSession(SESSION_MONTH_KEY, month)
 			else:
-				month = today.month
+				month = getSession(SESSION_MONTH_KEY) or today.month
 
 		# get the schedule titles for the filter, and add a "show all" option
 		schedule_titles = [NO_FILTER_TITLE]
@@ -371,13 +423,16 @@ class Root(object):
 
 		if view == 'month':
 			calendar = RecordingsHTMLCalendar(year, month, today, self._storage,
-					filter, selected_date, selected_recording).showMonth()
+					filter_title, filter_start, filter_finish, selected_date,
+					selected_recording).showMonth()
 		else:
 			calendar = ('<h2>Unimplemented</h2>'
 					'That calendar format is not supported')
 
 		return template.render(station=self.getStationName(),
-				schedule_titles=schedule_titles, filter=filter,
+				schedule_titles=schedule_titles, filter_title=filter_title,
+				filter_start=outputDateTime(filter_start),
+				filter_finish=outputDateTime(filter_finish),
 				calendar=genshi.HTML(calendar),
 				selected_recording=selected_recording,
 				selected_recordings=selected_recordings)
@@ -569,6 +624,32 @@ class Root(object):
 				return recording_time
 
 		return None
+
+
+def setSession(key, value):
+	cherrypy.session[key] = value
+
+def getSession(key):
+	if cherrypy.session.has_key(key):
+		return cherrypy.session[key]
+	return None
+
+def clearSession(key):
+	if cherrypy.session.has_key(key):
+		del cherrypy.session[key]
+
+
+def outputDateTime(date):
+	if type(date) == datetime.datetime:
+		return date.strftime(DATETIME_UI_FORMAT)
+	return ''
+
+def parseDateTime(date_string):
+	match = DATETIME_RE.match(date_string)
+	if match:
+		day, month, year, hour, minute = map(int, match.groups())
+		return datetime.datetime(year, month, day, hour, minute)
+	return None
 
 
 def prettyPrintSize(kilobytes):

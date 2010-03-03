@@ -5,6 +5,10 @@
   <xi:include href="layout.html" />
   <head>
     <title>Recordings</title>
+    <style type="text/css">@import url(/media/jscalendar/calendar-blue.css);</style>
+    <script type="text/javascript" src="/media/jscalendar/calendar.js"></script>
+    <script type="text/javascript" src="/media/jscalendar/lang/calendar-en.js"></script>
+    <script type="text/javascript" src="/media/jscalendar/calendar-setup.js"></script>
   </head>
   <body>
     <h1>Recordings</h1>
@@ -32,12 +36,14 @@
 		    </td>
 		    <td class="selected_recordings">
 			<form method="POST" action="?">
-			    <input type="hidden" name="filter"
-				    value="${selected_recording.title}" />
-			    <input type="submit" name="update_filter"
-				    value="Show Only ${selected_recording.title}" />
 			    <input type="hidden" name="recording_id"
 				    value="${selected_recording.id}" />
+			    <input type="submit" name="set_filter_title"
+				    value="Show ${selected_recording.title}" />
+			    <input type="submit" name="set_filter_start"
+				    value="Set Start" />
+			    <input type="submit" name="set_filter_finish"
+				    value="Set Finish" />
 			    <input type="submit" name="export_recording"
 				    value="Export" />
 			</form>
@@ -72,10 +78,12 @@
 				    value="${rec.id}" />
 			    <input type="submit" name="set_recording_id"
 				    value="Select" />
-			    <input type="hidden" name="filter"
-				    value="${rec.title}" />
-			    <input type="submit" name="update_filter"
-				    value="Show Only ${rec.title}" />
+			    <input type="submit" name="set_filter_title"
+				    value="Show ${rec.title}" />
+			    <input type="submit" name="set_filter_start"
+				    value="Set Start" />
+			    <input type="submit" name="set_filter_finish"
+				    value="Set Finish" />
 			</form>
 		    </td>
 		</tr>
@@ -88,17 +96,63 @@
 	    <div class="nav_buttons">
 		<form method="POST" action="?">
 		    <input type="submit" name="go_to_today" value="Go To Today" />
-		    &nbsp;
-		    Show only:
-		    <select py:if="value_of('schedule_titles')" name="filter">
+		    &nbsp; Show:
+		    <select py:if="value_of('schedule_titles')" name="filter_title">
 			<py:for each="title in schedule_titles" py:choose="">
-			    <option py:when="title == filter"
+			    <option py:when="title == filter_title"
 				    selected="1">${title}</option>
 			    <option py:otherwise="">${title}</option>
 			</py:for>
 		    </select>
+		    &nbsp; Start:
+		    <input class="datetime" type="text" id="start"
+			    name="filter_start" value="${filter_start}" />
+		    <button class="datetime" id="start_trigger">...</button>
+		    &nbsp; Finish:
+		    <input class="datetime" type="text" id="finish"
+			    name="filter_finish" value="${filter_finish}" />
+		    <button class="datetime" id="finish_trigger">...</button>
 		    <input type="submit" name="update_filter" value="Update" />
+		    <input type="submit" name="reset_filter" value="Reset" />
 		</form>
+		<?python
+		    if value_of('selected_recording'):
+			default_start = selected_recording.start_time.ctime()
+			default_finish = selected_recording.finish_time.ctime()
+		    elif value_of('selected_recordings'):
+			default_start = selected_recordings[0].start_time.ctime()
+			default_finish = selected_recordings[-1].finish_time.ctime()
+		    else:
+			# leave it blank and calendar will fill in today's date
+			default_start = ''
+			default_finish = ''
+		?>
+		<script type="text/javascript">
+		  Calendar.setup(
+		    {
+		      inputField  : "start",         // ID of the input field
+		      ifFormat    : "%d/%m/%Y %H:%M",    // the date format
+		      button      : "start_trigger",       // ID of the button
+		      date        : "${default_start}",
+		      showsTime   : true,
+		      timeFormat  : "24",
+		      singleClick : true,
+		      weekNumbers : false
+		    }
+		  );
+		  Calendar.setup(
+		    {
+		      inputField  : "finish",         // ID of the input field
+		      ifFormat    : "%d/%m/%Y %H:%M",    // the date format
+		      button      : "finish_trigger",       // ID of the button
+		      date        : "${default_finish}",
+		      showsTime   : true,
+		      timeFormat  : "24",
+		      singleClick : true,
+		      weekNumbers : false
+		    }
+		  );
+		</script>
 	    </div>
 	    ${calendar}
 	</div>
