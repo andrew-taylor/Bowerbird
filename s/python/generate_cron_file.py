@@ -5,6 +5,8 @@
 
 # TODO error checking
 
+# TODO add invoking of assemble_recording_files.py
+
 import sys
 from bowerbird.scheduleparser import ScheduleParser
 

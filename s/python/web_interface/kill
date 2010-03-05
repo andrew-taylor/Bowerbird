@@ -2,8 +2,12 @@
 
 # kill any python processes running the controller or proxy
 
-PID=`ps -C python -o pid,args \
-	| egrep "python (controller|proxy).py"\
+PID=`ps -C python,python2.6 -o pid,args \
+	| egrep "python.*(controller|proxy).py$"\
 	| sed 's/ *\([0-9]\+\) \+.*/\1/'`
-
-kill $PID
+if [ "$PID" ]
+then
+	kill $PID
+else
+	echo No processes found
+fi

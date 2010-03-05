@@ -1,14 +1,15 @@
-import sys, os, os.path, errno, cherrypy, datetime, subprocess, tempfile, genshi
-import re
+import sys, os, os.path, errno, cherrypy, datetime, subprocess, genshi, tempfile
+from zipfile import ZipFile
 from cherrypy.lib import sessions
 
-from lib import common, ajax, template
-from lib.storage import BowerbirdStorage, UNTITLED
+from bowerbird.common import *
+from bowerbird.configparser import ConfigParser
+from bowerbird.scheduleparser import ScheduleParser, RecordingSpec
+from bowerbird.storage import BowerbirdStorage, UNTITLED
+from lib import ajax, template
 from lib.recordingshtmlcalendar import RecordingsHTMLCalendar
 from lib.sonogram import generateSonogram
-from lib.configparser import ConfigParser
 from lib.zeroconfservice import ZeroconfService
-from bowerbird.scheduleparser import ScheduleParser, RecordingSpec
 
 # constants
 RECORDING_KB_PER_SECOND = 700
@@ -41,9 +42,7 @@ SESSION_RECORD_ID_KEY = 'record_id'
 
 NO_FILTER_TITLE = 'All Recordings'
 
-SOX_PATH = '/usr/bin/sox'
-
-DATE_UI_FORMAT = '%d/%m/%Y'
+EXPORT_LIMIT_DETECTION_THRESHOLD = datetime.timedelta(seconds=1)
 
 
 class Root(object):
@@ -231,12 +230,14 @@ class Root(object):
 	@cherrypy.expose
 	@template.output('recordings.html')
 	def recordings(self, view='month', year=None, month=None, day=None,
-			recording_id=None, set_recording_id=False,
+			recording_id=None, set_recording_id=False, clear_recording_id=False,
 			go_to_start=False, go_to_finish=False, go_to_today=False,
 			filter_title=None, filter_start=None, filter_finish=None,
 			update_filter=None, reset_filter=None, clear_selected_date=False,
 			set_filter_title=None, set_filter_start=None,
-			set_filter_finish=None, export_recording=False, rescan_disk=False,
+			set_filter_finish=None, export_recording=False,
+			export_start_time=None, export_finish_time=None,
+			export_selection=False, rescan_disk=False,
 			**ignored):
 		# HACK: this helps development slightly
 		if ignored:
@@ -246,10 +247,8 @@ class Root(object):
 		errors = []
 
 		if rescan_disk:
+			# Clear all recordings. The cron job will do the scanning/refilling.
 			self._storage.clearRecordings()
-
-		# check if the directory tree has changed
-		self._storage.updateRecordings()
 
 		if reset_filter:
 			filter_title = None
@@ -262,22 +261,57 @@ class Root(object):
 		if clear_selected_date:
 			clearSession(SESSION_DATE_KEY)
 
+		if clear_recording_id:
+			clearSession(SESSION_RECORD_ID_KEY)
+
 		if export_recording and recording_id:
-			# convert id to int
-			recording_id = int(recording_id)
+			# get the name of the served file from the recording
+			recording = self._storage.getRecording(int(recording_id))
+			recording_filepath = os.path.realpath(recording.abspath)
+			served_filename = os.path.basename(recording.path)
 
-			# create the name of the served file from the recording
-			recording = self._storage.getRecording(recording_id)
-			served_filename = '%s %s%s' % (recording.title,
-					recording.start_time.strftime('%Y/%m/%d %H:%M'),
-					extension)
+			# Some shenanigans here. We want to find out if a special export
+			# is requested, meaning at least one of start and finish are inside
+			# the recordings time range. The other can be also inside, or blank
+			# or equal to the limit. If special export *is* needed we need to
+			# get the start offset (if any) and the duration.
+			# NOTE: we assume export start/finish are within the range (this may
+			# mean we assume a 24hour wrap)
+			try:
+				export_start_time = getExportTime(export_start_time,
+						recording.start_time, recording.finish_time)
+			except ValueError, inst:
+				errors.append('invalid export start time: %s' % inst)
+			try:
+				export_finish_time = getExportTime(export_finish_time,
+						recording.start_time, recording.finish_time)
+			except ValueError, inst:
+				errors.append('invalid export finish time: %s' % inst)
 
-			# use cherrypy utility to push the file for download. This also
-			# means that we don't have to move the config file into the
-			# web-accessible filesystem hierarchy
-			return cherrypy.lib.static.serve_file(
-					os.path.realpath(recording_filename),
-					"application/x-download", "attachment", served_filename)
+			# bypass export if there were errors
+			if not errors:
+				# if sub-section of the recording is requested, generate it
+				if export_start_time or export_finish_time:
+					# create the subrange file and a special filename
+					# (and update recording_filepath to point to it)
+					recording_filepath = recording.getSubRangeFile(export_start_time,
+							export_finish_time)
+
+					# create a special name
+					base, ext = os.path.splitext(served_filename)
+					# use export times if defined, otherwise use recording's
+					served_filename = ('%s (%s to %s)%s' % (base,
+							formatTimeUI(export_start_time or recording.start_time,
+									show_seconds=True),
+							formatTimeUI(export_finish_time or recording.finish_time,
+									show_seconds=True),
+							ext))
+
+				# use cherrypy utility to push the file for download. This also
+				# means that we don't have to move the config file into the
+				# web-accessible filesystem hierarchy
+				return cherrypy.lib.static.serve_file(recording_filepath,
+						"application/x-download", "attachment", served_filename)
 
 		# update filters
 		if update_filter:
@@ -292,7 +326,7 @@ class Root(object):
 			if filter_start is not None:
 				if filter_start:
 					try:
-						filter_start = parseDate(filter_start)
+						filter_start = parseDateUI(filter_start)
 						setSession(SESSION_FILTER_START_KEY, filter_start)
 					except ValueError, inst:
 						errors.append('Errror parsing filter start time: %s'
@@ -304,7 +338,7 @@ class Root(object):
 			if filter_finish is not None:
 				if filter_finish:
 					try:
-						filter_finish = parseDate(filter_finish)
+						filter_finish = parseDateUI(filter_finish)
 						setSession(SESSION_FILTER_FINISH_KEY, filter_finish)
 					except ValueError, inst:
 						errors.append('Errror parsing filter finish time: %s'
@@ -352,12 +386,8 @@ class Root(object):
 		selected_recordings = None
 
 		# if setting recording id, then save it to session if we were passed one
-		# (or delete one saved in session if we weren't)
-		if set_recording_id:
-			if recording_id is not None:
-				setSession(SESSION_RECORD_ID_KEY, int(recording_id))
-			else:
-				clearSession(SESSION_RECORD_ID_KEY)
+		if set_recording_id and recording_id:
+			setSession(SESSION_RECORD_ID_KEY, int(recording_id))
 
 		# if we have a recording id, then get the record (& clear selected day)
 		recording_id = getSession(SESSION_RECORD_ID_KEY)
@@ -377,9 +407,39 @@ class Root(object):
 
 		if selected_date or (filter_start and filter_finish):
 			# must convert generator to a list
-			selected_recordings = [rec for rec in
-					self._storage.getRecordings(selected_date,
-					filter_title, filter_start, filter_finish)]
+			selected_recordings = list(self._storage.getRecordings(
+					selected_date, filter_title, filter_start, filter_finish))
+
+		# if export selection is requested, then zip up all files and send them
+		if export_selection and selected_recordings:
+			with tempfile.NamedTemporaryFile(suffix='.zip') as tmp:
+				# the file transfer can take a long time; by default cherrypy
+				# limits responses to 300s; we increase it to 1h
+				cherrypy.response.timeout = 3600
+				try:
+					# create the zipfile
+					archive = ZipFile(tmp.name, 'w')
+					# add all the recording files
+					for recording in selected_recordings:
+						archive.write(recording.abspath, recording.path)
+				finally:
+					# safer this way
+					archive.close()
+
+				# create a suitable name for the export
+				if selected_date:
+					served_filename = ('Recordings_%s.zip'
+							% formatDateIso(selected_date))
+				else:
+					served_filename = ('Recordings_%s_to_%s.zip'
+							% (formatDateIso(filter_start),
+							formatDateIso(filter_finish)))
+
+				# use cherrypy utility to push the file for download. This also
+				# means that we don't have to move the config file into the
+				# web-accessible filesystem hierarchy
+				return cherrypy.lib.static.serve_file(tmp.name,
+						"application/x-download", "attachment", served_filename)
 
 		# determine which days to highlight
 		# always show today
@@ -431,8 +491,8 @@ class Root(object):
 					'That calendar format is not supported')
 		return template.render(station=self.getStationName(), errors=errors,
 				schedule_titles=schedule_titles, filter_title=filter_title,
-				filter_start=outputDate(filter_start),
-				filter_finish=outputDate(filter_finish),
+				filter_start=formatDateUI(filter_start),
+				filter_finish=formatDateUI(filter_finish),
 				calendar=genshi.HTML(calendar), selected_date=selected_date,
 				selected_recording=selected_recording,
 				selected_recordings=selected_recordings)
@@ -512,8 +572,7 @@ class Root(object):
 
 
 	def getStationName(self):
-		return self._config.getValue2(common.STATION_SECTION_NAME,
-				common.STATION_NAME_KEY)
+		return self._config.getValue2(STATION_SECTION_NAME, STATION_NAME_KEY)
 
 
 	def updateConfigFromPostData(self, config, data):
@@ -526,24 +585,24 @@ class Root(object):
 		keys = {}
 		values = {}
 		for key in data:
-			if key.startswith(common.META_PREFIX):
+			if key.startswith(META_PREFIX):
 				split_data = data[key].split(',')
 				section_index = int(split_data[0])
 				name_index = int(split_data[1])
 				subname_index = int(split_data[2])
 				value = ','.join(split_data[3:])
-				real_key = key[len(common.META_PREFIX):]
+				real_key = key[len(META_PREFIX):]
 				if not keys.has_key(section_index):
 					keys[section_index] = {}
 				if not keys[section_index].has_key(name_index):
 					keys[section_index][name_index] = {}
 				keys[section_index][name_index][subname_index] = (real_key,
 						value)
-			elif key.startswith(common.SECTION_META_PREFIX):
+			elif key.startswith(SECTION_META_PREFIX):
 				index = data[key].find(',')
 				id = int(data[key][:index])
 				value = data[key][index+1:]
-				real_key = key[len(common.SECTION_META_PREFIX):]
+				real_key = key[len(SECTION_META_PREFIX):]
 				sections[id] = (real_key, value)
 			else:
 				values[key] = data[key]
@@ -590,16 +649,15 @@ class Root(object):
 		root_dir = self._storage.getRootDir()
 		if not os.path.exists(root_dir):
 			return ("%s doesn't exist: Fix Config %s->%s"
-					% (root_dir, common.CAPTURE_SECTION_NAME,
-					common.CAPTURE_ROOT_DIR_KEY))
+					% (root_dir, CAPTURE_SECTION_NAME, CAPTURE_ROOT_DIR_KEY))
 		# split to remove title line, then split into fields
 		(_,_,_,available,percent,_) = subprocess.Popen(["df", "-k", root_dir],
 				stdout=subprocess.PIPE).communicate()[0].split('\n')[1].split()
 		percent_free = 100 - int(percent[:-1])
 		available = int(available)
 		return ("%s free (%d%%) Approx. %s recording time left"
-				% (prettyPrintSize(available), percent_free,
-						prettyPrintTime(available/RECORDING_KB_PER_SECOND)))
+				% (formatSize(available), percent_free,
+						formatTimeLong(available/RECORDING_KB_PER_SECOND)))
 
 
 	def getLocalTime(self):
@@ -639,38 +697,44 @@ def clearSession(key):
 		del cherrypy.session[key]
 
 
-def datetimeFromDate(date):
-	return datetime.datetime(date.year, date.month, date.day)
+def getExportTime(time_string, recording_start, recording_finish):
+	'''Parses the given timestring and returns it as a datetime. If it's
+	outside the given range (or invalid), then None is returned
+	NOTE: Time values within a second of the limit are treated as outside the
+		range. This is so the default export limits do not trigger subrange
+		generation.
+	'''
 
-def outputDate(date):
-	if type(date) == datetime.date:
-		return date.strftime(DATE_UI_FORMAT)
-	return ''
+	if time_string:
+		time = parseTimeUI(time_string)
 
-def parseDate(date_string):
-	return datetime.datetime.strptime(date_string, DATE_UI_FORMAT).date()
+		# recording is on a single day so no need to handle overnight edge cases
+		if recording_start.date() == recording_finish.date():
+			# convert time to a datetime
+			time = datetime.datetime.combine(recording_start.date(), time)
+			# if time is inside range then return it
+			if (time - recording_start > EXPORT_LIMIT_DETECTION_THRESHOLD
+					and recording_finish - time
+					> EXPORT_LIMIT_DETECTION_THRESHOLD):
+				return time
+		# detect time after start on first day
+		elif time > recording_start.time():
+			# convert time to a datetime
+			time = datetime.datetime.combine(recording_start.date(), time)
+			# if time is inside range then return it
+			if time - recording_start > EXPORT_LIMIT_DETECTION_THRESHOLD:
+				return time
+		# detect time after start on first day
+		elif time < recording_finish.time():
+			# convert time to a datetime
+			time = datetime.datetime.combine(recording_finish.date(), time)
+			# if time is inside range then return it
+			if recording_finish - time > EXPORT_LIMIT_DETECTION_THRESHOLD:
+				return time
 
-
-def prettyPrintSize(kilobytes):
-	sizes = [ (1024**3, "T"), (1024**2, "G"), (1024, "M"), (1, "k") ]
-	for size,unit in sizes:
-		if kilobytes > size:
-			return "%.1f%sB" % (float(kilobytes) / size, unit)
-	return "error generating pretty size for %f" % kilobytes
-
-
-def prettyPrintTime(seconds, show_seconds=False):
-	sizes = [ (365*24*60*60, "years"), (30*24*60*60, "months"),
-			(24*60*60, "days"), (60*60, "hours"),
-			(60, "minutes"), (1, "seconds") ]
-	if not show_seconds:
-		sizes = sizes[:-1]
-	pretty = ""
-	for size,unit in sizes:
-		if seconds > size:
-			pretty += "%d %s " % (seconds / size, unit)
-			seconds %= size
-	return pretty
+	# if we get to here then time was not in the range so reset it to the
+	# default handling below happens
+	return None
 
 
 def loadWebConfig():
@@ -682,6 +746,10 @@ def loadWebConfig():
 			'tools.staticdir.root': os.path.abspath(os.path.dirname(__file__)),
 			'tools.sessions.on': True
 			})
+
+	# increase server socket timeout to 60s; we are more tolerant of bad
+	# quality client-server connections (cherrypy's defult is 10s)
+	cherrypy.server.socket_timeout = 60
 
 	for key in REQUIRED_KEYS:
 		if not cherrypy.config.has_key(key):
@@ -716,8 +784,8 @@ def main(args):
 	# create zeroconf service
 	# TODO handle if avahi and/or dbus is not working
 	service = ZeroconfService(name="Bowerbird [%s]" % root.getStationName(),
-			port=cherrypy.config[SERVER_PORT_KEY], stype=common.ZEROCONF_TYPE,
-			magic=common.ZEROCONF_TEXT_TO_IDENTIFY_BOWERBIRD)
+			port=cherrypy.config[SERVER_PORT_KEY], stype=ZEROCONF_TYPE,
+			magic=ZEROCONF_TEXT_TO_IDENTIFY_BOWERBIRD)
 
 	cherrypy.engine.start()
 	service.publish()

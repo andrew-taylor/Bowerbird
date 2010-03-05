@@ -1,7 +1,7 @@
 import datetime
 from calendar import Calendar, SUNDAY, month_name, day_abbr
 
-from lib.common import compactTimeFormat
+from bowerbird.common import formatTimeUI
 
 class RecordingsHTMLCalendar(Calendar):
 
@@ -49,7 +49,7 @@ class RecordingsHTMLCalendar(Calendar):
 
 		html += ('" style="height: %f%%"><div class="%s_header">'
 				'<a class="block" '
-				'href="?year=%d&month=%d&day=%d&set_recording_id=1">'
+				'href="?year=%d&month=%d&day=%d&clear_recording_id=1">'
 				'%s%d</a></div>' % (90.0 / num_weeks, day_class,
 				date.year, date.month, date.day, today_text, date.day))
 
@@ -72,7 +72,7 @@ class RecordingsHTMLCalendar(Calendar):
 						'<span class="recording_title">%s</span>\n'
 						'</a></div>\n' % (extra_div_class, date.year,
 						date.month,	recording.id,
-						compactTimeFormat(recording.start_time),
+						formatTimeUI(recording.start_time, compact=True),
 						recording.title))
 
 		return html + '</td>'

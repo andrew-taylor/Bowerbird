@@ -1,14 +1,28 @@
-import sys, os, apsw, datetime
+import sys, os, apsw, datetime, subprocess, tempfile
+from copy import deepcopy
 from threading import RLock
 
-from lib import common
-from lib.odict import OrderedDict
+from bowerbird.common import *
+from bowerbird.odict import OrderedDict
 from bowerbird.scheduleparser import RecordingTime
 
 
+SOX_PATH = '/usr/bin/sox'
+WAVPACK_PATH = '/usr/bin/wavpack'
+
+# Storage tables
+CONFIG_TABLE = 'config'
+# BowerbirdStorage tables
 RECORDINGS_TABLE = 'recordings'
 FILES_TABLE = 'recording_files'
 LINKS_TABLE = 'recording_links'
+# ProxyStorage tables
+PREVIOUS_CONNECTIONS_TABLE = 'previous_connections'
+
+# these are used in the config database to provide statefulness
+CONFIG_TABLE_TIMESTAMP_KEY = 'timestamp'
+
+RECORDINGS_DIR = 'recordings'
 ADJACENT_GAP_TOLERANCE = datetime.timedelta(seconds=4)
 UNTITLED = 'Untitled'
 
@@ -16,12 +30,13 @@ UNTITLED = 'Untitled'
 class Storage(object):
 	'''Handles the details of storing data in an sqlite db'''
 
-	REQUIRED_TABLES = []
-	REQUIRED_TABLE_INIT = {}
+	__REQUIRED_TABLES = {CONFIG_TABLE: 'key TEXT, value TEXT'}
+
 
 	def __init__(self, database_file, root_dir):
 		self._file = database_file
 		self._root_dir = root_dir
+		self._recordings_dir = os.path.join(root_dir, RECORDINGS_DIR)
 
 		# issue warning if database file didn't exist
 		if not os.path.exists(database_file):
@@ -33,16 +48,17 @@ class Storage(object):
 		self._conn.setbusytimeout(1000)
 		self._lock = RLock()
 
-		# make sure that database has key tables
-		if not self.hasRequiredTables():
-			sys.stderr.write('Warning: configured database file '
-					'"%s" missing required tables. Creating them...\n'
-					% database_file)
-			self.createRequiredTables()
+		# make sure recordings directory exists
+		ensureDirectoryExists(self._recordings_dir)
+
+		# ensure all required tables exist
+		self._ensureTablesExist(Storage.__REQUIRED_TABLES)
+
 
 	def __del__(self):
 		if self.__dict__.has_key('_conn'):
 			self._conn.close()
+
 
 	def __convertToDictionary(self, cursor, row):
 		'''A row trace method to emulate the Row Factory of sqlite3'''
@@ -51,6 +67,7 @@ class Storage(object):
 		for i in xrange(len(desc)):
 			dict[desc[i][0]] = row[i]
 		return dict
+
 
 	def __execSqlQuery(self, query, convert_to_dictionary):
 		# ensure that only one thread accesses the database at a time
@@ -61,6 +78,14 @@ class Storage(object):
 			cursor.execute(query)
 			return cursor.fetchall()
 
+
+	def _ensureTablesExist(self, tables):
+		'''make sure that database has key tables'''
+		for table in tables:
+			self.__execSqlQuery('create table if not exists %s (%s)'
+					% (table, tables[table]), False)
+
+
 	def runQuerySingleResponse(self, query):
 		response = self.__execSqlQuery(query, True)
 		values = OrderedDict()
@@ -68,6 +93,7 @@ class Storage(object):
 			for key in response[0].keys():
 				values[key] = response[0][key]
 		return values
+
 
 	def runQuery(self, query):
 		list = []
@@ -84,106 +110,86 @@ class Storage(object):
 		return self.__execSqlQuery(query, False)
 
 
-	def hasRequiredTables(self):
-		for table in self.REQUIRED_TABLES:
-			if not self.runQueryRaw('pragma table_info("%s")' % table):
-				return False
-		return True
-		#try:
-		#	for table in self.REQUIRED_TABLES:
-		#		self.runQueryRaw('select * from %s' % table)
-		#	return True
-		#except apsw.Error:
-		#	return False;
+	def runQueryRawSingleResponse(self, query):
+		return self.__execSqlQuery(query, False)[0]
 
 
-	def createRequiredTables(self):
-		for table in self.REQUIRED_TABLES:
-			self.runQueryRaw('create table if not exists %s (%s)'
-					% (table, self.REQUIRED_TABLE_INIT[table]))
+	def readFromConfigTable(self, key, default=None):
+		query = 'select value from "%s" where key="%s"' % (CONFIG_TABLE, key)
+		response = self.runQueryRaw(query)
+		if response:
+			return response[0][0]
+		return default
 
 
-class Recording():
-	def __init__(self, dict):
-		self.id = int(dict['id'])
-		self.title = dict['title']
-		self.start_date = convertIsoStringToDate(dict['start_date'])
-		self.start_time = convertIsoStringToDateTime(dict['start_time'])
-		self.finish_time = convertIsoStringToDateTime(dict['finish_time'])
-		self.start_limit = convertIsoStringToDateTime(dict['start_limit'])
-		self.finish_limit = convertIsoStringToDateTime(dict['finish_limit'])
-
-	def isTitled(self):
-		return self.title != UNTITLED
-
-	def __str__(self):
-		return '%s (%d): %s - %s [%s - %s]' % (self.title, self.id,
-				self.start_time.strftime('%H:%M:%S'),
-				self.finish_time.strftime('%H:%M:%S'),
-				self.start_limit.strftime('%H:%M:%S'),
-				self.finish_limit.strftime('%H:%M:%S'))
-
-
-class RecordingFile():
-	def __init__(self, dict, duration):
-		self.id = int(dict['id'])
-		self.path = dict['path']
-		self.finish = getTimestampFromFilePath(self.path)
-		self.start = self.finish - duration
-
-	def __str__(self):
-		return '%s (%d): %s - %s' % (self.path, self.id,
-				self.start.strftime('%H:%M:%S'),
-				self.finish.strftime('%H:%M:%S'))
+	def writeToConfigTable(self, key, value):
+		# if we have that key in the database then update it,
+		# otherwise insert new record
+		if self.readFromConfigTable(key):
+			query = ('update "%s" set value="%s" where key="%s"'
+					% (CONFIG_TABLE, value, key))
+		else:
+			query = ('insert into "%s" values ("%s", "%s")'
+					% (CONFIG_TABLE, key, value))
+		self.runQueryRaw(query)
 
 
 class BowerbirdStorage(Storage):
 	'''Handles the details of storing data about calls and categories'''
 
-	REQUIRED_TABLES = [RECORDINGS_TABLE, FILES_TABLE, LINKS_TABLE,
-			'categories', 'calls']
-	REQUIRED_TABLE_INIT = {
-			RECORDINGS_TABLE: 'id integer primary key, title text, '
-					'start_date text, start_time text, finish_time text, '
-					'start_limit text, finish_limit text',
-			FILES_TABLE: 'id integer primary key, path text',
-			LINKS_TABLE: 'id integer primary key, '
-					'recording_id integer, file_id integer',
-			'categories': 'label text, calls integer, length real, '
-					'length_stddev real, frequency real, frequency_stddev real, '
-					'harmonics_min integer, harmonics_max integer, AM text, '
-					'FM text, bandwidth real, bandwidth_stddev real, '
-					'energy real, energy_stddev real, time_of_day_start text, '
-					'time_of_day_finish text',
-			'calls': 'example boolean, filename text, '
-					'date_and_time timestamp, label text, category text, '
-					'length real, frequency real, harmonics integer, AM text, '
-					'FM text, bandwidth real, energy real'
+	__REQUIRED_TABLES = {
+			RECORDINGS_TABLE: 'id INTEGER PRIMARY KEY, title TEXT, '
+					'start_date TEXT, start_time TEXT, finish_time TEXT, '
+					'start_limit TEXT, finish_limit TEXT',
+			FILES_TABLE: 'id INTEGER PRIMARY KEY, path TEXT',
+			LINKS_TABLE: 'id INTEGER PRIMARY KEY, '
+					'recording_id INTEGER, file_id INTEGER',
+			'categories': 'label TEXT, calls INTEGER, length REAL, '
+					'length_stddev REAL, frequency REAL, frequency_stddev REAL, '
+					'harmonics_min INTEGER, harmonics_max INTEGER, AM TEXT, '
+					'FM TEXT, bandwidth REAL, bandwidth_stddev REAL, '
+					'energy REAL, energy_stddev REAL, time_of_day_start TEXT, '
+					'time_of_day_finish TEXT',
+			'calls': 'example boolean, filename TEXT, '
+					'date_and_time timestamp, label TEXT, category TEXT, '
+					'length REAL, frequency REAL, harmonics INTEGER, AM TEXT, '
+					'FM TEXT, bandwidth REAL, energy REAL'
 			}
+
 
 	def __init__(self, database_file, config, schedule):
 		self._config = config
 		self._schedule = schedule
-		Storage.__init__(self, database_file, self.getRootDir())
-		self._recording_ext = self.getRecordingExt()
+		self._recording_extension = self.getRecordingExtension()
 		self._file_duration = self.getFileDuration()
 
-		# this field is used to identify new recordings
-		self._dir_timestamp = -1
+		Storage.__init__(self, database_file, self.getRootDir())
+
+		# ensure all required tables exist
+		self._ensureTablesExist(BowerbirdStorage.__REQUIRED_TABLES)
 
 
 	@property
-	def recording_ext(self):
-		return self._recording_ext
+	def recording_extension(self):
+		return self._recording_extension
 
 	@property
 	def file_duration(self):
 		return self._file_duration
 
+	@property
+	def dir_timestamp(self):
+		'''this field is used to identify new recordings'''
+		return float(self.readFromConfigTable(CONFIG_TABLE_TIMESTAMP_KEY, -1))
+	@dir_timestamp.setter
+	def dir_timestamp(self, value):
+		self.writeToConfigTable(CONFIG_TABLE_TIMESTAMP_KEY, value)
+
 
 	def getRecording(self, record_id):
 		query = 'select * from "%s" where id=%d' % (RECORDINGS_TABLE, record_id)
-		return Recording(self.runQuerySingleResponse(query))
+		return Recording(self._recordings_dir, self._recording_extension,
+				self.runQuerySingleResponse(query))
 
 
 	def getRecordings(self, date=None, title=None, min_start_date=None,
@@ -214,25 +220,39 @@ class BowerbirdStorage(Storage):
 			conjunction = 'and'
 		# sort increasing by start time
 		query += ' order by start_time'
-		return (Recording(row) for row in self.runQuery(query))
+		return (Recording(self._recordings_dir, self._recording_extension, row)
+				for row in self.runQuery(query))
 
 
 	def clearRecordings(self):
+		# delete all table entries
 		for table in (RECORDINGS_TABLE, LINKS_TABLE, FILES_TABLE):
 			self.runQueryRaw('delete from "%s"' % table)
-		self._dir_timestamp = -1
+		# reset timestamp
+		self.dir_timestamp = -1
+		# delete all constructed recording files
+		for root, dirs, files in os.walk(self._recordings_dir, topdown=False):
+			for name in files:
+				os.remove(os.path.join(root, name))
+			for name in dirs:
+				os.rmdir(os.path.join(root, name))
 
 
-	def updateRecordings(self, force_rescan=False):
-		'''Scan the storage directories and update the recordings table'''
+	def updateRecordings(self, force_rescan=False, verbose=False):
+		'''Scan the storage directories and update the recordings table.
+		Warning: this will take a lot of time, so should not be called by the
+		web interface'''
 
 		# Scan the storage directories and update the recording files table
 		# and also keep track of new files added
 		new_files = []
-		for dir in os.listdir(self._root_dir):
+		dir_list = os.listdir(self._root_dir)
+		dir_list.sort()
+		latest_dir_mtime = -1
+		for dir in dir_list:
 			# only scan directories that are dates
 			try:
-				date = datetime.datetime.strptime(dir, '%Y-%m-%d')
+				parseDateIso(dir)
 			except:
 				continue
 
@@ -241,36 +261,78 @@ class BowerbirdStorage(Storage):
 			# so if it's old we know that there's no new files
 			dir_mtime = os.path.getmtime(dir_path)
 			if (os.path.isdir(dir_path)
-					and (force_rescan or dir_mtime > self._dir_timestamp)):
+					and (force_rescan or dir_mtime > self.dir_timestamp)):
+				if verbose:
+					print 'scanning', dir
 				for recording_file in os.listdir(dir_path):
 					# ignore files with the wrong extension
 					if (os.path.splitext(recording_file)[1]
-							== self._recording_ext):
+							== self._recording_extension):
 						file_path = os.path.join(dir, recording_file)
 						if not self.hasRecordingFile(file_path):
 							self.addRecordingFile(file_path)
-			# update the timestamp
-			self._dir_timestamp = dir_mtime
+			if dir_mtime > latest_dir_mtime:
+				latest_dir_mtime = dir_mtime
+
+		# up the timestamp
+		self.dir_timestamp = latest_dir_mtime
+
+		# Note which recording files get put into which recordings
+		# Key is recording_id, value is a list of relative pathnames of files
+		# to merge (in order), with destination path calculated from recording
+		file_merges = {}
+		# Note which recordings get merged away so we can remove their files
+		file_deletes = []
+
+		# see if any existing recordings are missing their files
+		for recording in self.getRecordings():
+			if not recording.fileExists():
+				print ('found recording with missing file: %s'
+						% os.path.basename(recording.path))
+				# must convert the generator of tuples into a list of paths
+				file_merges[recording.id] = [file for file, in
+						self.getFilesForRecording(recording.id)]
 
 		# Compare the new files to schedule to add new recordings.
 		# Recordings can be labelled (when they line up with a schedule).
 		# New files that extend existing recordings should be merged.
 		# TODO: improve mechanism to determine adjacent recordings
-		for recording_file in self.getFilesWithoutRecording():
-#			print recording_file
+		files = self.findFilesWithoutRecording()
+		if verbose:
+			files = list(files)
+			if len(files):
+				print "%d new files found" % len(files)
+		for recording_file in files:
 			# see if the recording file is in a scheduled timeslot
 			matched_schedules = self._schedule.findSchedulesCovering(
 					recording_file.start, recording_file.finish)
 
 			self.addFileToAppropriateRecordings(recording_file,
-					matched_schedules)
+					matched_schedules, file_merges, file_deletes)
 
-	def addFileToAppropriateRecordings(self, recording_file, matched_schedules):
+		for id in file_merges:
+			recording = self.getRecording(id)
+			if verbose:
+				print 'assembling', recording.path
+			concatSoundFiles(recording.abspath,
+					(os.path.join(self._root_dir, path) for path in
+					file_merges[id]))
+
+		for filepath in file_deletes:
+			if os.path.exists(filepath):
+				if verbose:
+					print 'removing', filepath
+				os.remove(filepath)
+
+
+	def addFileToAppropriateRecordings(self, recording_file, matched_schedules,
+			file_merges, file_deletes):
 		# see if there's any existing recordings that "overlap" the file
-		prev_recordings = self.getRecordingsAtTime(recording_file.start
-				- ADJACENT_GAP_TOLERANCE)
-		next_recordings = self.getRecordingsAtTime(recording_file.finish
-				+ ADJACENT_GAP_TOLERANCE)
+		# must convert generator to a list
+		prev_recordings = list(self.getRecordingsAtTime(recording_file.start
+				- ADJACENT_GAP_TOLERANCE))
+		next_recordings = list(self.getRecordingsAtTime(recording_file.finish
+				+ ADJACENT_GAP_TOLERANCE))
 
 		if matched_schedules:
 			# search first for merges of title-matched file, prev and next
@@ -282,7 +344,7 @@ class BowerbirdStorage(Storage):
 						if rec.title == match.title), None)
 				if matched_prev and matched_next:
 					self.mergeRecordings(matched_prev, matched_next,
-								recording_file)
+								recording_file, file_merges, file_deletes)
 					# remove considerations for matching
 					matched_schedules.remove(match)
 					# if there's no more matched schedules, then return
@@ -294,12 +356,14 @@ class BowerbirdStorage(Storage):
 				# search for title-matched recordings (next and prev)
 				for recording in (rec for rec in prev_recordings
 						+ next_recordings if rec.title == match.title):
-					self.addFileToRecording(recording, recording_file)
+					self.addFileToRecording(recording, recording_file,
+							file_merges)
 					# remove considerations for matching
 					matched_schedules.remove(match)
 			# add the remaining matched schedules
 			for match in matched_schedules:
-				self.createNewRecordingFromFile(recording_file, match)
+				self.createNewRecordingFromFile(recording_file, match,
+						file_merges)
 
 		else: # matched_schedules
 			# remove untitled recordings from the list if titled recordings are
@@ -314,7 +378,8 @@ class BowerbirdStorage(Storage):
 						found_titled = True
 					else:
 						if found_untitled:
-							mergeRecordings(untitled, recording)
+							mergeRecordings(untitled, recording, None,
+									file_merges, file_deletes)
 						else:
 							found_untitled = recording
 				# second pass, if required, remove untitled
@@ -337,7 +402,8 @@ class BowerbirdStorage(Storage):
 				matched_next = next((rec for rec in next_recordings
 						if rec.title == prev.title), None)
 				if matched_next:
-					self.mergeRecordings(prev, matched_next, recording_file)
+					self.mergeRecordings(prev, matched_next, recording_file,
+							file_merges, file_deletes)
 					# remove considerations for matching
 					prev_recordings.remove(prev)
 					next_recordings.remove(matched_next)
@@ -348,11 +414,11 @@ class BowerbirdStorage(Storage):
 			# must use list comprehension instead of generator because we
 			# might remove entries from recordings lists
 			for recording in [rec for rec in prev_recordings if rec.isTitled()]:
-				self.addFileToRecording(recording, recording_file)
+				self.addFileToRecording(recording, recording_file, file_merges)
 				prev_recordings.remove(recording)
 				not_matched_titled = False
 			for recording in [rec for rec in next_recordings if rec.isTitled()]:
-				self.addFileToRecording(recording, recording_file)
+				self.addFileToRecording(recording, recording_file, file_merges)
 				next_recordings.remove(recording)
 				not_matched_titled = False
 
@@ -363,13 +429,16 @@ class BowerbirdStorage(Storage):
 				# is, at most, one recording in each list)
 				if prev_recordings and next_recordings:
 					self.mergeRecordings(prev_recordings[0], next_recordings[0],
-							recording_file)
+							recording_file, file_merges, file_deletes)
 				elif prev_recordings:
-					self.addFileToRecording(prev_recordings[0], recording_file)
+					self.addFileToRecording(prev_recordings[0], recording_file,
+							file_merges)
 				elif next_recordings:
-					self.addFileToRecording(next_recordings[0], recording_file)
+					self.addFileToRecording(next_recordings[0], recording_file,
+							file_merges)
 				else:
-					self.createNewRecordingFromFile(recording_file)
+					self.createNewRecordingFromFile(recording_file, None,
+							file_merges)
 
 
 	def hasRecordingFile(self, file_path):
@@ -391,7 +460,8 @@ class BowerbirdStorage(Storage):
 				'and finish_time and "%(time)s" between start_limit and '
 				'finish_limit'
 				% {'table': RECORDINGS_TABLE, 'time': time.isoformat()})
-		return [Recording(row) for row in self.runQuery(query)]
+		return (Recording(self._recordings_dir, self._recording_extension, row)
+				for row in self.runQuery(query))
 
 
 	def getFilesForRecording(self, recording_id):
@@ -411,19 +481,19 @@ class BowerbirdStorage(Storage):
 				self.runQueryRaw(query)]
 
 
-	def getFilesWithoutRecording(self):
+	def findFilesWithoutRecording(self):
 		'''Scan the recording files and links tables to find files not
 			associated with a recording'''
 		query = ('select file.id,file.path from %(files_table)s file left join '
 				'%(links_table)s link on file.id = link.file_id '
-				'where link.file_id is null' % {'files_table': FILES_TABLE,
-				'links_table': LINKS_TABLE})
+				'where link.file_id is null order by file.path'
+				% {'files_table': FILES_TABLE, 'links_table': LINKS_TABLE})
 		return (RecordingFile(row, self._file_duration) for row in
 				self.runQuery(query))
 
 
-	def mergeRecordings(self, prev_recording, next_recording,
-			recording_file=None):
+	def mergeRecordings(self, prev_recording, next_recording, recording_file,
+			file_merges, file_deletes):
 		'''Merges two recordings (optionally with the file that joins them).
 			Requires merging times in recordings table, and modifying the links
 			table'''
@@ -450,34 +520,68 @@ class BowerbirdStorage(Storage):
 		query = 'delete from recordings where id=%d' % next_recording.id
 		self.runQueryRaw(query)
 
+		# get previous merges related to these records
+		if file_merges.has_key(prev_recording.id):
+			prev_merges = file_merges[prev_recording.id]
+		else:
+			prev_merges = [prev_recording.abspath]
+		if file_merges.has_key(next_recording.id):
+			next_merges = file_merges[next_recording.id]
+			# remove the obsolete entry
+			del file_merges[next_recording.id]
+		else:
+			next_merges = [next_recording.abspath]
+
 		if recording_file:
 			# add new file to links
 			query = ('insert into "%s" values(NULL, %d, %d)'
 					% (LINKS_TABLE, prev_recording.id, recording_file.id))
 			self.runQueryRaw(query)
+			prev_merges.append(recording_file.path)
+
+		prev_merges.extend(next_merges)
+		file_merges[prev_recording.id] = prev_merges
+
+		# remember the file to be deleted
+		file_deletes.append(next_recording.abspath)
 
 
-	def addFileToRecording(self, recording, recording_file):
+	def addFileToRecording(self, recording, recording_file, file_merges):
 		assert isinstance(recording, Recording), ('next_recording must be '
 				'a Recording, not a %s' % next_recording.__class__.__name__)
 		assert isinstance(recording_file, RecordingFile), (
 				'recording_file must be a RecordingFile, not a %s'
 				% recording_file.__class__.__name__)
 
+		# get previous merges related to this record
+		if file_merges.has_key(recording.id):
+			merges = file_merges[recording.id]
+		else:
+			merges = [recording.abspath]
+
 		# expand the recording to include the time covered by the file
-		query = ('update "%s" set start_time="%s", finish_time="%s" where '
-				'id=%d' % (RECORDINGS_TABLE,
-				min(recording.start_time, recording_file.start).isoformat(),
-				max(recording.finish_time, recording_file.finish).isoformat(),
-				recording.id))
-		self.runQueryRaw(query)
+		if recording_file.start < recording.start_time:
+			assignment = 'start_time="%s"' % recording_file.start.isoformat()
+			merges.insert(0, recording_file.path)
+		elif recording_file.finish > recording.finish_time:
+			assignment = 'finish_time="%s"' % recording_file.finish.isoformat()
+			merges.append(recording_file.path)
+		else:
+			raise ValueError('file "%s" does not expand recording "%s"'
+					% (recording_file, recording))
+
+		self.runQueryRaw('update "%s" set %s where id=%d'
+					% (RECORDINGS_TABLE, assignment, recording.id))
+		file_merges[recording.id] = merges
+
 		# link the file to the recording
 		query = ('insert into "%s" values(NULL, %d, %d)'
 				% (LINKS_TABLE, recording.id, recording_file.id))
 		self.runQueryRaw(query)
 
 
-	def createNewRecordingFromFile(self, recording_file, matched_schedule=None):
+	def createNewRecordingFromFile(self, recording_file, matched_schedule,
+			file_merges):
 		assert isinstance(recording_file, RecordingFile), (
 				'recording_file parameter must be a RecordingFile, not a "%s"'
 				% recording_file.__class__.__name__)
@@ -496,41 +600,42 @@ class BowerbirdStorage(Storage):
 				recording_file.start.isoformat(),
 				recording_file.finish.isoformat(),
 				matched_schedule.start.isoformat(),
-				matched_schedule.finish.isoformat()))
+				matched_schedule.finish.isoformat(),
+				))
 		self.runQueryRaw(query)
 
+		# get the new recording_id
+		query = ('select id from "%s" where title = "%s" '
+				'and start_time = "%s" and finish_time = "%s" '
+				% (RECORDINGS_TABLE, matched_schedule.title,
+				recording_file.start.isoformat(),
+				recording_file.finish.isoformat()))
+		recording_id, = self.runQueryRawSingleResponse(query)
+
 		# add link between file and recording
-		query = ('insert into %(links_table)s ("recording_id", "file_id") '
-				'select recording.id, file.id '
-				'from %(recordings_table)s as recording, '
-				'%(recording_files)s as file '
-				'where recording.start_time = "%(start)s" '
-				'and recording.finish_time = "%(finish)s" '
-				'and file.path = "%(file)s"'
-				% {'links_table': LINKS_TABLE,
-				'recordings_table': RECORDINGS_TABLE,
-				'recording_files': FILES_TABLE,
-				'start': recording_file.start.isoformat(),
-				'finish': recording_file.finish.isoformat(),
-				'file': recording_file.path})
+		query = ('insert into %s values (NULL, %d, %d) '
+				% (LINKS_TABLE, recording_id, recording_file.id))
 		self.runQueryRaw(query)
+
+		# add file operation
+		file_merges[recording_id] = [recording_file.path]
 
 
 	def getRootDir(self):
-		return self._config.getValue2(common.CAPTURE_SECTION_NAME,
-				common.CAPTURE_ROOT_DIR_KEY)
+		return self._config.getValue2(CAPTURE_SECTION_NAME,
+				CAPTURE_ROOT_DIR_KEY)
 
 
-	def getRecordingExt(self):
-		return self._config.getValue2(common.CAPTURE_SECTION_NAME,
-				common.CAPTURE_FILE_EXT_KEY)
+	def getRecordingExtension(self):
+		return self._config.getValue2(CAPTURE_SECTION_NAME,
+				CAPTURE_FILE_EXT_KEY)
 
 
 	def getFileDuration(self):
 		return datetime.timedelta(seconds = int(self._config.getValue2(
-				common.CAPTURE_SECTION_NAME, common.CAPTURE_BUFFER_FRAMES_KEY))
-				/ int(self._config.getValue2(common.CAPTURE_SECTION_NAME,
-						common.CAPTURE_SAMPLING_RATE)))
+				CAPTURE_SECTION_NAME, CAPTURE_BUFFER_FRAMES_KEY))
+				/ int(self._config.getValue2(CAPTURE_SECTION_NAME,
+						CAPTURE_SAMPLING_RATE)))
 
 
 	def getCategories(self, sort_key=None, sort_order='asc'):
@@ -633,11 +738,17 @@ class ProxyStorage(Storage):
 	'''Handles the details of storing info about previous connections made,
 	   and recordings in the database'''
 
-	REQUIRED_TABLES = ['previous_connections']
-	REQUIRED_TABLE_INIT = {
-			'previous_connections' : 'name, address, last_connected, '
-					'times_connected'
+	__REQUIRED_TABLES = {PREVIOUS_CONNECTIONS_TABLE: 'name TEXT, address TEXT, '
+			'last_connected TEXT, times_connected INTEGER'
 			}
+
+
+	def __init__(self, database_file, root_dir):
+		Storage.__init__(self, database_file, root_dir)
+
+		# ensure all required tables exist
+		self._ensureTablesExist(ProxyStorage.__REQUIRED_TABLES)
+
 
 	def addConnection(self, name, address):
 		# check it's not a known address
@@ -648,12 +759,12 @@ class ProxyStorage(Storage):
 			times_connected = response['times_connected'] + 1
 			self.runQueryRaw('update previous_connections set name="%s", '
 					'last_connected="%s", times_connected=%d where address="%s"'
-					% (name, getFormattedCurrentTime(), times_connected,
+					% (name, getCurrentTimeCString(), times_connected,
 						address))
 		else:
 			self.runQueryRaw('insert into previous_connections values '
 					'("%s", "%s", "%s", 1)'
-					% (name, address, getFormattedCurrentTime()))
+					% (name, address, getCurrentTimeCString()))
 
 
 	def removeConnection(self, address):
@@ -668,31 +779,101 @@ class ProxyStorage(Storage):
 		return self.runQuery(query)
 
 
+
+class Recording():
+	def __init__(self, recordings_dir, extension, dict):
+		self.id = int(dict['id'])
+		self.title = dict['title']
+		self.start_date = parseDateIso(dict['start_date'])
+		self.start_time = parseDateTimeIso(dict['start_time'])
+		self.finish_time = parseDateTimeIso(dict['finish_time'])
+		self.start_limit = parseDateTimeIso(dict['start_limit'])
+		self.finish_limit = parseDateTimeIso(dict['finish_limit'])
+		self.extension = extension
+		date_str = formatDateIso(self.start_date)
+		self.path = '%s/%s %s %s%s' % (date_str, self.title, date_str,
+				formatTimeUI(self.start_time), extension)
+		self.abspath = os.path.join(recordings_dir, self.path)
+
+	def isTitled(self):
+		return self.title != UNTITLED
+
+	def fileExists(self):
+		return os.path.exists(self.abspath)
+
+	def __str__(self):
+		return '%s (%d): %s - %s [%s - %s]' % (self.title, self.id,
+				formatTimeUI(self.start_time), formatTimeUI(self.finish_time),
+				formatTimeUI(self.start_limit), formatTimeUI(self.finish_limit))
+
+ 	def getSubRangeFile(self, start, finish):
+		# open a tempfile, then use its name as the destination for sox
+		with tempfile.NamedTemporaryFile(suffix=self.extension) as tmp:
+			# use sox's trim command which takes 2 args: start_offset & duration
+			command = [SOX_PATH, '-q', self.abspath, tmp.name,
+					'trim']
+			# determine the start and finish times to send to trim
+			if start:
+				command.append(formatTimeDelta(start - self.start_time))
+			else:
+				command.append('0')
+			if finish:
+				command.append(formatTimeDelta(finish - start))
+			subprocess.call(command)
+			return tmp.name
+
+
+class RecordingFile():
+	def __init__(self, dict, duration):
+		self.id = int(dict['id'])
+		self.path = dict['path']
+		self.finish = getTimestampFromFilePath(self.path)
+		self.start = self.finish - duration
+
+	def __str__(self):
+		return '%s (%d): %s - %s' % (self.path, self.id,
+				formatTimeUI(self.start, show_seconds=True),
+				formatTimeUI(self.finish, show_seconds=True))
+
+
 def getTimestampFromFilePath(file_path):
-	return convertIsoStringToDateTime(os.path.splitext(file_path.replace(
+	return parseDateTimeIso(os.path.splitext(file_path.replace(
 			'/', 'T'))[0])
 
 
-def convertIsoStringToDateTime(iso_datetime):
-	# ISO string is allowed to omit microseconds if they're zero
-	if iso_datetime.count('.'):
-		return datetime.datetime.strptime(iso_datetime, '%Y-%m-%dT%H:%M:%S.%f')
-	return datetime.datetime.strptime(iso_datetime,'%Y-%m-%dT%H:%M:%S')
+def concatSoundFiles(dest, sources):
+	'''concatenate all the source audio files to the destination file.
+		TODO: look into using sox's "splice" command to smooth joins.'''
 
+	# make sure destination directory exists
+	ensureDirectoryExists(os.path.dirname(dest))
 
-def convertIsoStringToTime(iso_time):
-	# ISO string is allowed to omit microseconds if they're zero
-	if iso_time.count('.'):
-		return datetime.datetime.strptime(iso_time,'%H:%M:%S.%f').time()
-	return datetime.datetime.strptime(iso_time,'%H:%M:%S').time()
+	# escape spaces for the shell
+	uncompressed_dest = dest.replace('.wv', '.wav')
 
+	# I've discovered that the quickest way to concat wavpack files
+	# is to concat them (with sox) to an uncompressed file, then compress it
 
-def convertIsoStringToDate(iso_date):
-	return datetime.datetime.strptime(iso_date,'%Y-%m-%d').date()
+	# make sure the uncompressed version of the destination file
+	# doesn't exist already (to prevent questions from sox)
+	if os.path.exists(uncompressed_dest):
+		os.remove(uncompressed_dest)
 
+	# construct command for sox, then run it
+	command = [SOX_PATH, '-q']
+	command.extend(sources)
+	command.append(uncompressed_dest)
+	subprocess.call(command)
 
-def getFormattedCurrentTime():
-	return datetime.datetime.now().ctime()
+	# make sure the destination file doesn't exist already
+	# (to prevent questions from wavpack)
+	if os.path.exists(dest):
+		os.remove(dest)
+
+	# run wavpack command (not using outfile argument because wavpack treats
+	# it as an input (-d used to delete raw wav file)
+	command = [WAVPACK_PATH, '-q', '-d', uncompressed_dest]
+	subprocess.call(command)
 
 
 def test():

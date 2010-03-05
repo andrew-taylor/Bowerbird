@@ -1,9 +1,9 @@
 import os, sys, time, string
 from copy import deepcopy
+
+from bowerbird.common import SECTION_META_KEY, convertConfig
 from bowerbird.configobj import ConfigObj
-from lib.odict import OrderedDict
-from lib.common import SECTION_META_KEY
-from convert_config_for_sh import convertConfig
+from bowerbird.odict import OrderedDict
 
 
 COMMENTS_LINE_DELIMITER = '___'
@@ -53,14 +53,15 @@ class ConfigParser(object):
 		self.filename = config_filename
 		self.cache = {}
 		if config_filename:
-			self.__readFromFile(self.filename, self.cache)
+			self.__updateCacheFromFile(self.filename, self.cache)
 		else:
 			self.__initCache(self.cache)
 
 		self.defaults_filename = config_defaults_filename
 		self.defaults_cache = {}
 		if config_defaults_filename:
-			self.__readFromFile(self.defaults_filename, self.defaults_cache)
+			self.__updateCacheFromFile(self.defaults_filename,
+					self.defaults_cache)
 		else:
 			self.__initCache(self.defaults_cache)
 
@@ -76,21 +77,22 @@ class ConfigParser(object):
 
 	def getValues(self):
 		# update if file has been modified
-		self.__readFromFile(self.filename, self.cache)
+		self.__updateCacheFromFile(self.filename, self.cache)
 		# return a copy
 		return deepcopy(self.cache[K_VAL])
 
 	def getDefaultValues(self):
 		# update if file has been modified
 		if self.defaults_filename:
-			self.__readFromFile(self.defaults_filename, self.defaults_cache)
+			self.__updateCacheFromFile(self.defaults_filename,
+					self.defaults_cache)
 			# return a copy
 			return deepcopy(self.defaults_cache[K_VAL])
 		return None
 
 	def getValue1(self, key):
 		# update if file has been modified
-		self.__readFromFile(self.filename, self.cache)
+		self.__updateCacheFromFile(self.filename, self.cache)
 
 		# use try/catch because most of the time key will be there
 		try:
@@ -206,7 +208,7 @@ class ConfigParser(object):
 			convertConfig(self.cache[K_OBJ], save_file)
 
 
-	def __readFromFile(self, filename, cache):
+	def __updateCacheFromFile(self, filename, cache):
 		if cache and cache.has_key(K_OBJ):
 			# if already loaded and file hasn't changed then use cached value
 			# if config_obj exists, timestamp should too

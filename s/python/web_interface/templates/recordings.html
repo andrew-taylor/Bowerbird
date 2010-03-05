@@ -11,6 +11,13 @@
     <script type="text/javascript" src="/media/jscalendar/calendar-setup.js"></script>
   </head>
   <body>
+    <?python
+	from bowerbird.common import formatTimeUI, formatDateUI, DATE_FORMAT_UI
+	import cherrypy
+	url = cherrypy.request.path_info
+    ?>
+
+
     <h1>Recordings</h1>
 	<!--! Display any errors -->
 	<div py:if="value_of('errors')" class="error">
@@ -22,10 +29,12 @@
 
 	<!--! display calendar of recordings -->
 	<div>
-	    <form method="POST" action="?">
+	    <form method="POST" action="${url}">
 		<div class="nav_buttons">
-		    <input type="submit" name="go_to_start" value="Go To Start" />
-		    <input type="submit" name="go_to_finish" value="Go To Finish" />
+		    <input type="submit" name="go_to_start" value="Go To Start"
+				disabled="${not filter_start or None}" />
+		    <input type="submit" name="go_to_finish" value="Go To Finish"
+				disabled="${not filter_finish or None}" />
 		    <input type="submit" name="go_to_today" value="Go To Today" />
 		</div>
 		<div class="filter_buttons">
@@ -40,12 +49,12 @@
 			</py:for>
 		    </select>
 		    &nbsp; Start:
-		    <input class="datetime" type="text" id="start"
+		    <input class="date" type="text" id="start"
 			    name="filter_start" value="${filter_start}" />
 		    <input type="image" id="start_trigger"
 			src="/media/calendar.png" />
 		    &nbsp; Finish:
-		    <input class="datetime" type="text" id="finish"
+		    <input class="date" type="text" id="finish"
 			    name="filter_finish" value="${filter_finish}" />
 		    <input type="image" id="finish_trigger"
 			src="/media/calendar.png" />
@@ -67,11 +76,12 @@
 		    default_start = ''
 		    default_finish = ''
 	    ?>
+
 	    <script type="text/javascript">
 	      Calendar.setup(
 		{
 		  inputField  : "start",         // ID of the input field
-		  ifFormat    : "%d/%m/%Y",    // the date format
+		  ifFormat    : "${DATE_FORMAT_UI}",    // the date format
 		  button      : "start_trigger",       // ID of the button
 		  date        : "${default_start}",
 		  timeFormat  : "24",
@@ -84,7 +94,7 @@
 	      Calendar.setup(
 		{
 		  inputField  : "finish",         // ID of the input field
-		  ifFormat    : "%d/%m/%Y",    // the date format
+		  ifFormat    : "${DATE_FORMAT_UI}",    // the date format
 		  button      : "finish_trigger",       // ID of the button
 		  date        : "${default_finish}",
 		  timeFormat  : "24",
@@ -102,45 +112,49 @@
 	<py:choose test="">
 	<!--! Display selected recording -->
 	<div py:when="value_of('selected_recording')">
-	    <form method="POST" action="?">
+	    <form method="POST" action="${url}">
 	    <h2>Selected Recording
 		<input class="clear" type="submit"
-			name="set_recording_id" value="X" />
+			name="clear_recording_id" value="X" />
+		<input type="hidden" name="recording_id"
+			value="${selected_recording.id}" />
+		<input type="submit" name="set_filter_title"
+			value="Show ${selected_recording.title}" />
+		<input type="submit" name="set_filter_start"
+			value="Set Start" />
+		<input type="submit" name="set_filter_finish"
+			value="Set Finish" />
 	    </h2>
-	    </form>
-	    <?python from lib.common import compactTimeFormat ?>
 	    <table class="selected_recordings">
 		<tr>
 		<th class="selected_recordings">Title</th>
 		<th class="selected_recordings">Date</th>
 		<th class="selected_recordings">Time</th>
-		<th class="selected_recordings">Actions</th>
+		<th class="selected_recordings">Export</th>
 		</tr>
 		<tr>
 		    <td class="selected_recordings">${selected_recording.title}</td>
 		    <td class="selected_recordings">
-			${selected_recording.start_date.strftime("%d/%m/%y")}</td>
+			${formatDateUI(selected_recording.start_date)}</td>
 		    <td class="selected_recordings">
-			${compactTimeFormat(selected_recording.start_time)} to
-			${compactTimeFormat(selected_recording.finish_time)}
+			${formatTimeUI(selected_recording.start_time, show_seconds=True)} to
+			${formatTimeUI(selected_recording.finish_time, show_seconds=True)}
 		    </td>
 		    <td class="selected_recordings">
-			<form method="POST" action="?">
-			    <input type="hidden" name="recording_id"
-				    value="${selected_recording.id}" />
-			    <input type="submit" name="set_filter_title"
-				    value="Show ${selected_recording.title}" />
-			    <input type="submit" name="set_filter_start"
-				    value="Set Start" />
-			    <input type="submit" name="set_filter_finish"
-				    value="Set Finish" />
-			</form>
+			<input id="export_start" class="time" name="export_start"
+				value="${formatTimeUI(selected_recording.start_time, show_seconds=True)}" />
+			to
+			<input id="export_finish" class="time" name="export_finish"
+				value="${formatTimeUI(selected_recording.finish_time, show_seconds=True)}" />
+			<input type="submit" name="export_recording" value="Export"
+				disabled="${not selected_recording.fileExists() or None}" />
 		    </td>
 		</tr>
 	    </table>
+	    </form>
 	</div>
 
-	<!--! Display recordings for a selected date -->
+	<!--! Display recordings for a selected date (or date range) -->
 	<div py:when="value_of('selected_recordings')">
 	    <?python
 		if value_of('selected_date'):
@@ -151,7 +165,7 @@
 		    heading = 'Selected Recordings'
 		    clear_button_name = 'reset_filter'
 	    ?>
-	    <form method="POST" action="?">
+	    <form method="POST" action="${url}">
 	    <h2>${heading}
 		<input class="clear" type="submit"
 			name="${clear_button_name}" value="X" />
@@ -161,9 +175,10 @@
 		<input type="submit" name="set_filter_finish"
 			value="Set Finish" />
 		</py:if>
+		<input type="submit" name="export_selection"
+			value="Export Selection" />
 	    </h2>
 	    </form>
-	    <?python from lib.common import compactTimeFormat ?>
 	    <table class="selected_recordings">
 		<tr>
 		<th class="selected_recordings">Title</th>
@@ -174,20 +189,21 @@
 		<th class="selected_recordings">Update Filter</th>
 		</tr>
 		<tr py:for="rec in selected_recordings">
-		    <form method="POST" action="?">
+		    <form method="POST" action="${url}">
 		    <input type="hidden" name="recording_id" value="${rec.id}" />
 		    <td class="selected_recordings">${rec.title}</td>
 		    <td py:if="not value_of('selected_date')"
 			class="selected_recordings">${rec.start_date}</td>
 		    <td class="selected_recordings">
-			${compactTimeFormat(rec.start_time)} to
-			${compactTimeFormat(rec.finish_time)}
+			${formatTimeUI(rec.start_time, compact=True)} to
+			${formatTimeUI(rec.finish_time, compact=True)}
 		    </td>
 		    <td class="selected_recordings">
 			<input type="submit" name="set_recording_id"
 				value="Select" />
 			<input type="submit" name="export_recording"
-				value="Export" />
+				value="Export"
+				disabled="${not rec.fileExists() or None}"/>
 		    </td>
 		    <td class="selected_recordings">
 			<input type="submit" name="set_filter_title"
