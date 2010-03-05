@@ -5,9 +5,10 @@ from genshi import HTML
 from cStringIO import StringIO
 from urllib import urlencode
 
-from lib import common, storage, ajax, template
-from lib.configparser import ConfigParser
-from lib.storage import ProxyStorage
+from bowerbird.common import *
+from bowerbird.configparser import ConfigParser
+from bowerbird.storage import ProxyStorage
+from lib import ajax, template
 from lib.zeroconfscanner import ZeroconfScanner
 
 # web interface config file
@@ -41,8 +42,7 @@ class Root(object):
 		self.db = ProxyStorage(database_file, root_dir)
 
 		# create the zeroconf scanner to detect local bowerbirds
-		self.scanner = ZeroconfScanner(common.ZEROCONF_TYPE,
-				ZEROCONF_SCAN_TIME_MS)
+		self.scanner = ZeroconfScanner(ZEROCONF_TYPE, ZEROCONF_SCAN_TIME_MS)
 
 
 	@cherrypy.expose
@@ -121,7 +121,7 @@ class Root(object):
 		bowerbirds = []
 		for service in self.scanner:
 			if (service.has_key('magic') and service['magic']
-					== common.ZEROCONF_TEXT_TO_IDENTIFY_BOWERBIRD):
+					== ZEROCONF_TEXT_TO_IDENTIFY_BOWERBIRD):
 				name = service['name']
 				# strip the wrapper from the name
 				name = name[name.find('[')+1 : name.rfind(']')]

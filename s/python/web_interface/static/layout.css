@@ -299,8 +299,12 @@ div.nav_buttons, div.filter_buttons {
 	margin: 5pt 0pt
 }
 
-input.datetime {
+input.date {
 	width: 60pt
+}
+
+input.time {
+	width: 45pt
 }
 
 button.datetime {
