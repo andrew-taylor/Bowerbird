@@ -38,7 +38,7 @@ def main():
 		storage.clearRecordings()
 
 	# call the update method
-	storage.updateRecordings(options.force_rescan, options.verbose)
+	storage.updateRecordingsFromFiles(options.force_rescan, options.verbose)
 
 
 if __name__ == '__main__':

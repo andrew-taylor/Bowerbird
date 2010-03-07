@@ -30,7 +30,12 @@ UNTITLED = 'Untitled'
 class Storage(object):
 	'''Handles the details of storing data in an sqlite db'''
 
-	__REQUIRED_TABLES = {CONFIG_TABLE: 'key TEXT, value TEXT'}
+	__REQUIRED_TABLES = {
+			CONFIG_TABLE: 'key TEXT, value TEXT',
+			RECORDINGS_TABLE: 'id INTEGER PRIMARY KEY, station TEXT, '
+					'title TEXT, start_date TEXT, start_time TEXT, '
+					'finish_time TEXT, start_limit TEXT, finish_limit TEXT'
+			}
 
 
 	def __init__(self, database_file, root_dir):
@@ -134,13 +139,77 @@ class Storage(object):
 		self.runQueryRaw(query)
 
 
+	def getRecording(self, record_id):
+		query = 'select * from "%s" where id=%d' % (RECORDINGS_TABLE, record_id)
+		return Recording(self._recordings_dir, self._recording_extension,
+				self.runQuerySingleResponse(query))
+
+
+	def getRecordings(self, date=None, station=None, title=None,
+			min_start_date=None, max_finish_date=None):
+		assert date==None or type(date) == datetime.date, (
+				'date parameter must be a date, not a "%s"' % type(date))
+		assert min_start_date==None or type(min_start_date) == datetime.date, (
+				'date parameter must be a date, not a "%s"'
+				% type(min_start_date))
+		assert max_finish_date==None or type(max_finish_date) == datetime.date, (
+				'date parameter must be a date, not a "%s"'
+				% type(max_finish_date))
+		query = 'select * from "%s"' % RECORDINGS_TABLE
+		conjunction = 'where'
+		if date:
+			query += ' %s start_date = "%s"' % (conjunction, date.isoformat())
+			conjunction = 'and'
+		if station:
+			query += ' %s station = "%s"' % (conjunction, station)
+			conjunction = 'and'
+		if title:
+			query += ' %s title = "%s"' % (conjunction, title)
+			conjunction = 'and'
+		if min_start_date:
+			query += ' %s start_time >= "%s"' % (conjunction, min_start_date)
+			conjunction = 'and'
+		if max_finish_date:
+			# add a day to finish day and check inequality
+			query += ' %s finish_time < "%s"' % (conjunction,
+					max_finish_date + datetime.timedelta(1))
+			conjunction = 'and'
+		# sort increasing by start time
+		query += ' order by start_time'
+		return (Recording(self._recordings_dir, self._recording_extension, row)
+				for row in self.runQuery(query))
+
+
+	def getRecordingsAtTime(self, time):
+		assert type(time) == datetime.datetime, ('time parameter must be a '
+				'datetime, not a "%s"' % type(time))
+		# check that the given time is not only overlaps the recording, but also
+		# is within the limits of the recording (from the schedule)
+		query = ('select * from %(table)s where "%(time)s" between start_time '
+				'and finish_time and "%(time)s" between start_limit and '
+				'finish_limit'
+				% {'table': RECORDINGS_TABLE, 'time': time.isoformat()})
+		return (Recording(self._recordings_dir, self._recording_extension, row)
+				for row in self.runQuery(query))
+
+
+	def clearRecordings(self):
+		# delete all recording table entries
+		self.runQueryRaw('delete from "%s"' % RECORDINGS_TABLE)
+		# reset timestamp
+		self.dir_timestamp = -1
+		# delete all constructed recording files
+		for root, dirs, files in os.walk(self._recordings_dir, topdown=False):
+			for name in files:
+				os.remove(os.path.join(root, name))
+			for name in dirs:
+				os.rmdir(os.path.join(root, name))
+
+
 class BowerbirdStorage(Storage):
 	'''Handles the details of storing data about calls and categories'''
 
 	__REQUIRED_TABLES = {
-			RECORDINGS_TABLE: 'id INTEGER PRIMARY KEY, title TEXT, '
-					'start_date TEXT, start_time TEXT, finish_time TEXT, '
-					'start_limit TEXT, finish_limit TEXT',
 			FILES_TABLE: 'id INTEGER PRIMARY KEY, path TEXT',
 			LINKS_TABLE: 'id INTEGER PRIMARY KEY, '
 					'recording_id INTEGER, file_id INTEGER',
@@ -186,59 +255,15 @@ class BowerbirdStorage(Storage):
 		self.writeToConfigTable(CONFIG_TABLE_TIMESTAMP_KEY, value)
 
 
-	def getRecording(self, record_id):
-		query = 'select * from "%s" where id=%d' % (RECORDINGS_TABLE, record_id)
-		return Recording(self._recordings_dir, self._recording_extension,
-				self.runQuerySingleResponse(query))
-
-
-	def getRecordings(self, date=None, title=None, min_start_date=None,
-			max_finish_date=None):
-		assert date==None or type(date) == datetime.date, (
-				'date parameter must be a date, not a "%s"' % type(date))
-		assert min_start_date==None or type(min_start_date) == datetime.date, (
-				'date parameter must be a date, not a "%s"'
-				% type(min_start_date))
-		assert max_finish_date==None or type(max_finish_date) == datetime.date, (
-				'date parameter must be a date, not a "%s"'
-				% type(max_finish_date))
-		query = 'select * from "%s"' % RECORDINGS_TABLE
-		conjunction = 'where'
-		if date:
-			query += ' %s start_date = "%s"' % (conjunction, date.isoformat())
-			conjunction = 'and'
-		if title:
-			query += ' %s title = "%s"' % (conjunction, title)
-			conjunction = 'and'
-		if min_start_date:
-			query += ' %s start_time >= "%s"' % (conjunction, min_start_date)
-			conjunction = 'and'
-		if max_finish_date:
-			# add a day to finish day and check inequality
-			query += ' %s finish_time < "%s"' % (conjunction,
-					max_finish_date + datetime.timedelta(1))
-			conjunction = 'and'
-		# sort increasing by start time
-		query += ' order by start_time'
-		return (Recording(self._recordings_dir, self._recording_extension, row)
-				for row in self.runQuery(query))
-
-
-	def clearRecordings(self):
-		# delete all table entries
-		for table in (RECORDINGS_TABLE, LINKS_TABLE, FILES_TABLE):
+	def clearRecordingFiles(self):
+		# delete all recording files and links entries
+		for table in LINKS_TABLE, FILES_TABLE:
 			self.runQueryRaw('delete from "%s"' % table)
 		# reset timestamp
 		self.dir_timestamp = -1
-		# delete all constructed recording files
-		for root, dirs, files in os.walk(self._recordings_dir, topdown=False):
-			for name in files:
-				os.remove(os.path.join(root, name))
-			for name in dirs:
-				os.rmdir(os.path.join(root, name))
 
 
-	def updateRecordings(self, force_rescan=False, verbose=False):
+	def updateRecordingsFromFiles(self, force_rescan=False, verbose=False):
 		'''Scan the storage directories and update the recordings table.
 		Warning: this will take a lot of time, so should not be called by the
 		web interface'''
@@ -449,19 +474,6 @@ class BowerbirdStorage(Storage):
 	def addRecordingFile(self, file_path):
 		query = 'insert into "%s" values(NULL, "%s")' % (FILES_TABLE, file_path)
 		self.runQueryRaw(query)
-
-
-	def getRecordingsAtTime(self, time):
-		assert type(time) == datetime.datetime, ('time parameter must be a '
-				'datetime, not a "%s"' % type(time))
-		# check that the given time is not only overlaps the recording, but also
-		# is within the limits of the recording (from the schedule)
-		query = ('select * from %(table)s where "%(time)s" between start_time '
-				'and finish_time and "%(time)s" between start_limit and '
-				'finish_limit'
-				% {'table': RECORDINGS_TABLE, 'time': time.isoformat()})
-		return (Recording(self._recordings_dir, self._recording_extension, row)
-				for row in self.runQuery(query))
 
 
 	def getFilesForRecording(self, recording_id):
@@ -783,6 +795,7 @@ class ProxyStorage(Storage):
 class Recording():
 	def __init__(self, recordings_dir, extension, dict):
 		self.id = int(dict['id'])
+		self.station = dict['station']
 		self.title = dict['title']
 		self.start_date = parseDateIso(dict['start_date'])
 		self.start_time = parseDateTimeIso(dict['start_time'])
@@ -802,7 +815,8 @@ class Recording():
 		return os.path.exists(self.abspath)
 
 	def __str__(self):
-		return '%s (%d): %s - %s [%s - %s]' % (self.title, self.id,
+		return '%s[%s] (%d): %s - %s [%s - %s]' % (self.title, self.station,
+				self.id,
 				formatTimeUI(self.start_time), formatTimeUI(self.finish_time),
 				formatTimeUI(self.start_limit), formatTimeUI(self.finish_limit))
 

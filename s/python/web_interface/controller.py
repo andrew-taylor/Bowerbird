@@ -249,6 +249,8 @@ class Root(object):
 		if rescan_disk:
 			# Clear all recordings. The cron job will do the scanning/refilling.
 			self._storage.clearRecordings()
+			# Clear all recording file entries
+			self._storage.clearRecordingFiles()
 
 		if reset_filter:
 			filter_title = None
@@ -290,30 +292,37 @@ class Root(object):
 
 			# bypass export if there were errors
 			if not errors:
-				# if sub-section of the recording is requested, generate it
-				if export_start_time or export_finish_time:
-					# create the subrange file and a special filename
-					# (and update recording_filepath to point to it)
-					recording_filepath = recording.getSubRangeFile(export_start_time,
-							export_finish_time)
+				try:
+					# if sub-section of the recording is requested, generate it
+					if export_start_time or export_finish_time:
+						# create the subrange file and a special filename
+						# (and update recording_filepath to point to it)
+						recording_filepath = recording.getSubRangeFile(
+								export_start_time, export_finish_time)
 
-					# create a special name
-					base, ext = os.path.splitext(served_filename)
-					# use export times if defined, otherwise use recording's
-					served_filename = ('%s (%s to %s)%s' % (base,
-							formatTimeUI(export_start_time or recording.start_time,
-									show_seconds=True),
-							formatTimeUI(export_finish_time or recording.finish_time,
-									show_seconds=True),
-							ext))
+						# create a special name
+						base, ext = os.path.splitext(served_filename)
+						# use export times if defined, otherwise use recording's
+						served_filename = ('%s (%s to %s)%s' % (base,
+								formatTimeUI(export_start_time
+										or recording.start_time,
+										show_seconds=True),
+								formatTimeUI(export_finish_time
+										or recording.finish_time,
+										show_seconds=True),
+								ext))
 
-				# use cherrypy utility to push the file for download. This also
-				# means that we don't have to move the config file into the
-				# web-accessible filesystem hierarchy
-				return cherrypy.lib.static.serve_file(recording_filepath,
-						"application/x-download", "attachment", served_filename)
+					# use cherrypy utility to push the file for download. This
+					# also means that we don't have to move the config file into
+					# the web-accessible filesystem hierarchy
+					return cherrypy.lib.static.serve_file(recording_filepath,
+							"application/x-download", "attachment",
+							served_filename)
+				except Exception, inst:
+					errors.append('Error exporting recording: %s' % inst)
 
-		# update filters
+
+			# update filters
 		if update_filter:
 			# filtering on title
 			if filter_title == NO_FILTER_TITLE:
@@ -405,41 +414,50 @@ class Root(object):
 			else:
 				selected_date = getSession(SESSION_DATE_KEY)
 
-		if selected_date or (filter_start and filter_finish):
+		if selected_date:
 			# must convert generator to a list
 			selected_recordings = list(self._storage.getRecordings(
-					selected_date, filter_title, filter_start, filter_finish))
+					date=selected_date))
+		elif filter_start and filter_finish:
+			# must convert generator to a list
+			selected_recordings = list(self._storage.getRecordings(
+					title=filter_title,
+					min_start_date=filter_start, max_finish_date=filter_finish))
 
 		# if export selection is requested, then zip up all files and send them
 		if export_selection and selected_recordings:
-			with tempfile.NamedTemporaryFile(suffix='.zip') as tmp:
-				# the file transfer can take a long time; by default cherrypy
-				# limits responses to 300s; we increase it to 1h
-				cherrypy.response.timeout = 3600
-				try:
-					# create the zipfile
-					archive = ZipFile(tmp.name, 'w')
-					# add all the recording files
-					for recording in selected_recordings:
-						archive.write(recording.abspath, recording.path)
-				finally:
-					# safer this way
-					archive.close()
+			try:
+				with tempfile.NamedTemporaryFile(suffix='.zip') as tmp:
+					# the file transfer can take a long time; by default
+					# cherrypy limits responses to 300s; we increase it to 1h
+					cherrypy.response.timeout = 3600
+					try:
+						# create the zipfile
+						archive = ZipFile(tmp.name, 'w')
+						# add all the recording files
+						for recording in selected_recordings:
+							archive.write(recording.abspath, recording.path)
+					finally:
+						# safer this way
+						archive.close()
 
-				# create a suitable name for the export
-				if selected_date:
-					served_filename = ('Recordings_%s.zip'
-							% formatDateIso(selected_date))
-				else:
-					served_filename = ('Recordings_%s_to_%s.zip'
-							% (formatDateIso(filter_start),
-							formatDateIso(filter_finish)))
+					# create a suitable name for the export
+					if selected_date:
+						served_filename = ('Recordings_%s.zip'
+								% formatDateIso(selected_date))
+					else:
+						served_filename = ('Recordings_%s_to_%s.zip'
+								% (formatDateIso(filter_start),
+								formatDateIso(filter_finish)))
 
-				# use cherrypy utility to push the file for download. This also
-				# means that we don't have to move the config file into the
-				# web-accessible filesystem hierarchy
-				return cherrypy.lib.static.serve_file(tmp.name,
-						"application/x-download", "attachment", served_filename)
+					# use cherrypy utility to push the file for download. This
+					# also means that we don't have to move the config file into
+					# the web-accessible filesystem hierarchy
+					return cherrypy.lib.static.serve_file(tmp.name,
+							"application/x-download", "attachment",
+							served_filename)
+			except Exception, inst:
+				errors.append('Error exporting recordings: %s' % inst)
 
 		# determine which days to highlight
 		# always show today
