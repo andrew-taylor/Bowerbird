@@ -3,6 +3,7 @@
       xmlns:xi="http://www.w3.org/2001/XInclude"
       xmlns:py="http://genshi.edgewall.org/">
   <xi:include href="layout.html" />
+  <xi:include href="common.html" />
   <head>
 	  <title>Call Browser</title>
   </head>
@@ -13,8 +14,8 @@
 	  <!--! function defined in layout.html -->
 	  ${call_table(calls, sort, sort_order)}
 	  <p>
-	  Click on call time to go to call web page. 
-	  This page contains more detailed information including example 
+	  Click on call time to go to call web page.
+	  This page contains more detailed information including example
 	  audio and sonagrams. You label or modify the call from this page.
 	  </p>
 	  </py:if>

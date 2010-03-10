@@ -3,6 +3,75 @@
       xmlns:xi="http://www.w3.org/2001/XInclude"
       xmlns:py="http://genshi.edgewall.org/">
   <xi:include href="layout.html" />
+    <?python
+	import cherrypy
+	from bowerbird.common import formatTimeUI, formatDateUI, DATE_FORMAT_UI
+	from lib.common import isRecordingInQueue
+	url = cherrypy.request.path_info
+    ?>
+
+    <!--! common export button generation -->
+    <py:def function="export_recording_button(recording)">
+	<?python
+	    if recording.fileExists():
+		mode = 'export'
+	    elif isRecordingInQueue(recording, value_of('transfer_queue')):
+		mode = 'already_retrieving'
+	    elif (value_of('is_proxy') and
+		    value_of('station') == recording.station):
+		mode = 'retrieve'
+	    else:
+		mode = 'disabled_export'
+	?>
+	<py:choose test="mode">
+	    <input py:when="'export'" type="submit" name="export_recording"
+		    value="Export" />
+	    <input py:when="'retrieve'" type="submit" name="retrieve_recording"
+		    value="Retrieve" />
+	    <input py:when="'already_retrieving'" type="submit"
+		    value="Retrieving" disabled="disabled" />
+	    <input py:otherwise="" type="submit" value="Export"
+		    disabled="disabled" />
+	</py:choose>
+    </py:def>
+    <py:def function="export_recordings_button(recordings)">
+	<?python
+	    # check if all files are available and whether the missing ones
+	    # are retrievable
+	    found_exportable = False
+	    found_retrievable = False
+	    found_retrieving = False
+	    found_unretrievable = False
+	    for recording in recordings:
+		if recording.fileExists():
+		    found_exportable = True
+		elif isRecordingInQueue(recording, value_of('transfer_queue')):
+		    found_retrieving = True
+		elif recording.station == station:
+		    found_retrievable = True
+		else:
+		    found_unretrievable = True
+	    if found_retrievable:
+		mode = 'retrieve'
+	    elif found_exportable:
+		if found_unretrievable:
+		    mode = 'export_available'
+		else:
+		    mode = 'export'
+	    elif found_retrieving:
+		mode = 'already_retrieving'
+	    else:
+		mode = 'disabled_export'
+	?>
+	<py:choose test="mode">
+	    <input py:when="'export'" type="submit" name="export_selection" value="Export Selection" />
+	    <input py:when="'retrieve'" type="submit" name="retrieve_selection" value="Retrieve Selection" />
+	    <input py:when="'already_retrieving'" type="submit" value="Retrieving Selection" disabled="disabled" />
+	    <input py:when="'export_available'" type="submit" name="export_selection" value="Export Available From Selection" />
+	    <input py:otherwise="" type="submit" value="Export Selection" disabled="disabled" />
+	</py:choose>
+    </py:def>
+
   <head>
     <title>Recordings</title>
     <style type="text/css">@import url(/media/jscalendar/calendar-blue.css);</style>
@@ -11,13 +80,6 @@
     <script type="text/javascript" src="/media/jscalendar/calendar-setup.js"></script>
   </head>
   <body>
-    <?python
-	from bowerbird.common import formatTimeUI, formatDateUI, DATE_FORMAT_UI
-	import cherrypy
-	url = cherrypy.request.path_info
-    ?>
-
-
     <h1>Recordings</h1>
 	<!--! Display any errors -->
 	<div py:if="value_of('errors')" class="error">
@@ -25,6 +87,17 @@
 	    <ol>
 		<li py:for="error in errors">${error}</li>
 	    </ol>
+	</div>
+
+	<!--! display sync buttons -->
+	<div py:if="value_of('is_proxy') and value_of('station')">
+	    <form method="POST" action="${url}">
+		<h2>
+		    Connected to ${station}
+		    <input type="submit" name="sync_with_station"
+		      value="Sync Recordings" />
+		</h2>
+	    </form>
 	</div>
 
 	<!--! display calendar of recordings -->
@@ -39,13 +112,20 @@
 		</div>
 		<div class="filter_buttons">
 		    Show:
+		    <select py:if="value_of('station_names')" name="filter_station">
+			<py:for each="s_label,s_value in station_names" py:choose="">
+			    <option value="${s_value}"
+				    selected="${(s_value == filter_station) or None}">
+				${s_label}
+			    </option>
+			</py:for>
+		    </select>
 		    <select py:if="value_of('schedule_titles')" name="filter_title">
 			<py:for each="t_label,t_value in schedule_titles" py:choose="">
-			    <option py:when="t_value == filter_title"
-				    value="${t_value}" selected="1">${t_label}
+			    <option value="${t_value}"
+				    selected="${(t_value == filter_title) or None}">
+				${t_label}
 			    </option>
-			    <option py:otherwise="" value="${t_value}">
-				    ${t_label}</option>
 			</py:for>
 		    </select>
 		    &nbsp; Start:
@@ -118,6 +198,11 @@
 			name="clear_recording_id" value="X" />
 		<input type="hidden" name="recording_id"
 			value="${selected_recording.id}" />
+		<!--! show option to filter by station if station is defined.
+		    Station is usually only defined on the proxy. -->
+		<input py:if="value_of('is_proxy')" type="submit"
+			name="set_filter_station"
+			value="Show ${selected_recording.station}" />
 		<input type="submit" name="set_filter_title"
 			value="Show ${selected_recording.title}" />
 		<input type="submit" name="set_filter_start"
@@ -127,12 +212,15 @@
 	    </h2>
 	    <table class="selected_recordings">
 		<tr>
+		<th py:if="value_of('is_proxy')" class="selected_recordings">Station</th>
 		<th class="selected_recordings">Title</th>
 		<th class="selected_recordings">Date</th>
 		<th class="selected_recordings">Time</th>
 		<th class="selected_recordings">Export</th>
 		</tr>
 		<tr>
+		    <td py:if="value_of('is_proxy')" class="selected_recordings">
+			${selected_recording.station}</td>
 		    <td class="selected_recordings">${selected_recording.title}</td>
 		    <td class="selected_recordings">
 			${formatDateUI(selected_recording.start_date)}</td>
@@ -141,13 +229,14 @@
 			${formatTimeUI(selected_recording.finish_time, show_seconds=True)}
 		    </td>
 		    <td class="selected_recordings">
-			<input id="export_start" class="time" name="export_start"
-				value="${formatTimeUI(selected_recording.start_time, show_seconds=True)}" />
-			to
-			<input id="export_finish" class="time" name="export_finish"
-				value="${formatTimeUI(selected_recording.finish_time, show_seconds=True)}" />
-			<input type="submit" name="export_recording" value="Export"
+			<input id="export_start" class="time" name="export_start_time"
+				value="${formatTimeUI(selected_recording.start_time, show_seconds=True)}"
 				disabled="${not selected_recording.fileExists() or None}" />
+			to
+			<input id="export_finish" class="time" name="export_finish_time"
+				value="${formatTimeUI(selected_recording.finish_time, show_seconds=True)}"
+				disabled="${not selected_recording.fileExists() or None}" />
+			${export_recording_button(selected_recording)}
 		    </td>
 		</tr>
 	    </table>
@@ -175,12 +264,13 @@
 		<input type="submit" name="set_filter_finish"
 			value="Set Finish" />
 		</py:if>
-		<input type="submit" name="export_selection"
-			value="Export Selection" />
+		${export_recordings_button(selected_recordings)}
 	    </h2>
 	    </form>
 	    <table class="selected_recordings">
 		<tr>
+		<th py:if="value_of('is_proxy')" class="selected_recordings">
+		    Station</th>
 		<th class="selected_recordings">Title</th>
 		<th py:if="not value_of('selected_date')"
 		    class="selected_recordings">Date</th>
@@ -191,6 +281,8 @@
 		<tr py:for="rec in selected_recordings">
 		    <form method="POST" action="${url}">
 		    <input type="hidden" name="recording_id" value="${rec.id}" />
+		    <td py:if="value_of('is_proxy')" class="selected_recordings">
+			${rec.station}</td>
 		    <td class="selected_recordings">${rec.title}</td>
 		    <td py:if="not value_of('selected_date')"
 			class="selected_recordings">${rec.start_date}</td>
@@ -201,9 +293,7 @@
 		    <td class="selected_recordings">
 			<input type="submit" name="set_recording_id"
 				value="Select" />
-			<input type="submit" name="export_recording"
-				value="Export"
-				disabled="${not rec.fileExists() or None}"/>
+			${export_recording_button(rec)}
 		    </td>
 		    <td class="selected_recordings">
 			<input type="submit" name="set_filter_title"
@@ -223,7 +313,7 @@
 
 	<p>
 	    <form method="post">
-		<input type="submit" name="rescan_disk" value="Rescan Disk" />
+		<input type="submit" name="delete_cache" value="Delete Cache" />
 	    </form>
 	</p>
   </body>

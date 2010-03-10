@@ -1,4 +1,5 @@
 import sys, os, os.path, errno, cherrypy, datetime, subprocess, genshi, tempfile
+import json
 from zipfile import ZipFile
 from cherrypy.lib import sessions
 
@@ -6,7 +7,9 @@ from bowerbird.common import *
 from bowerbird.configparser import ConfigParser
 from bowerbird.scheduleparser import ScheduleParser, RecordingSpec
 from bowerbird.storage import BowerbirdStorage, UNTITLED
-from lib import ajax, template
+
+from lib import ajax, template, jsonpickle
+from lib.common import *
 from lib.recordingshtmlcalendar import RecordingsHTMLCalendar
 from lib.sonogram import generateSonogram
 from lib.zeroconfservice import ZeroconfService
@@ -30,17 +33,6 @@ CONFIG_CACHE_PATH = 'config/current_config'
 FREQUENCY_SCALES = ['Linear', 'Logarithmic']
 DEFAULT_FFT_STEP = 256 # in milliseconds
 SONOGRAM_DIRECTORY = os.path.join("static", "sonograms")
-
-# cherrypy sessions for recordings page
-SESSION_YEAR_KEY = 'year'
-SESSION_MONTH_KEY = 'month'
-SESSION_FILTER_TITLE_KEY = 'filter_title'
-SESSION_FILTER_START_KEY = 'filter_start'
-SESSION_FILTER_FINISH_KEY = 'filter_finish'
-SESSION_DATE_KEY = 'date'
-SESSION_RECORD_ID_KEY = 'record_id'
-
-NO_FILTER_TITLE = 'All Recordings'
 
 EXPORT_LIMIT_DETECTION_THRESHOLD = datetime.timedelta(seconds=1)
 
@@ -237,7 +229,7 @@ class Root(object):
 			set_filter_title=None, set_filter_start=None,
 			set_filter_finish=None, export_recording=False,
 			export_start_time=None, export_finish_time=None,
-			export_selection=False, rescan_disk=False,
+			export_selection=False, delete_cache=False,
 			**ignored):
 		# HACK: this helps development slightly
 		if ignored:
@@ -246,7 +238,7 @@ class Root(object):
 		# initialise error list
 		errors = []
 
-		if rescan_disk:
+		if delete_cache:
 			# Clear all recordings. The cron job will do the scanning/refilling.
 			self._storage.clearRecordings()
 			# Clear all recording file entries
@@ -266,63 +258,7 @@ class Root(object):
 		if clear_recording_id:
 			clearSession(SESSION_RECORD_ID_KEY)
 
-		if export_recording and recording_id:
-			# get the name of the served file from the recording
-			recording = self._storage.getRecording(int(recording_id))
-			recording_filepath = os.path.realpath(recording.abspath)
-			served_filename = os.path.basename(recording.path)
-
-			# Some shenanigans here. We want to find out if a special export
-			# is requested, meaning at least one of start and finish are inside
-			# the recordings time range. The other can be also inside, or blank
-			# or equal to the limit. If special export *is* needed we need to
-			# get the start offset (if any) and the duration.
-			# NOTE: we assume export start/finish are within the range (this may
-			# mean we assume a 24hour wrap)
-			try:
-				export_start_time = getExportTime(export_start_time,
-						recording.start_time, recording.finish_time)
-			except ValueError, inst:
-				errors.append('invalid export start time: %s' % inst)
-			try:
-				export_finish_time = getExportTime(export_finish_time,
-						recording.start_time, recording.finish_time)
-			except ValueError, inst:
-				errors.append('invalid export finish time: %s' % inst)
-
-			# bypass export if there were errors
-			if not errors:
-				try:
-					# if sub-section of the recording is requested, generate it
-					if export_start_time or export_finish_time:
-						# create the subrange file and a special filename
-						# (and update recording_filepath to point to it)
-						recording_filepath = recording.getSubRangeFile(
-								export_start_time, export_finish_time)
-
-						# create a special name
-						base, ext = os.path.splitext(served_filename)
-						# use export times if defined, otherwise use recording's
-						served_filename = ('%s (%s to %s)%s' % (base,
-								formatTimeUI(export_start_time
-										or recording.start_time,
-										show_seconds=True),
-								formatTimeUI(export_finish_time
-										or recording.finish_time,
-										show_seconds=True),
-								ext))
-
-					# use cherrypy utility to push the file for download. This
-					# also means that we don't have to move the config file into
-					# the web-accessible filesystem hierarchy
-					return cherrypy.lib.static.serve_file(recording_filepath,
-							"application/x-download", "attachment",
-							served_filename)
-				except Exception, inst:
-					errors.append('Error exporting recording: %s' % inst)
-
-
-			# update filters
+		# update filters
 		if update_filter:
 			# filtering on title
 			if filter_title == NO_FILTER_TITLE:
@@ -388,6 +324,77 @@ class Root(object):
 			filter_start = getSession(SESSION_FILTER_START_KEY)
 		if not filter_finish:
 			filter_finish = getSession(SESSION_FILTER_FINISH_KEY)
+
+		# handle requests to export a recording
+		if export_recording and recording_id:
+			# get the name of the served file from the recording
+			recording = self._storage.getRecording(int(recording_id))
+			recording_filepath = os.path.realpath(recording.abspath)
+			served_filename = os.path.basename(recording.path)
+
+			# Some shenanigans here. We want to find out if a special export
+			# is requested, meaning at least one of start and finish are inside
+			# the recordings time range. The other can be also inside, or blank
+			# or equal to the limit. If special export *is* needed we need to
+			# get the start offset (if any) and the duration.
+			# NOTE: we assume export start/finish are within the range (this may
+			# mean we assume a 24hour wrap)
+			try:
+				export_start_time = getExportTime(export_start_time,
+						recording.start_time, recording.finish_time)
+			except ValueError, inst:
+				errors.append('invalid export start time: %s' % inst)
+			try:
+				export_finish_time = getExportTime(export_finish_time,
+						recording.start_time, recording.finish_time)
+			except ValueError, inst:
+				errors.append('invalid export finish time: %s' % inst)
+
+			# bypass export if there were errors
+			if not errors:
+				created_subrange_file = False
+				file_handle = None
+				try:
+					# if sub-section of the recording is requested, generate it
+					if export_start_time or export_finish_time:
+						# create the subrange file and a special filename
+						# get a tempfilename
+						handle, recording_filepath = tempfile.mkstemp(
+								suffix=recording.extension)
+						created_subrange = True
+
+						# use its name as the destination for subrange file
+						recording.createSubRangeFile(recording_filepath,
+								export_start_time, export_finish_time)
+
+						# create a special name
+						base, ext = os.path.splitext(served_filename)
+						# use export times if defined, otherwise use recording's
+						served_filename = ('%s (%s to %s)%s' % (base,
+								formatTimeUI(export_start_time
+										or recording.start_time,
+										show_seconds=True),
+								formatTimeUI(export_finish_time
+										or recording.finish_time,
+										show_seconds=True),
+								ext))
+
+					# use cherrypy utility to push the file for download. This
+					# also means that we don't have to move the config file into
+					# the web-accessible filesystem hierarchy
+					return cherrypy.lib.static.serve_file(recording_filepath,
+							"application/x-download", "attachment",
+							served_filename)
+				except Exception, inst:
+					errors.append('Error exporting recording: %s' % inst)
+				finally:
+					if created_subrange_file:
+						# close the file handle
+						if file_handle:
+							os.close(file_handle)
+						# delete the file
+						if os.path.exists(recording_filepath):
+							os.remove(recording_filepath)
 
 		# the rest are inter-related so set defaults (in decreasing priority)
 		selected_recording = None
@@ -494,11 +501,10 @@ class Root(object):
 			else:
 				month = getSession(SESSION_MONTH_KEY) or today.month
 
-		# get the schedule titles for the filter, and add a "show all" option
+		# get the recording titles for the filter, and add a "show all" option
 		schedule_titles = [(NO_FILTER_TITLE, '')]
 		schedule_titles.extend(((title, title) for title in
-				self._schedule.getScheduleTitles()))
-		schedule_titles.append((UNTITLED, UNTITLED))
+				self._storage.getRecordingTitles()))
 
 		if view == 'month':
 			calendar = RecordingsHTMLCalendar(year, month, today, self._storage,
@@ -514,6 +520,11 @@ class Root(object):
 				calendar=genshi.HTML(calendar), selected_date=selected_date,
 				selected_recording=selected_recording,
 				selected_recordings=selected_recordings)
+
+
+	@cherrypy.expose
+	def recordings_json(self):
+		return jsonpickle.encode(list(self._storage.getRecordings()))
 
 
 #	@cherrypy.expose
@@ -700,19 +711,6 @@ class Root(object):
 				return recording_time
 
 		return None
-
-
-def setSession(key, value):
-	cherrypy.session[key] = value
-
-def getSession(key):
-	if cherrypy.session.has_key(key):
-		return cherrypy.session[key]
-	return None
-
-def clearSession(key):
-	if cherrypy.session.has_key(key):
-		del cherrypy.session[key]
 
 
 def getExportTime(time_string, recording_start, recording_finish):

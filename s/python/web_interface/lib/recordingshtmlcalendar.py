@@ -1,7 +1,7 @@
 import datetime
 from calendar import Calendar, SUNDAY, month_name, day_abbr
 
-from bowerbird.common import formatTimeUI
+from bowerbird.common import formatTimeUI, formatStationName
 
 class RecordingsHTMLCalendar(Calendar):
 
@@ -11,7 +11,7 @@ class RecordingsHTMLCalendar(Calendar):
 		self.year = year
 		self.month = month
 		self.today = today
-		self.storage = storage
+		self._storage = storage
 		self.filter_title = filter_title
 		self.filter_start_date = filter_start_date
 		self.filter_finish_date = filter_finish_date
@@ -53,8 +53,8 @@ class RecordingsHTMLCalendar(Calendar):
 				'%s%d</a></div>' % (90.0 / num_weeks, day_class,
 				date.year, date.month, date.day, today_text, date.day))
 
-		if self.storage:
-			for recording in self.storage.getRecordings(date):
+		if self._storage:
+			for recording in self._storage.getRecordings(date):
 				extra_div_class = ""
 				if (self.selected_record
 						and recording.id == self.selected_record.id):
@@ -69,10 +69,12 @@ class RecordingsHTMLCalendar(Calendar):
 						'href="?year=%d&month=%d&recording_id=%d'
 						'&set_recording_id=1">\n'
 						'<span class="recording_time">%s</span>\n'
+						'<span class="recording_station">%s</span>\n'
 						'<span class="recording_title">%s</span>\n'
 						'</a></div>\n' % (extra_div_class, date.year,
 						date.month,	recording.id,
 						formatTimeUI(recording.start_time, compact=True),
+						formatStationName(recording.station, compact=True),
 						recording.title))
 
 		return html + '</td>'

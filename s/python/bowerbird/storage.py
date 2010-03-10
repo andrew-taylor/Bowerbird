@@ -12,12 +12,33 @@ WAVPACK_PATH = '/usr/bin/wavpack'
 
 # Storage tables
 CONFIG_TABLE = 'config'
-# BowerbirdStorage tables
+CONFIG_CN_KEY = 'key'
+CONFIG_CN_VALUE = 'value'
+
 RECORDINGS_TABLE = 'recordings'
+RECORDINGS_CN_ID = 'id'
+RECORDINGS_CN_STATION = 'station'
+RECORDINGS_CN_TITLE = 'title'
+RECORDINGS_CN_DATE = 'start_date'
+RECORDINGS_CN_START = 'start_time'
+RECORDINGS_CN_FINISH = 'finish_time'
+RECORDINGS_CN_LIMIT_S = 'start_limit'
+RECORDINGS_CN_LIMIT_F = 'finish_limit'
+
+# BowerbirdStorage tables
 FILES_TABLE = 'recording_files'
+FILES_CN_ID = 'id'
+FILES_CN_PATH = 'path'
 LINKS_TABLE = 'recording_links'
+LINKS_CN_REC_ID = 'recording_id'
+LINKS_CN_FILE_ID = 'file_id'
+
 # ProxyStorage tables
 PREVIOUS_CONNECTIONS_TABLE = 'previous_connections'
+PREVIOUS_CN_NAME = 'name'
+PREVIOUS_CN_ADDRESS = 'address'
+PREVIOUS_CN_LAST = 'last_connected'
+PREVIOUS_CN_TIMES = 'times_connected'
 
 # these are used in the config database to provide statefulness
 CONFIG_TABLE_TIMESTAMP_KEY = 'timestamp'
@@ -31,17 +52,21 @@ class Storage(object):
 	'''Handles the details of storing data in an sqlite db'''
 
 	__REQUIRED_TABLES = {
-			CONFIG_TABLE: 'key TEXT, value TEXT',
-			RECORDINGS_TABLE: 'id INTEGER PRIMARY KEY, station TEXT, '
-					'title TEXT, start_date TEXT, start_time TEXT, '
-					'finish_time TEXT, start_limit TEXT, finish_limit TEXT'
+			CONFIG_TABLE: '%s TEXT, %s TEXT' % (CONFIG_CN_KEY, CONFIG_CN_VALUE),
+			RECORDINGS_TABLE: '%s INTEGER PRIMARY KEY, %s TEXT, %s TEXT, '
+					'%s TEXT, %s TEXT, %s TEXT, %s TEXT, %s TEXT'
+					% (RECORDINGS_CN_ID, RECORDINGS_CN_STATION,
+					RECORDINGS_CN_TITLE, RECORDINGS_CN_DATE,
+					RECORDINGS_CN_START, RECORDINGS_CN_FINISH,
+					RECORDINGS_CN_LIMIT_S, RECORDINGS_CN_LIMIT_F)
 			}
 
 
-	def __init__(self, database_file, root_dir):
+	def __init__(self, database_file, root_dir, extension):
 		self._file = database_file
 		self._root_dir = root_dir
 		self._recordings_dir = os.path.join(root_dir, RECORDINGS_DIR)
+		self._recording_extension = extension
 
 		# issue warning if database file didn't exist
 		if not os.path.exists(database_file):
@@ -120,7 +145,8 @@ class Storage(object):
 
 
 	def readFromConfigTable(self, key, default=None):
-		query = 'select value from "%s" where key="%s"' % (CONFIG_TABLE, key)
+		query = 'SELECT %s FROM "%s" WHERE %s="%s"' % (CONFIG_CN_VALUE,
+				CONFIG_TABLE, CONFIG_CN_KEY, key)
 		response = self.runQueryRaw(query)
 		if response:
 			return response[0][0]
@@ -131,18 +157,37 @@ class Storage(object):
 		# if we have that key in the database then update it,
 		# otherwise insert new record
 		if self.readFromConfigTable(key):
-			query = ('update "%s" set value="%s" where key="%s"'
-					% (CONFIG_TABLE, value, key))
+			query = ('UPDATE "%s" SET %s="%s" WHERE %s="%s"' % (CONFIG_TABLE,
+					CONFIG_CN_VALUE, value, CONFIG_CN_KEY, key))
 		else:
-			query = ('insert into "%s" values ("%s", "%s")'
-					% (CONFIG_TABLE, key, value))
+			query = ('INSERT INTO "%s" (%s, %s) VALUES ("%s", "%s")'
+					% (CONFIG_TABLE, CONFIG_CN_KEY, CONFIG_CN_VALUE, key,
+					value))
+		self.runQueryRaw(query)
+
+
+	def addRecording(self, recording, originating_station):
+		assert isinstance(recording, Recording), ('recording must be a '
+				'Recording, not a "%s"' % type(recording))
+		query = ('INSERT INTO "%s" (%s, %s, %s, %s, %s, %s, %s) '
+				'VALUES ("%s", "%s", "%s", "%s", "%s", "%s", "%s")'
+				% (RECORDINGS_TABLE, RECORDINGS_CN_STATION, RECORDINGS_CN_TITLE,
+				RECORDINGS_CN_DATE, RECORDINGS_CN_START, RECORDINGS_CN_FINISH,
+				RECORDINGS_CN_LIMIT_S, RECORDINGS_CN_LIMIT_F,
+				originating_station, recording.title,
+				recording.start_date.isoformat(),
+				recording.start_time.isoformat(),
+				recording.finish_time.isoformat(),
+				recording.start_limit.isoformat(),
+				recording.finish_limit.isoformat()))
 		self.runQueryRaw(query)
 
 
 	def getRecording(self, record_id):
-		query = 'select * from "%s" where id=%d' % (RECORDINGS_TABLE, record_id)
-		return Recording(self._recordings_dir, self._recording_extension,
-				self.runQuerySingleResponse(query))
+		query = 'SELECT * FROM "%s" WHERE %s=%d' % (RECORDINGS_TABLE,
+				RECORDINGS_CN_ID, record_id)
+		return Recording(self.runQuerySingleResponse(query),
+				self._recording_extension, self._recordings_dir)
 
 
 	def getRecordings(self, date=None, station=None, title=None,
@@ -155,29 +200,47 @@ class Storage(object):
 		assert max_finish_date==None or type(max_finish_date) == datetime.date, (
 				'date parameter must be a date, not a "%s"'
 				% type(max_finish_date))
-		query = 'select * from "%s"' % RECORDINGS_TABLE
-		conjunction = 'where'
-		if date:
-			query += ' %s start_date = "%s"' % (conjunction, date.isoformat())
-			conjunction = 'and'
+		query = 'SELECT * FROM "%s"' % RECORDINGS_TABLE
+		conjunction = 'WHERE'
 		if station:
-			query += ' %s station = "%s"' % (conjunction, station)
-			conjunction = 'and'
+			query += ' %s %s = "%s"' % (conjunction, RECORDINGS_CN_STATION,
+					station)
+			conjunction = 'AND'
 		if title:
-			query += ' %s title = "%s"' % (conjunction, title)
-			conjunction = 'and'
+			query += ' %s %s = "%s"' % (conjunction, RECORDINGS_CN_TITLE, title)
+			conjunction = 'AND'
+		if date:
+			query += ' %s %s = "%s"' % (conjunction, RECORDINGS_CN_DATE,
+					date.isoformat())
+			conjunction = 'AND'
 		if min_start_date:
-			query += ' %s start_time >= "%s"' % (conjunction, min_start_date)
-			conjunction = 'and'
+			query += ' %s %s >= "%s"' % (conjunction, RECORDINGS_CN_START,
+					min_start_date)
+			conjunction = 'AND'
 		if max_finish_date:
 			# add a day to finish day and check inequality
-			query += ' %s finish_time < "%s"' % (conjunction,
+			query += ' %s %s < "%s"' % (conjunction, RECORDINGS_CN_FINISH,
 					max_finish_date + datetime.timedelta(1))
 			conjunction = 'and'
 		# sort increasing by start time
-		query += ' order by start_time'
-		return (Recording(self._recordings_dir, self._recording_extension, row)
+		query += ' ORDER BY %s' % RECORDINGS_CN_START
+		return (Recording(row, self._recording_extension, self._recordings_dir)
 				for row in self.runQuery(query))
+
+
+	def getRecordingTitles(self):
+		'''return a list of the recordings' titles (sorted, no duplicates)'''
+		query = ('SELECT DISTINCT %s FROM "%s" ORDER BY %s ASC'
+				% (RECORDINGS_CN_TITLE, RECORDINGS_TABLE, RECORDINGS_CN_TITLE))
+		return (title for title, in self.runQueryRaw(query))
+
+
+	def getRecordingStations(self):
+		'''return a list of the recordings' titles (sorted, no duplicates)'''
+		query = ('SELECT DISTINCT %s FROM "%s" ORDER BY %s ASC'
+				% (RECORDINGS_CN_STATION, RECORDINGS_TABLE,
+				RECORDINGS_CN_STATION))
+		return (station for station, in self.runQueryRaw(query))
 
 
 	def getRecordingsAtTime(self, time):
@@ -185,17 +248,20 @@ class Storage(object):
 				'datetime, not a "%s"' % type(time))
 		# check that the given time is not only overlaps the recording, but also
 		# is within the limits of the recording (from the schedule)
-		query = ('select * from %(table)s where "%(time)s" between start_time '
-				'and finish_time and "%(time)s" between start_limit and '
-				'finish_limit'
-				% {'table': RECORDINGS_TABLE, 'time': time.isoformat()})
-		return (Recording(self._recordings_dir, self._recording_extension, row)
+		query = ('SELECT * FROM %(table)s WHERE "%(time)s" BETWEEN %(start)s '
+				'AND %(finish)s AND "%(time)s" BETWEEN %(limit_s)s AND '
+				'%(limit_f)s' % {'table': RECORDINGS_TABLE,
+				'time': time.isoformat(), 'start': RECORDINGS_CN_START,
+				'finish': RECORDINGS_CN_FINISH,
+				'limit_s': RECORDINGS_CN_LIMIT_S,
+				'limit_f': RECORDINGS_CN_LIMIT_F})
+		return (Recording(row, self._recording_extension, self._recordings_dir)
 				for row in self.runQuery(query))
 
 
 	def clearRecordings(self):
 		# delete all recording table entries
-		self.runQueryRaw('delete from "%s"' % RECORDINGS_TABLE)
+		self.runQueryRaw('DELETE FROM "%s"' % RECORDINGS_TABLE)
 		# reset timestamp
 		self.dir_timestamp = -1
 		# delete all constructed recording files
@@ -210,9 +276,10 @@ class BowerbirdStorage(Storage):
 	'''Handles the details of storing data about calls and categories'''
 
 	__REQUIRED_TABLES = {
-			FILES_TABLE: 'id INTEGER PRIMARY KEY, path TEXT',
-			LINKS_TABLE: 'id INTEGER PRIMARY KEY, '
-					'recording_id INTEGER, file_id INTEGER',
+			FILES_TABLE: '%s INTEGER PRIMARY KEY, %s TEXT' % (FILES_CN_ID,
+					FILES_CN_PATH),
+			LINKS_TABLE: '%s INTEGER, %s INTEGER' % (LINKS_CN_REC_ID,
+					LINKS_CN_FILE_ID),
 			'categories': 'label TEXT, calls INTEGER, length REAL, '
 					'length_stddev REAL, frequency REAL, frequency_stddev REAL, '
 					'harmonics_min INTEGER, harmonics_max INTEGER, AM TEXT, '
@@ -229,10 +296,10 @@ class BowerbirdStorage(Storage):
 	def __init__(self, database_file, config, schedule):
 		self._config = config
 		self._schedule = schedule
-		self._recording_extension = self.getRecordingExtension()
 		self._file_duration = self.getFileDuration()
 
-		Storage.__init__(self, database_file, self.getRootDir())
+		Storage.__init__(self, database_file, self.getRootDir(),
+				self.getRecordingExtension())
 
 		# ensure all required tables exist
 		self._ensureTablesExist(BowerbirdStorage.__REQUIRED_TABLES)
@@ -258,7 +325,7 @@ class BowerbirdStorage(Storage):
 	def clearRecordingFiles(self):
 		# delete all recording files and links entries
 		for table in LINKS_TABLE, FILES_TABLE:
-			self.runQueryRaw('delete from "%s"' % table)
+			self.runQueryRaw('DELETE FROM "%s"' % table)
 		# reset timestamp
 		self.dir_timestamp = -1
 
@@ -467,39 +534,44 @@ class BowerbirdStorage(Storage):
 
 
 	def hasRecordingFile(self, file_path):
-		query = 'select id from "%s" where path="%s"' % (FILES_TABLE, file_path)
+		query = 'SELECT %s FROM "%s" WHERE %s="%s"' % (FILES_CN_ID,
+				FILES_TABLE, FILES_CN_PATH, file_path)
 		return len(self.runQuery(query)) > 0
 
 
 	def addRecordingFile(self, file_path):
-		query = 'insert into "%s" values(NULL, "%s")' % (FILES_TABLE, file_path)
+		query = 'INSERT INTO "%s" (%s) VALUES ("%s")' % (FILES_TABLE,
+				FILES_CN_PATH, file_path)
 		self.runQueryRaw(query)
 
 
 	def getFilesForRecording(self, recording_id):
-		'''Return all files that are part of the given recording'''
-		query = ('select file.path from recording_files file, '
-				'recording_links link where file.id = link.file_id '
-				' and link.recording_id = %d' % recording_id)
+		'''Return all files (as relative paths) that are part of the given
+			recording'''
+		query = ('SELECT file.%s FROM "%s" file, "%s" link '
+				'WHERE file.%s = link.%s AND link.%s = %d'
+				% (FILES_CN_PATH, FILES_TABLE, LINKS_TABLE,
+				FILES_CN_ID, LINKS_CN_FILE_ID, LINKS_CN_REC_ID, recording_id))
 		return self.runQueryRaw(query)
 
 
 	def getFilesForRecordingAbsolute(self, recording_id):
-		'''Return all files that are part of the given recording'''
-		query = ('select file.path from recording_files file, '
-				'recording_links link where file.id = link.file_id '
-				' and link.recording_id = %d' % recording_id)
-		return [os.path.join(self._root_dir,path[0]) for path in
-				self.runQueryRaw(query)]
+		'''Return all files (as absolute paths) that are part of the given
+			recording'''
+		return (os.path.join(self._root_dir, path[0]) for path, in
+				self.getFilesForRecording(recording_id))
 
 
 	def findFilesWithoutRecording(self):
 		'''Scan the recording files and links tables to find files not
 			associated with a recording'''
-		query = ('select file.id,file.path from %(files_table)s file left join '
-				'%(links_table)s link on file.id = link.file_id '
-				'where link.file_id is null order by file.path'
-				% {'files_table': FILES_TABLE, 'links_table': LINKS_TABLE})
+		query = ('SELECT file.%(id)s, file.%(path)s FROM %(files_table)s file '
+				'LEFT JOIN %(links_table)s link '
+				'ON file.%(id)s = link.%(file_id)s '
+				'WHERE link.%(file_id)s IS NULL ORDER BY file.%(path)s'
+				% {'id': FILES_CN_ID, 'path': FILES_CN_PATH,
+				'files_table': FILES_TABLE, 'links_table': LINKS_TABLE,
+				'file_id': LINKS_CN_FILE_ID})
 		return (RecordingFile(row, self._file_duration) for row in
 				self.runQuery(query))
 
@@ -520,16 +592,19 @@ class BowerbirdStorage(Storage):
 
 		# extend prev to include next
 		# limits and date should not need changing
-		query = ('update "%s" set finish_time = "%s" where id=%d'
-				% (RECORDINGS_TABLE, next_recording.finish_time.isoformat(),
-				prev_recording.id))
+		query = ('UPDATE "%s" SET %s = "%s" WHERE %s = %d'
+				% (RECORDINGS_TABLE,
+				RECORDINGS_CN_FINISH, next_recording.finish_time.isoformat(),
+				RECORDINGS_CN_ID, prev_recording.id))
 		self.runQueryRaw(query)
 		# change all links to next recording to prev recording
-		query = ('update "%s" set recording_id=%d where recording_id=%d'
-				% (LINKS_TABLE, prev_recording.id, next_recording.id))
+		query = ('UPDATE "%s" SET %s=%d WHERE %s=%d'
+				% (LINKS_TABLE, LINKS_CN_REC_ID, prev_recording.id,
+				LINKS_CN_REC_ID, next_recording.id))
 		self.runQueryRaw(query)
 		# delete the obsolete (next) recording
-		query = 'delete from recordings where id=%d' % next_recording.id
+		query = 'DELETE FROM "%s" WHERE %s=%d' % (RECORDINGS_TABLE,
+				RECORDINGS_CN_ID, next_recording.id)
 		self.runQueryRaw(query)
 
 		# get previous merges related to these records
@@ -546,8 +621,9 @@ class BowerbirdStorage(Storage):
 
 		if recording_file:
 			# add new file to links
-			query = ('insert into "%s" values(NULL, %d, %d)'
-					% (LINKS_TABLE, prev_recording.id, recording_file.id))
+			query = ('INSERT INTO "%s" (%s, %s) VALUES (%d, %d)'
+					% (LINKS_TABLE, LINKS_CN_REC_ID, LINKS_CN_FILE_ID,
+					prev_recording.id, recording_file.id))
 			self.runQueryRaw(query)
 			prev_merges.append(recording_file.path)
 
@@ -573,22 +649,26 @@ class BowerbirdStorage(Storage):
 
 		# expand the recording to include the time covered by the file
 		if recording_file.start < recording.start_time:
-			assignment = 'start_time="%s"' % recording_file.start.isoformat()
+			assignment = '%s = "%s"' % (RECORDINGS_CN_START,
+					recording_file.start.isoformat())
 			merges.insert(0, recording_file.path)
 		elif recording_file.finish > recording.finish_time:
-			assignment = 'finish_time="%s"' % recording_file.finish.isoformat()
+			assignment = '%s = "%s"' % (RECORDINGS_CN_FINISH,
+					recording_file.finish.isoformat())
 			merges.append(recording_file.path)
 		else:
 			raise ValueError('file "%s" does not expand recording "%s"'
 					% (recording_file, recording))
 
-		self.runQueryRaw('update "%s" set %s where id=%d'
-					% (RECORDINGS_TABLE, assignment, recording.id))
+		self.runQueryRaw('UPDATE "%s" SET %s WHERE %s=%d'
+					% (RECORDINGS_TABLE, assignment, RECORDINGS_CN_ID,
+					recording.id))
 		file_merges[recording.id] = merges
 
 		# link the file to the recording
-		query = ('insert into "%s" values(NULL, %d, %d)'
-				% (LINKS_TABLE, recording.id, recording_file.id))
+		query = ('INSERT INTO "%s" (%s, %s) VALUES (%d, %d)'
+				% (LINKS_TABLE, LINKS_CN_REC_ID, LINKS_CN_FILE_ID, recording.id,
+				recording_file.id))
 		self.runQueryRaw(query)
 
 
@@ -606,9 +686,12 @@ class BowerbirdStorage(Storage):
 			matched_schedule = RecordingTime(UNTITLED, start, finish)
 
 		# add new recording entry
-		query = ('insert into "%s" values(NULL, "%s", "%s", "%s", "%s", '
-				'"%s", "%s")' % (RECORDINGS_TABLE, matched_schedule.title,
-				recording_file.finish.date().isoformat(),
+		query = ('INSERT INTO "%s" (%s, %s, %s, %s, %s, %s) VALUES '
+				'("%s", "%s", "%s", "%s", "%s", "%s")'
+				% (RECORDINGS_TABLE, RECORDINGS_CN_TITLE, RECORDINGS_CN_DATE,
+				RECORDINGS_CN_START, RECORDINGS_CN_FINISH,
+				RECORDINGS_CN_LIMIT_S, RECORDINGS_CN_LIMIT_F,
+				matched_schedule.title, recording_file.start.date().isoformat(),
 				recording_file.start.isoformat(),
 				recording_file.finish.isoformat(),
 				matched_schedule.start.isoformat(),
@@ -617,16 +700,18 @@ class BowerbirdStorage(Storage):
 		self.runQueryRaw(query)
 
 		# get the new recording_id
-		query = ('select id from "%s" where title = "%s" '
-				'and start_time = "%s" and finish_time = "%s" '
-				% (RECORDINGS_TABLE, matched_schedule.title,
-				recording_file.start.isoformat(),
-				recording_file.finish.isoformat()))
+		query = ('SELECT %s FROM "%s" WHERE %s = "%s" '
+				'AND %s = "%s" AND %s = "%s" '
+				% (RECORDINGS_CN_ID, RECORDINGS_TABLE,
+				RECORDINGS_CN_TITLE, matched_schedule.title,
+				RECORDINGS_CN_START, recording_file.start.isoformat(),
+				RECORDINGS_CN_FINISH, recording_file.finish.isoformat()))
 		recording_id, = self.runQueryRawSingleResponse(query)
 
 		# add link between file and recording
-		query = ('insert into %s values (NULL, %d, %d) '
-				% (LINKS_TABLE, recording_id, recording_file.id))
+		query = ('INSERT INTO "%s" (%s, %s) VALUES (%d, %d) '
+				% (LINKS_TABLE, LINKS_CN_REC_ID, LINKS_CN_FILE_ID, recording_id,
+				recording_file.id))
 		self.runQueryRaw(query)
 
 		# add file operation
@@ -652,10 +737,10 @@ class BowerbirdStorage(Storage):
 
 	def getCategories(self, sort_key=None, sort_order='asc'):
 		if sort_key:
-			query = ('select * from categories order by %s %s'
+			query = ('SELECT * FROM categories ORDER BY %s %s'
 					% (sort_key , sort_order))
 		else:
-			query = 'select * from categories'
+			query = 'SELECT * FROM categories'
 
 		try:
 			return self.runQuery(query)
@@ -667,10 +752,10 @@ class BowerbirdStorage(Storage):
 
 	def getCategoryNames(self, sort_key=None, sort_order='asc'):
 		if sort_key:
-			query = ('select label from categories order by "%s" %s'
+			query = ('SELECT label FROM categories ORDER BY "%s" %s'
 					% (sort_key , sort_order))
 		else:
-			query = 'select label from categories'
+			query = 'SELECT label FROM categories'
 
 		list = []
 		try:
@@ -685,7 +770,7 @@ class BowerbirdStorage(Storage):
 	def getCategory(self, label):
 		try:
 			return self.runQuerySingleResponse(
-					'select * from categories where label="%s"' % label)
+					'SELECT * FROM categories WHERE label="%s"' % label)
 		except apsw.Error:
 			# just ignore missing table for now
 			pass
@@ -693,19 +778,19 @@ class BowerbirdStorage(Storage):
 
 
 	def updateCategory(self, old_label, new_label):
-		self.runQueryRaw('update categories set label="%s" where label="%s"'
+		self.runQueryRaw('UPDATE categories SET label="%s" WHERE label="%s"'
 				% (new_label, old_label))
-		self.runQueryRaw('update calls set category="%s" where category="%s"'
+		self.runQueryRaw('UPDATE calls SET category="%s" WHERE category="%s"'
 				% (new_label, old_label))
 
 
 	def getCalls(self, sort_key='date_and_time', sort_order='asc',
 			category=None):
 		if category:
-			query = ('select * from calls where category="%s" order by %s %s'
+			query = ('SELECT * FROM calls WHERE category="%s" ORDER BY %s %s'
 					% (category, sort_key , sort_order))
 		else:
-			query = ('select * from calls order by %s %s'
+			query = ('SELECT * FROM calls ORDER BY %s %s'
 					% (sort_key , sort_order))
 
 		return self.runQuery(query)
@@ -713,7 +798,7 @@ class BowerbirdStorage(Storage):
 
 	def getCall(self, filename):
 		return self.runQuerySingleResponse(
-				'select * from calls where filename="%s"' % filename)
+				'SELECT * FROM calls WHERE filename="%s"' % filename)
 
 
 	def updateCall(self, filename, label, category, example):
@@ -722,26 +807,26 @@ class BowerbirdStorage(Storage):
 				example = 'checked'
 			else:
 				example = ''
-			self.__execSqlQuery('update calls set label="%s",category="%s",'
-					'example="%s" where filename="%s"'
+			self.__execSqlQuery('UPDATE calls SET label="%s", category="%s", '
+					'example="%s" WHERE filename="%s"'
 					% (label, category, example, filename))
 
 
 	def getPrevAndNextCalls(self, call):
 		return {
-				'prev': self.runQuerySingleResponse('select * from calls '
-					'where date_and_time < "%s" order by date_and_time desc '
-					'limit 1' % call['date_and_time']),
+				'prev': self.runQuerySingleResponse('SELECT * FROM calls '
+					'WHERE date_and_time < "%s" ORDER BY date_and_time DESC '
+					'LIMIT 1' % call['date_and_time']),
 				'prev_in_cat': self.runQuerySingleResponse(
-					'select * from calls where category = "%s" and '
-					'date_and_time < "%s" order by date_and_time desc limit 1'
+					'SELECT * FROM calls WHERE category = "%s" AND '
+					'date_and_time < "%s" ORDER BY date_and_time DESC LIMIT 1'
 					% (call['category'], call['date_and_time'])),
-				'next': self.runQuerySingleResponse('select * from calls '
-					'where date_and_time > "%s" order by date_and_time asc '
-					'limit 1' % call['date_and_time']),
+				'next': self.runQuerySingleResponse('SELECT * FROM calls '
+					'WHERE date_and_time > "%s" ORDER BY date_and_time ASC '
+					'LIMIT 1' % call['date_and_time']),
 				'next_in_cat': self.runQuerySingleResponse(
-					'select * from calls where category = "%s" and '
-					'date_and_time > "%s" order by date_and_time asc limit 1'
+					'SELECT * FROM calls WHERE category = "%s" AND '
+					'date_and_time > "%s" ORDER BY date_and_time ASC LIMIT 1'
 					% (call['category'], call['date_and_time']))
 		}
 
@@ -750,63 +835,77 @@ class ProxyStorage(Storage):
 	'''Handles the details of storing info about previous connections made,
 	   and recordings in the database'''
 
-	__REQUIRED_TABLES = {PREVIOUS_CONNECTIONS_TABLE: 'name TEXT, address TEXT, '
-			'last_connected TEXT, times_connected INTEGER'
+	__REQUIRED_TABLES = {PREVIOUS_CONNECTIONS_TABLE: '%s TEXT, %s TEXT, '
+			'%s TEXT, %s INTEGER' % (PREVIOUS_CN_NAME, PREVIOUS_CN_ADDRESS,
+			PREVIOUS_CN_LAST, PREVIOUS_CN_TIMES)
 			}
 
 
-	def __init__(self, database_file, root_dir):
-		Storage.__init__(self, database_file, root_dir)
+	def __init__(self, database_file, root_dir, extension):
+		Storage.__init__(self, database_file, root_dir, extension)
 
 		# ensure all required tables exist
 		self._ensureTablesExist(ProxyStorage.__REQUIRED_TABLES)
+
+		# ensure configuration items are defined
+
 
 
 	def addConnection(self, name, address):
 		# check it's not a known address
 		response = self.runQuerySingleResponse(
-				'select name, times_connected from previous_connections '
-				'where address="%s"' % address)
+				'SELECT %s, %s FROM "%s" WHERE %s="%s"'
+				% (PREVIOUS_CN_NAME, PREVIOUS_CN_TIMES,
+				PREVIOUS_CONNECTIONS_TABLE,  PREVIOUS_CN_ADDRESS, address))
 		if response:
-			times_connected = response['times_connected'] + 1
-			self.runQueryRaw('update previous_connections set name="%s", '
-					'last_connected="%s", times_connected=%d where address="%s"'
-					% (name, getCurrentTimeCString(), times_connected,
-						address))
+			times_connected = response[PREVIOUS_CN_TIMES] + 1
+			self.runQueryRaw('UPDATE "%s" SET %s="%s", '
+					'%s="%s", %s=%d WHERE %s="%s"'
+					% (PREVIOUS_CONNECTIONS_TABLE, PREVIOUS_CN_NAME, name,
+					PREVIOUS_CN_LAST, getCurrentTimeCString(),
+					PREVIOUS_CN_TIMES, times_connected,
+					PREVIOUS_CN_ADDRESS, address))
 		else:
-			self.runQueryRaw('insert into previous_connections values '
+			self.runQueryRaw('INSERT INTO "%s" (%s, %s, %s) VALUES '
 					'("%s", "%s", "%s", 1)'
-					% (name, address, getCurrentTimeCString()))
+					% (PREVIOUS_CONNECTIONS_TABLE, PREVIOUS_CN_NAME,
+					PREVIOUS_CN_ADDRESS, PREVIOUS_CN_LAST, name, address,
+					getCurrentTimeCString()))
 
 
 	def removeConnection(self, address):
-		self.runQueryRaw('delete from previous_connections where address="%s"'
-				% address)
+		self.runQueryRaw('DELETE FROM "%s" WHERE %s="%s"'
+				% (PREVIOUS_CONNECTIONS_TABLE, PREVIOUS_CN_ADDRESS, address))
 
 
-	def getPreviousConnections(self, sort_key='last_connected',
+	def getPreviousConnections(self, sort_key=PREVIOUS_CN_LAST,
 			sort_order='asc'):
-		query = ('select * from previous_connections order by %s %s'
-				% (sort_key , sort_order))
+		query = ('SELECT * FROM "%s" ORDER BY %s %s'
+				% (PREVIOUS_CONNECTIONS_TABLE, sort_key , sort_order))
 		return self.runQuery(query)
 
 
 
-class Recording():
-	def __init__(self, recordings_dir, extension, dict):
-		self.id = int(dict['id'])
-		self.station = dict['station']
-		self.title = dict['title']
-		self.start_date = parseDateIso(dict['start_date'])
-		self.start_time = parseDateTimeIso(dict['start_time'])
-		self.finish_time = parseDateTimeIso(dict['finish_time'])
-		self.start_limit = parseDateTimeIso(dict['start_limit'])
-		self.finish_limit = parseDateTimeIso(dict['finish_limit'])
-		self.extension = extension
-		date_str = formatDateIso(self.start_date)
-		self.path = '%s/%s %s %s%s' % (date_str, self.title, date_str,
+class Recording(object):
+	def __init__(self, dict=None, extension=None, recordings_dir=None):
+		'''NOTE: constructor must handle having no args so jsonpickle can
+			decode this class'''
+		if dict:
+			self.id = int(dict[RECORDINGS_CN_ID])
+			self.station = dict[RECORDINGS_CN_STATION]
+			self.title = dict[RECORDINGS_CN_TITLE]
+			self.start_date = parseDateIso(dict[RECORDINGS_CN_DATE])
+			self.start_time = parseDateTimeIso(dict[RECORDINGS_CN_START])
+			self.finish_time = parseDateTimeIso(dict[RECORDINGS_CN_FINISH])
+			self.start_limit = parseDateTimeIso(dict[RECORDINGS_CN_LIMIT_S])
+			self.finish_limit = parseDateTimeIso(dict[RECORDINGS_CN_LIMIT_F])
+		if extension:
+			self.extension = extension
+			date_str = formatDateIso(self.start_date)
+			self.path = '%s/%s %s %s%s' % (date_str, self.title, date_str,
 				formatTimeUI(self.start_time), extension)
-		self.abspath = os.path.join(recordings_dir, self.path)
+			if recordings_dir:
+				self.abspath = os.path.join(recordings_dir, self.path)
 
 	def isTitled(self):
 		return self.title != UNTITLED
@@ -820,27 +919,28 @@ class Recording():
 				formatTimeUI(self.start_time), formatTimeUI(self.finish_time),
 				formatTimeUI(self.start_limit), formatTimeUI(self.finish_limit))
 
- 	def getSubRangeFile(self, start, finish):
-		# open a tempfile, then use its name as the destination for sox
-		with tempfile.NamedTemporaryFile(suffix=self.extension) as tmp:
-			# use sox's trim command which takes 2 args: start_offset & duration
-			command = [SOX_PATH, '-q', self.abspath, tmp.name,
-					'trim']
-			# determine the start and finish times to send to trim
-			if start:
-				command.append(formatTimeDelta(start - self.start_time))
-			else:
-				command.append('0')
-			if finish:
-				command.append(formatTimeDelta(finish - start))
-			subprocess.call(command)
-			return tmp.name
+	def getRecordingHash(self):
+		return '%s_%s_%s' % (self.station, self.title,
+				self.start_time.isoformat())
+
+ 	def createSubRangeFile(self, destination_filename, start, finish):
+		# use sox's trim command which takes 2 args: start_offset & duration
+		command = [SOX_PATH, '-q', self.abspath, destination_filename,
+				'trim']
+		# determine the start and finish times to send to trim
+		if start:
+			command.append(formatTimeDelta(start - self.start_time))
+		else:
+			command.append('0')
+		if finish:
+			command.append(formatTimeDelta(finish - start))
+		subprocess.call(command)
 
 
 class RecordingFile():
 	def __init__(self, dict, duration):
-		self.id = int(dict['id'])
-		self.path = dict['path']
+		self.id = int(dict[FILES_CN_ID])
+		self.path = dict[FILES_CN_PATH]
 		self.finish = getTimestampFromFilePath(self.path)
 		self.start = self.finish - duration
 
@@ -905,30 +1005,30 @@ def test():
 		def isTitled(self):
 			return self.title != 'u'
 		def __str__(self):
-			#return 'R(%s, %s)' % (self.title,self.tag)
+			#return 'R(%s, %s)' % (self.title, self.tag)
 			return self.title
 
-	f1 = FR('s1','f')
-	f2 = FR('s2','f')
-	fs = [[], [f1], [f1,f2]]
+	f1 = FR('s1', 'f')
+	f2 = FR('s2', 'f')
+	fs = [[], [f1], [f1, f2]]
 
-	rup = FR('u','p')
-	r1p = FR('s1','p')
-	r2p = FR('s2','p')
-	run = FR('u','n')
-	r1n = FR('s1','n')
-	r2n = FR('s2','n')
-	r3n = FR('s3','n')
-	rat = [[], [rup], [r1p], [rup,r1p], [r2p], [r1p,r2p],
-			[], [run], [r1n], [run,r1n], [r2n], [r1n,r2n],[r3n],[r2n,r3n],
-			[r1n,r2n,r3n]]
+	rup = FR('u', 'p')
+	r1p = FR('s1', 'p')
+	r2p = FR('s2', 'p')
+	run = FR('u', 'n')
+	r1n = FR('s1', 'n')
+	r2n = FR('s2', 'n')
+	r3n = FR('s3', 'n')
+	rat = [[], [rup], [r1p], [rup, r1p], [r2p], [r1p, r2p],
+			[], [run], [r1n], [run, r1n], [r2n], [r1n, r2n], [r3n], [r2n, r3n],
+			[r1n, r2n, r3n]]
 
 	from copy import deepcopy
 
 	class BSTest(BowerbirdStorage):
 		def __init__(self):
 			pass
-		def getRecordingsAtTime(self,time):
+		def getRecordingsAtTime(self, time):
 			return deepcopy(rat[time.day - 1])
 		def mergeRecordings(self, prev, next, rfile):
 			print 'm(%s)' % prev.title,
@@ -938,15 +1038,15 @@ def test():
 			else:
 				print "c(u)",
 		def addFileToRecording(self, rec, rfile):
-			print 'a(%s,%s)' % (rec.title, rec.tag),
+			print 'a(%s, %s)' % (rec.title, rec.tag),
 
 	for match in fs:
 		for p in xrange(6):
-			for n in range(6,15):
+			for n in range(6, 15):
 				prev = datetime.date(1, 1, p+1)
 				next = datetime.date(1, 1, n+1)
 				print ('%s\t%s\t%s\t'
-						% (map(str,match),map(str,rat[p]),map(str,rat[n]))),
+						% (map(str, match), map(str, rat[p]), map(str, rat[n]))),
 				BSTest().addFileToAppropriateRecordings(FF(prev, next),
 						deepcopy(match))
 				print

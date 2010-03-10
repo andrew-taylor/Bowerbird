@@ -6,12 +6,6 @@ SECTION_META_KEY = '__smeta_key__'
 SECTION_META_PREFIX = '__smeta__'
 META_PREFIX = '__meta__'
 
-# zeroconf type. Using HTTP means that normal zeroconf-supporting web browsers
-# will see our bowerbird systems.
-ZEROCONF_TYPE = '_http._tcp'
-# zeroconf text to identify bowerbird
-ZEROCONF_TEXT_TO_IDENTIFY_BOWERBIRD = 'This is a bowerbird system.'
-
 # parameters for parsing the contents of the bowerbird config file
 STATION_SECTION_NAME = 'station_information'
 STATION_NAME_KEY = 'name'
@@ -42,6 +36,18 @@ DATE_FORMAT_UI = '%d/%m/%Y'
 TIME_FORMAT_UI_HMS = '%H:%M:%S'
 TIME_FORMAT_UI_HM = '%H:%M'
 TIME_FORMAT_UI_H = '%H'
+
+
+def formatStationName(name, compact=False):
+	'''Return the name with square brackets around it, or just the initials
+		if compact form is requested.'''
+	if not name:
+		return ''
+
+	if compact:
+		return '[%s]' % ''.join((char for char in name if char.isupper()))
+	return '[%s]' % name
+
 
 
 def formatDateTimeIso(my_datetime):

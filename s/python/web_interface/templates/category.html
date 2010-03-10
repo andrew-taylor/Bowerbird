@@ -3,6 +3,7 @@
       xmlns:xi="http://www.w3.org/2001/XInclude"
       xmlns:py="http://genshi.edgewall.org/">
   <xi:include href="layout.html" />
+  <xi:include href="common.html" />
   <head>
 	  <title>Category Viewer</title>
   </head>
@@ -18,7 +19,7 @@
 	  </p>
 	  <p>
 	  <table class="categories" border="1">
-		  <tr py:with="headings=('Calls', 'Length', 'Frequency', 
+		  <tr py:with="headings=('Calls', 'Length', 'Frequency',
 				  'Harm -onics', 'AM', 'FM', 'Bandwidth', 'Energy', 'Time of Day')">
 			  <th py:for="heading in headings">${heading}</th>
 		  </tr>
@@ -27,7 +28,7 @@
 			  <td>${category['length']}&#177;${category['length_stddev']}s</td>
 			  <td>${category['frequency']}&#177;${category['frequency_stddev']}Hz</td>
 			  <td>${category['harmonics_min']}
-				  <py:if test="category['harmonics_min'] 
+				  <py:if test="category['harmonics_min']
 					  != category['harmonics_max']">
 				  	- ${category['harmonics_max']}
 				  </py:if>
@@ -36,10 +37,10 @@
 			  <td>${category['FM']}</td>
 			  <td>${category['bandwidth']}&#177;${category['bandwidth_stddev']}Hz</td>
 			  <td>${category['energy']}&#177;${category['energy_stddev']}db</td>
-			  <td>${category['time_of_day_start']} 
+			  <td>${category['time_of_day_start']}
 				  - ${category['time_of_day_finish']}
 			  </td>
-		  </tr>			  
+		  </tr>
 	  </table>
 	  </p>
 
@@ -51,7 +52,7 @@
 		  <div>
 			  <strong>Label</strong>: ${call['label']}<br/>
 			  <strong>Time</strong>: ${call['date_and_time']}
-			  <strong>File</strong>: 
+			  <strong>File</strong>:
 			  <a href="${url('/media/calls/%s' % quote(call['filename']))}">${call['filename']}</a>
 		  </div>
 	  </div>
@@ -65,7 +66,7 @@
 	  </div>
 	  </py:if>
 
-	  <py:if test="not category">  
+	  <py:if test="not category">
 	  	<h2 class="category">No category specified.</h2>
 		<a href="${url('/categories')}">Go Back</a>.
 	  </py:if>

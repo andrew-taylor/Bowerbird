@@ -38,7 +38,7 @@
 <py:for each="si, section in enumerate(values.keys())">
 <div py:if="section != 'scheduled_capture'">
 	<?python
-		from lib.common import SECTION_META_KEY, SECTION_META_PREFIX, META_PREFIX
+		from bowerbird.common import SECTION_META_KEY, SECTION_META_PREFIX, META_PREFIX
 		if values[section].has_key(SECTION_META_KEY):
 			(section_name, sn, section_id, v, t, u, section_description) \
 					= values[section][SECTION_META_KEY][0]
@@ -51,7 +51,7 @@
 <br />
 <table class="config">
 	<tbody>
-		<!--! 
+		<!--!
 			If none of the section has units, then use full width.
 			If none of the section has subnames then don't include that column.
 		-->
@@ -60,7 +60,7 @@
 			has_subnames = False
 			for name in values[section]:
 				for (n,subname,i,v,t,units,d) in values[section][name]:
-					if units: 
+					if units:
 						input_class = "config"
 					if subname:
 						has_subnames = True
@@ -72,9 +72,9 @@
 				${name}</td>
 			<td py:if="has_subnames" class="config_subheader">${subname}</td>
 			<td class="config">
-				<input type="hidden" name="${META_PREFIX}${input_id}" 
+				<input type="hidden" name="${META_PREFIX}${input_id}"
 					value="${si}, ${ni}, ${sni},${name}, ${subname}, ${input_type}, ${units}, ${description}" />
-				<input class="${input_class}" name="${input_id}" 
+				<input class="${input_class}" name="${input_id}"
 						type="text" value="${value}"/>${units}
 			</td>
 		</tr>
@@ -88,7 +88,7 @@
 <!--! only show load defaults button if defaults file has been specified -->
 <input py:if="defaults_file" name="load_defaults" value="Load Defaults" type="submit" />
 <input name="cancel" value="Cancel" type="submit" />
-<input name="apply" value="Apply Changes" type="submit" /> 
+<input name="apply" value="Apply Changes" type="submit" />
 </p>
 
 <p>

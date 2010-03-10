@@ -1,0 +1,58 @@
+import cherrypy
+
+# zeroconf type. Using HTTP means that normal zeroconf-supporting web browsers
+# will see our bowerbird systems.
+ZEROCONF_TYPE = '_http._tcp'
+# zeroconf text to identify bowerbird
+ZEROCONF_TEXT_TO_IDENTIFY_BOWERBIRD = 'This is a bowerbird system.'
+
+# cherrypy sessions for recordings page
+SESSION_YEAR_KEY = 'year'
+SESSION_MONTH_KEY = 'month'
+SESSION_FILTER_STATION_KEY = 'filter_station'
+SESSION_FILTER_TITLE_KEY = 'filter_title'
+SESSION_FILTER_START_KEY = 'filter_start'
+SESSION_FILTER_FINISH_KEY = 'filter_finish'
+SESSION_DATE_KEY = 'date'
+SESSION_RECORD_ID_KEY = 'record_id'
+SESSION_STATION_NAME_KEY = 'station_name'
+SESSION_STATION_ADDRESS_KEY = 'station_address'
+
+NO_FILTER_STATION = 'All Stations'
+NO_FILTER_TITLE = 'All Recordings'
+
+def hasSession(key):
+	return key in cherrypy.session
+
+def setSession(key, value):
+	cherrypy.session[key] = value
+
+def getSession(key):
+	if cherrypy.session.has_key(key):
+		return cherrypy.session[key]
+	return None
+
+def clearSession(key):
+	if cherrypy.session.has_key(key):
+		del cherrypy.session[key]
+
+def printSession():
+	print 'CherryPy Session:'
+	for key in (SESSION_YEAR_KEY, SESSION_MONTH_KEY, SESSION_FILTER_STATION_KEY,
+			SESSION_FILTER_TITLE_KEY, SESSION_FILTER_START_KEY,
+			SESSION_FILTER_FINISH_KEY, SESSION_DATE_KEY, SESSION_RECORD_ID_KEY,
+			SESSION_STATION_NAME_KEY, SESSION_STATION_ADDRESS_KEY):
+		if hasSession(key):
+			print '\t%s: %s' % (key, getSession(key))
+
+
+def isRecordingInQueue(recording, queue):
+	'''This function exists because the transfer queue needed to be a tuple'''
+	# this will handle queues that are None or empty
+	if not queue:
+		return False
+
+	for q_recording, q_ip in queue:
+		if q_recording.id == recording.id:
+			return True
+	return False

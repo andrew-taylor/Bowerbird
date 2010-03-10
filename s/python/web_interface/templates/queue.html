@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:xi="http://www.w3.org/2001/XInclude"
+	xmlns:py="http://genshi.edgewall.org/">
+    <xi:include href="layout.html" />
+    <?python
+	from bowerbird.common import formatTimeUI, formatDateUI
+    ?>
+    <head>
+	<title>Transfer Queue</title>
+    </head>
+    <body>
+	<h1>Transfer Queue</h1>
+	    <py:if test="value_of('transfer_queue')">
+		<p>
+		    <table class="selected_recordings">
+			<tr>
+			    <th class="selected_recordings">Station</th>
+			    <th class="selected_recordings">Address</th>
+			    <th class="selected_recordings">Title</th>
+			    <th class="selected_recordings">Date</th>
+			    <th class="selected_recordings">Time</th>
+			</tr>
+			<tr py:for="recording, address in transfer_queue">
+			    <td class="selected_recordings">${recording.station}</td>
+			    <td class="selected_recordings">${address}</td>
+			    <td class="selected_recordings">${recording.title}</td>
+			    <td class="selected_recordings">${formatDateUI(recording.start_date)}</td>
+			    <td class="selected_recordings">${formatTimeUI(recording.start_time)} to
+				${formatTimeUI(recording.finish_time)}
+			    </td>
+			</tr>
+		    </table>
+		</p>
+		<p>
+		    <form method="post">
+			<input type="submit" name="cancel_all_transfers" value="Cancel All Transfers" />
+		    </form>
+		</p>
+	    </py:if>
+	    <py:if test="not value_of('transfer_queue')">
+		<h3>Transfer Queue Empty</h3>
+	    </py:if>
+      </body>
+</html>
