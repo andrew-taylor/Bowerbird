@@ -163,17 +163,29 @@ class Root(object):
         if cancel:
             raise cherrypy.HTTPRedirect('/')
         elif apply:
-            # clear all schedules
-            # and add them back in the order they were on the webpage
-            self._schedule.clearScheduleSpecs()
-            schedules = {}
 
-            # just get the labels
+            # use dictionary so we can untangle the POST data
+            schedules = {}
+            # we must check for uniqueness of titles
+            titles = set()
+            # just get the titles
             for key in data:
                 # each schedule comes in three parts: ?.title, ?.start, ?.finish
                 if key.endswith('title'):
                     id = key.split('.')[0]
-                    schedules[id] = data[key]
+                    title = data[key]
+                    if title in titles:
+                        error = ('Schedule titles must be unique. Found '
+                                'duplicate of "%s"' % title)
+                        return template.render(station=self.getStationName(),
+                                recording_specs=self._schedule.getScheduleSpecs(),
+                                error=error, file=self._schedule.filename, add=None)
+                    schedules[id] = title
+                    titles.add(title)
+
+            # clear all schedules
+            # and add them back in the order they were on the webpage
+            self._schedule.clearScheduleSpecs()
 
             # sort the labels by their id, then add them in that order
             schedule_ids = schedules.keys()
@@ -182,9 +194,6 @@ class Root(object):
                 start_key = "%s.start" % id
                 finish_key = "%s.finish" % id
                 if data.has_key(start_key) and data.has_key(finish_key):
-                    schedule_title = schedules[id]
-                    schedule_value = ("%s - %s"
-                            % (data[start_key], data[finish_key]))
                     self._schedule.setScheduleSpec(
                             ScheduleParser.parseRecordingSpec(schedules[id],
                             data[start_key], data[finish_key]))
@@ -210,10 +219,8 @@ class Root(object):
                         schedule_key = data[title_key]
                         self._schedule.deleteScheduleSpec(schedule_key)
 
-        recording_specs = self._schedule.getScheduleSpecs()
-
         return template.render(station=self.getStationName(), error=error,
-                recording_specs=recording_specs, add=add,
+                recording_specs=self._schedule.getScheduleSpecs(), add=add,
                 file=self._schedule.filename)
 
 

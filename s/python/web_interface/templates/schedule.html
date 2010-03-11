@@ -10,68 +10,23 @@
 <py:def function="time_edit(name, value)">
 <input name="${name}" class="schedule_time required mytime" type="text" value="${value}" />
 </py:def>
-<py:def function="time_edit_js(name, value)">
-					+ '<input name="${name}" class="schedule_time required mytime" type="text" value="${value}" />'
-</py:def>
 <py:def function="time_js_expression(arg)">
 /^${TIME_PATTERN}$/.test(${arg});
 </py:def>
 
 <head>
 	<script type="text/javascript" src="/media/jquery-validate/jquery.validate.js"></script>
+	<script type="text/javascript" src="/media/bowerbird.js"></script>
 	<script type="text/javascript">
-		// define the remove row callback
-		function removeRow(event) {
-			// stop default click handling
-			event.preventDefault();
-			// remove the row clicked on
-			$(this).parents("tr.schedule").remove();
-		}
+        // write custom validator for our time (with sunrise/set relative option)
+        // This can't be in the javascript file because we're using genshi to
+        // fill in the time format string
+        jQuery.validator.addMethod("mytime", function(value, element) {
+                return this.optional(element) || ${time_js_expression('value')}
+            }, "Please enter a valid time.");
 
-		// write custom validator for our time (with sunrise/set relative option)
-		jQuery.validator.addMethod("mytime", function(value, element) {
-				return this.optional(element) || ${time_js_expression('value')}
-				}, "Please enter a valid time.");
-
-		// on document load
-		$(document).ready(function() {
-			// add handler to remove button
-			$("input.schedule_remove").click(removeRow);
-
-			// add handler to "Add Entry" button
-			$("input.schedule_add").click(function(event) {
-				// stop default click handling
-				event.preventDefault();
-				// find the a new unique id for the new row (one more than the previous row)
-				var new_id = 0;
-				$(this).parents("tr").prev("tr.schedule").each(function() {
-					var id = Number($(this).attr('id'));
-					if (id >= new_id) {
-						new_id = id + 1;
-					}
-				});
-				// add a new row before it
-				$(this).parents("tr").before('<tr id="'+new_id+'" class="schedule">'
-					+ '<td class="schedule">'
-					+ '<input name="'+new_id+'.title" class="schedule_title required" minlength="3" type="text" value="" />'
-					+ '</td><td class="schedule">'
-					${time_edit_js("'+new_id+'.start", "")}
-					+ '</td><td class="schedule">'
-					${time_edit_js("'+new_id+'.finish", "")}
-					+ '</td><td class="schedule_remove">'
-					+ '<input name="'+new_id+'.remove" class="schedule_remove" type="submit" value="Remove" />'
-					+ '</td></tr>');
-
-				// add handler to remove button
-				$(this).parents("tr").prev("tr.schedule").find("input.schedule_remove").click(removeRow);
-
-				return false;
-			});
-
-			// connect the form validation
-			$("#scheduleForm").validate();
-		});
-	</script>
+        $(onReadySchedule);
+    </script>
 	<title>Scheduled Capture</title>
 </head>
 
@@ -91,7 +46,7 @@
 			<tr class="schedule" id="${i}">
 				<td class="schedule">
 					<input name="${'%d.title' % i}"
-							class="schedule_title required" type="text"
+							class="schedule_title required unique_title" type="text"
 							value="${spec.title}" />
 				</td>
 				<td class="schedule">${time_edit('%d.start' % i, spec.start)}</td>
@@ -111,9 +66,9 @@
 			</td>
 		</tr>
 		<!--! new entry row -->
-		<tr py:if="add" py:with="i=len(values)" name="${i}">
+		<tr py:if="add" py:with="i=len(recording_specs)" name="${i}">
 			<td class="schedule">
-				<input name="${'%d.title'%i}" class="schedule_title" type="text"
+				<input name="${'%d.title'%i}" class="schedule_title required unique_title" type="text"
 						value="new schedule" />
 			</td>
 			<td class="schedule">${time_edit('%d.start'%i, '')}</td>
