@@ -728,18 +728,27 @@ class Root(object):
     def getLastRecording(self):
         # find the most recent recording in the database?
         # or should we scan the scheduled recordings and assume they occurred
-        return '?? Poison Dart Frogs (18:00-18:30)'
-
+        last = self._storage.getRecordingBefore(datetime.datetime.now())
+        if last:
+            return '%s: %s %s to %s' % (last.title,
+                    formatDateUI(last.start_date),
+                    formatTimeUI(last.start_time, compact=True),
+                    formatTimeUI(last.finish_time, compact=True))
+        return 'No previous recordings'
 
     def getNextRecording(self):
         now = datetime.datetime.now()
-        #times come out sorted, so just return the first one in the future
-        for recording_time in self._schedule.getSchedules(
+        # times come out sorted, so just return the first one in the future
+        # TODO: this should be moved into ScheduleParser
+        for schedule in self._schedule.getSchedules(
                 days_to_schedule=2):
-            if recording_time.start > now:
-                return recording_time
+            if schedule.start > now:
+                return '%s: %s %s to %s' % (schedule.title,
+                        formatDateUI(schedule.start),
+                        formatTimeUI(schedule.start, compact=True),
+                        formatTimeUI(schedule.finish, compact=True))
 
-        return None
+        return 'No recordings scheduled'
 
 
 def loadWebConfig():

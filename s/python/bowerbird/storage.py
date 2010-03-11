@@ -190,10 +190,35 @@ class Storage(object):
                 self._recording_extension, self._recordings_dir)
 
 
-    def getRecordings(self, date=None, station=None, title=None,
+    def getRecordingBefore(self, datetime_):
+        assert isinstance(datetime_, datetime.datetime), ('datetime parameter '
+                'must be a datetime, not a "%s"' % type(datetime_))
+        query = ('SELECT * FROM "%s" WHERE %s <= "%s" ORDER BY %s DESC LIMIT 1'
+                % (RECORDINGS_TABLE, RECORDINGS_CN_START, datetime_.isoformat(),
+                RECORDINGS_CN_START))
+        response = self.runQuerySingleResponse(query)
+        if response:
+            print response
+            return Recording(response)
+        return None
+
+
+    def getRecordingAfter(self, datetime_):
+        assert isinstance(time_, datetime.datetime), ('datetime parameter must '
+                'be a datetime, not a "%s"' % type(datetime_))
+        query = ('SELECT * FROM "%s" WHERE %s >= "%s" ORDER BY %s ASC LIMIT 1'
+                % (RECORDINGS_TABLE, RECORDINGS_CN_START, datetime_.isoformat(),
+                RECORDINGS_CN_START))
+        response = self.runQuerySingleResponse(query)
+        if response:
+            return Recording(response)
+        return None
+
+
+    def getRecordings(self, date_=None, station=None, title=None,
             min_start_date=None, max_finish_date=None):
-        assert date==None or type(date) == datetime.date, (
-                'date parameter must be a date, not a "%s"' % type(date))
+        assert date_==None or type(date_) == datetime.date, (
+                'date parameter must be a date, not a "%s"' % type(date_))
         assert min_start_date==None or type(min_start_date) == datetime.date, (
                 'date parameter must be a date, not a "%s"'
                 % type(min_start_date))
@@ -209,9 +234,9 @@ class Storage(object):
         if title:
             query += ' %s %s = "%s"' % (conjunction, RECORDINGS_CN_TITLE, title)
             conjunction = 'AND'
-        if date:
+        if date_:
             query += ' %s %s = "%s"' % (conjunction, RECORDINGS_CN_DATE,
-                    date.isoformat())
+                    date_.isoformat())
             conjunction = 'AND'
         if min_start_date:
             query += ' %s %s >= "%s"' % (conjunction, RECORDINGS_CN_START,
@@ -248,11 +273,10 @@ class Storage(object):
                 'datetime, not a "%s"' % type(time))
         # check that the given time is not only overlaps the recording, but also
         # is within the limits of the recording (from the schedule)
-        query = ('SELECT * FROM %(table)s WHERE "%(time)s" BETWEEN %(start)s '
-                'AND %(finish)s AND "%(time)s" BETWEEN %(limit_s)s AND '
-                '%(limit_f)s' % {'table': RECORDINGS_TABLE,
-                'time': time.isoformat(), 'start': RECORDINGS_CN_START,
-                'finish': RECORDINGS_CN_FINISH,
+        query = ('SELECT * FROM %(table)s WHERE %(time)s BETWEEN %(start)s AND '
+                '%(finish)s AND %(time)s BETWEEN %(limit_s)s AND %(limit_f)s'
+                % {'table': RECORDINGS_TABLE, 'time': time.isoformat(),
+                'start': RECORDINGS_CN_START, 'finish': RECORDINGS_CN_FINISH,
                 'limit_s': RECORDINGS_CN_LIMIT_S,
                 'limit_f': RECORDINGS_CN_LIMIT_F})
         return (Recording(row, self._recording_extension, self._recordings_dir)
