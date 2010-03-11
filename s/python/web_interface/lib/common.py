@@ -22,25 +22,25 @@ NO_FILTER_STATION = 'All Stations'
 NO_FILTER_TITLE = 'All Recordings'
 
 def hasSession(key):
-	return key in cherrypy.session
+    return key in cherrypy.session
 
 def setSession(key, value):
-	cherrypy.session[key] = value
+    cherrypy.session[key] = value
 
 def getSession(key):
-	if cherrypy.session.has_key(key):
-		return cherrypy.session[key]
-	return None
+    if cherrypy.session.has_key(key):
+        return cherrypy.session[key]
+    return None
 
 def clearSession(key):
-	if cherrypy.session.has_key(key):
-		del cherrypy.session[key]
+    if cherrypy.session.has_key(key):
+        del cherrypy.session[key]
 
 def printSession():
-	print 'CherryPy Session:'
-	for key in (SESSION_YEAR_KEY, SESSION_MONTH_KEY, SESSION_FILTER_STATION_KEY,
-			SESSION_FILTER_TITLE_KEY, SESSION_FILTER_START_KEY,
-			SESSION_FILTER_FINISH_KEY, SESSION_DATE_KEY, SESSION_RECORD_ID_KEY,
-			SESSION_STATION_NAME_KEY, SESSION_STATION_ADDRESS_KEY):
-		if hasSession(key):
-			print '\t%s: %s' % (key, getSession(key))
+    print 'CherryPy Session:'
+    for key in (SESSION_YEAR_KEY, SESSION_MONTH_KEY, SESSION_FILTER_STATION_KEY,
+            SESSION_FILTER_TITLE_KEY, SESSION_FILTER_START_KEY,
+            SESSION_FILTER_FINISH_KEY, SESSION_DATE_KEY, SESSION_RECORD_ID_KEY,
+            SESSION_STATION_NAME_KEY, SESSION_STATION_ADDRESS_KEY):
+        if hasSession(key):
+            print '\t%s: %s' % (key, getSession(key))

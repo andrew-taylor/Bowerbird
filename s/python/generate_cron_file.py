@@ -26,12 +26,12 @@ schedule = ScheduleParser(config_filename, schedule_filename)
 
 # check config had enough info, and fill in defaults if available
 if not schedule.assertCommandIsDefined():
-	sys.exit(1)
+    sys.exit(1)
 
 if not schedule.user:
-	schedule.user = DEFAULT_USER
+    schedule.user = DEFAULT_USER
 if not schedule.days_to_schedule:
-	schedule.days_to_schedule = DEFAULT_DAYS_TO_SCHEDULE
+    schedule.days_to_schedule = DEFAULT_DAYS_TO_SCHEDULE
 
 
 # print preamble
@@ -52,25 +52,25 @@ cron_times = []
 start = None
 finish = None
 for recording_time in schedule.getRecordingTimes():
-	if start == None:
-		# new duration starting
-		start, finish = recording_time.getStartAndFinish()
-	else:
-		if recording_time.start < finish:
-			# if current overlaps previous times
-			if recording_time.finish > finish:
-				# if it extends previous times
-				finish = recording_time.finish
-		else:
-			# no overlap so save current duration
-			cron_times.append((start, finish))
-			# initialise next duration
-			start, finish = recording_time.getStartAndFinish()
+    if start == None:
+        # new duration starting
+        start, finish = recording_time.getStartAndFinish()
+    else:
+        if recording_time.start < finish:
+            # if current overlaps previous times
+            if recording_time.finish > finish:
+                # if it extends previous times
+                finish = recording_time.finish
+        else:
+            # no overlap so save current duration
+            cron_times.append((start, finish))
+            # initialise next duration
+            start, finish = recording_time.getStartAndFinish()
 # save the last duration
 if start != None:
-	cron_times.append((start, finish))
+    cron_times.append((start, finish))
 
 for start,finish in cron_times:
-	command_str = schedule.command % (finish - start).seconds
-	print '%d\t%d\t%d\t%d\t*\t%s\t%s' % (start.minute, start.hour,
-			start.day, start.month, schedule.user, command_str)
+    command_str = schedule.command % (finish - start).seconds
+    print '%d\t%d\t%d\t%d\t*\t%s\t%s' % (start.minute, start.hour,
+            start.day, start.month, schedule.user, command_str)
