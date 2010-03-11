@@ -907,6 +907,11 @@ class Recording(object):
 			if recordings_dir:
 				self.abspath = os.path.join(recordings_dir, self.path)
 
+	@property
+	def hash(self):
+		return '%s_%s_%s' % (self.station, self.title,
+				self.start_time.isoformat())
+
 	def isTitled(self):
 		return self.title != UNTITLED
 
@@ -919,11 +924,7 @@ class Recording(object):
 				formatTimeUI(self.start_time), formatTimeUI(self.finish_time),
 				formatTimeUI(self.start_limit), formatTimeUI(self.finish_limit))
 
-	def getRecordingHash(self):
-		return '%s_%s_%s' % (self.station, self.title,
-				self.start_time.isoformat())
-
- 	def createSubRangeFile(self, destination_filename, start, finish):
+	def createSubRangeFile(self, destination_filename, start, finish):
 		# use sox's trim command which takes 2 args: start_offset & duration
 		command = [SOX_PATH, '-q', self.abspath, destination_filename,
 				'trim']

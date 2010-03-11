@@ -1,8 +1,9 @@
-import os, sys, shutil, errno, multiprocessing, collections
+import os, sys, shutil, errno, tempfile
 import cherrypy, calendar, genshi, urllib2, lxml.html, lxml.etree
 from cherrypy.lib import sessions
 from cStringIO import StringIO
 from urllib import urlencode
+from zipfile import ZipFile
 
 from bowerbird.common import *
 from bowerbird.configparser import ConfigParser
@@ -12,6 +13,7 @@ from lib import ajax, template, jsonpickle
 from lib.common import *
 from lib.recordingshtmlcalendar import RecordingsHTMLCalendar
 from lib.zeroconfscanner import ZeroconfScanner
+from lib.transfer import TransferManager
 
 # web interface config file
 WEB_CONFIG = 'bowerbird-proxy.conf'
@@ -21,12 +23,23 @@ DEFAULT_BOWERBIRD_PORT = '8080'
 DATABASE_KEY = 'database'
 ROOT_DIR_KEY = 'root_dir'
 EXTENSION_KEY = 'extension'
+LOCALNET_SCAN_TIME_MS_KEY = 'localnet_scan_time_ms'
+CONCURRENT_TRANSFERS_KEY = 'concurrent_transfers'
+TRANSFER_BANDWIDTH_KEY = 'transfer_bandwidth'
+TRANSFER_CHUNK_SIZE_KEY = 'transfer_chunk_size'
 REQUIRED_KEYS = [DATABASE_KEY, ROOT_DIR_KEY, EXTENSION_KEY]
 
 CONNECT_FAILURE_REDIRECTION_TIMEOUT = 10 # in seconds
 
-# how long zeroconf will wait for responses when probing for bowerbirds
-ZEROCONF_SCAN_TIME_MS = 500
+# default number of concurrent transfers from remote bowerbirds
+DEFAULT_CONCURRENT_TRANSFERS = 2
+# default value for how long to wait for responses when probing for bowerbirds
+DEFAULT_LOCALNET_SCAN_TIME_MS = 500
+# default bandwidth to use for each transfer (in bytes/second)
+DEFAULT_TRANSFER_BANDWIDTH = 100
+# default chunk size for retrieving files (in bytes)
+DEFAULT_TRANSFER_CHUNK_SIZE = 1048576 # a megabyte
+
 
 UNIMPLEMENTED = '''<html>
 <head><title>Uninplemented</title></head>
@@ -36,7 +49,8 @@ UNIMPLEMENTED = '''<html>
 
 class Root(object):
 	def __init__(self, path, database_file, root_dir, extension,
-			bowerbird_port):
+			bowerbird_port, localnet_scan_time_ms, concurrent_transfers,
+			transfer_bandwidth, transfer_chunk_size):
 		self.path = path
 		self.bowerbird_port = bowerbird_port
 
@@ -44,9 +58,10 @@ class Root(object):
 		self._storage = ProxyStorage(database_file, root_dir, extension)
 
 		# create the zeroconf scanner to detect local bowerbirds
-		self._scanner = ZeroconfScanner(ZEROCONF_TYPE, ZEROCONF_SCAN_TIME_MS)
+		self._scanner = ZeroconfScanner(ZEROCONF_TYPE, localnet_scan_time_ms)
 
-		self._transfer_queue = collections.deque()
+		self._transfer_manager = TransferManager(bowerbird_port,
+				concurrent_transfers, transfer_bandwidth, transfer_chunk_size)
 
 
 	@cherrypy.expose
@@ -145,6 +160,11 @@ class Root(object):
 			# Clear all recordings. The cron job will do the scanning/refilling.
 			self._storage.clearRecordings()
 
+		# HACK to stay connected
+		#if not hasSession(SESSION_STATION_ADDRESS_KEY):
+		#	setSession(SESSION_STATION_ADDRESS_KEY, '192.168.0.201')
+		#	setSession(SESSION_STATION_NAME_KEY, 'Frankie')
+
 		# update recordings from connected bowerbird
 		if hasSession(SESSION_STATION_ADDRESS_KEY):
 			self.updateRecordingsFromBowerbird()
@@ -155,10 +175,8 @@ class Root(object):
 			station_address = getSession(SESSION_STATION_ADDRESS_KEY)
 			for recording in self._storage.getRecordings(
 					station=getSession(SESSION_STATION_NAME_KEY)):
-				if (not recording.fileExists() and not
-						isRecordingInQueue(recording, self._transfer_queue)):
-					self._transfer_queue.append((recording.id, station_address))
-			# TODO: start queue processor
+				if not recording.fileExists():
+					self._transfer_manager.add(recording, station_address)
 
 		if reset_filter:
 			filter_station = None
@@ -260,10 +278,9 @@ class Root(object):
 		if retrieve_recording and recording_id:
 			# add the recording to the transfer queue
 			recording = self._storage.getRecording(int(recording_id))
-			if not isRecordingInQueue(recording, self._transfer_queue):
-				self._transfer_queue.append((recording,
-						getSession(SESSION_STATION_ADDRESS_KEY)))
-			# TODO: start queue processor
+			if not recording.fileExists():
+				self._transfer_manager.add(recording,
+						getSession(SESSION_STATION_ADDRESS_KEY))
 
 		# handle requests to export a recording
 		if export_recording and recording_id:
@@ -378,10 +395,8 @@ class Root(object):
 		if retrieve_selection and selected_recordings:
 			station_address = getSession(SESSION_STATION_ADDRESS_KEY)
 			for recording in selected_recordings:
-				if (not recording.fileExists() and not
-						isRecordingInQueue(recording, self._transfer_queue)):
-					self._transfer_queue.append((recording, station_address))
-			# TODO: start queue processor
+				if not recording.fileExists():
+					self._transfer_manager.add(recording, station_address)
 
 		# if export selection is requested, then zip up all files and send them
 		if export_selection and selected_recordings:
@@ -390,6 +405,7 @@ class Root(object):
 					# the file transfer can take a long time; by default
 					# cherrypy limits responses to 300s; we increase it to 1h
 					cherrypy.response.timeout = 3600
+					archive = None
 					try:
 						# create the zipfile
 						archive = ZipFile(tmp.name, 'w')
@@ -398,7 +414,8 @@ class Root(object):
 							archive.write(recording.abspath, recording.path)
 					finally:
 						# safer this way
-						archive.close()
+						if archive:
+							archive.close()
 
 					# create a suitable name for the export
 					if selected_date:
@@ -480,22 +497,27 @@ class Root(object):
 				calendar=genshi.HTML(calendar), selected_date=selected_date,
 				selected_recording=selected_recording,
 				selected_recordings=selected_recordings,
-				transfer_queue=self._transfer_queue)
+				transfer_queue_ids=self._transfer_manager.queue_ids)
 
 
 	@cherrypy.expose
 	@template.output('queue.html')
-	def queue(self, cancel_all_transfers=None, **ignored):
+	def queue(self, recording_id=None, cancel_transfer=None,
+			cancel_all_transfers=None, **ignored):
 		# HACK: this helps development slightly
 		if ignored:
 			print "IGNORED",ignored
 
 		if cancel_all_transfers:
-			self._transfer_queue.clear()
+			self._transfer_manager.clear()
+			raise cherrypy.HTTPRedirect('/recordings')
+
+		if recording_id and cancel_transfer:
+			self._transfer_manager.remove(int(recording_id))
 
 		return template.render(is_proxy=True,
 				station=getSession(SESSION_STATION_NAME_KEY),
-				transfer_queue=self._transfer_queue)
+				transfer_queue=self._transfer_manager.queue)
 
 
 	def findLocalBowerbirds(self, rescan=False):
@@ -585,14 +607,14 @@ class Root(object):
 
 		# add the recordings that aren't already there
 		# first build a set of hashes of existing recordings
-		recording_hashes = frozenset(recording.getRecordingHash() for recording
+		recording_hashes = frozenset(recording.hash for recording
 				in self._storage.getRecordings())
 		current_station = getSession(SESSION_STATION_NAME_KEY)
 		for recording in jsonpickle.decode(self.tunnelConnectionToBowerbird(
 				'recordings_json', kwargs).read()):
 			# this must be set because the station doesn't store it
 			recording.station = current_station
-			if recording.getRecordingHash() not in recording_hashes:
+			if recording.hash not in recording_hashes:
 				self._storage.addRecording(recording, current_station)
 
 
@@ -630,10 +652,27 @@ def main(args):
 	database_file = cherrypy.config[DATABASE_KEY]
 	root_dir = cherrypy.config[ROOT_DIR_KEY]
 	extension = cherrypy.config[EXTENSION_KEY]
+	if cherrypy.config.has_key(LOCALNET_SCAN_TIME_MS_KEY):
+		localnet_scan_time_ms = cherrypy.config[LOCALNET_SCAN_TIME_MS_KEY]
+	else:
+		localnet_scan_time_ms = DEFAULT_LOCALNET_SCAN_TIME_MS
+	if cherrypy.config.has_key(CONCURRENT_TRANSFERS_KEY):
+		concurrent_transfers = cherrypy.config[CONCURRENT_TRANSFERS_KEY]
+	else:
+		concurrent_transfers = DEFAULT_CONCURRENT_TRANSFERS
+	if cherrypy.config.has_key(TRANSFER_BANDWIDTH_KEY):
+		transfer_bandwidth = cherrypy.config[TRANSFER_BANDWIDTH_KEY]
+	else:
+		transfer_bandwidth = DEFAULT_TRANSFER_BANDWIDTH
+	if cherrypy.config.has_key(TRANSFER_CHUNK_SIZE_KEY):
+		transfer_chunk_size = cherrypy.config[TRANSFER_CHUNK_SIZE_KEY]
+	else:
+		transfer_chunk_size = DEFAULT_TRANSFER_CHUNK_SIZE
 
 	try:
 		cherrypy.tree.mount(Root(path, database_file, root_dir, extension,
-				bowerbird_port),
+				bowerbird_port, localnet_scan_time_ms, concurrent_transfers,
+				transfer_bandwidth, transfer_chunk_size),
 				'/', { '/media': {
 					'tools.staticdir.on': True,
 					'tools.staticdir.dir': 'static'

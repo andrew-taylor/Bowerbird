@@ -34,8 +34,6 @@ FREQUENCY_SCALES = ['Linear', 'Logarithmic']
 DEFAULT_FFT_STEP = 256 # in milliseconds
 SONOGRAM_DIRECTORY = os.path.join("static", "sonograms")
 
-EXPORT_LIMIT_DETECTION_THRESHOLD = datetime.timedelta(seconds=1)
-
 
 class Root(object):
 	def __init__(self, path, database_file):
@@ -443,7 +441,9 @@ class Root(object):
 						archive = ZipFile(tmp.name, 'w')
 						# add all the recording files
 						for recording in selected_recordings:
-							archive.write(recording.abspath, recording.path)
+							# ignore missing files
+							if recording.fileExists():
+								archive.write(recording.abspath, recording.path)
 					finally:
 						# safer this way
 						archive.close()
@@ -452,6 +452,9 @@ class Root(object):
 					if selected_date:
 						served_filename = ('Recordings_%s.zip'
 								% formatDateIso(selected_date))
+					elif filter_start == filter_finish:
+						served_filename = ('Recordings_%s.zip'
+								% formatDateIso(filter_start))
 					else:
 						served_filename = ('Recordings_%s_to_%s.zip'
 								% (formatDateIso(filter_start),
@@ -464,7 +467,8 @@ class Root(object):
 							"application/x-download", "attachment",
 							served_filename)
 			except Exception, inst:
-				errors.append('Error exporting recordings: %s' % inst)
+				errors.append('Error exporting recordings: %s (%s)' % (inst,
+						type(inst)))
 
 		# determine which days to highlight
 		# always show today
@@ -525,6 +529,31 @@ class Root(object):
 	@cherrypy.expose
 	def recordings_json(self):
 		return jsonpickle.encode(list(self._storage.getRecordings()))
+
+
+	@cherrypy.expose
+	def recording_by_hash(self, hash=None):
+		if not hash:
+			print 'You must provide the hash of the desired recording in the POST or GET data.'
+			raise cherrypy.HTTPError(404, 'You must provide the hash of the '
+					'desired recording in the POST or GET data.')
+
+		print 'searching for recording with hash "%s"' % hash
+		station_name = self.getStationName()
+		for recording in self._storage.getRecordings():
+			# must fill in station name
+			recording.station = station_name
+			if recording.hash == hash:
+				# use cherrypy utility to push the file for download. This
+				# also means that we don't have to move the config file into
+				# the web-accessible filesystem hierarchy
+				return cherrypy.lib.static.serve_file(recording.abspath,
+						"application/x-download", "attachment",
+						os.path.basename(recording.path))
+
+		print 'The provided recording hash does not match any of the stored recordings.'
+		raise cherrypy.HTTPError(404, 'The provided recording hash does not '
+				'match any of the stored recordings.')
 
 
 #	@cherrypy.expose
@@ -711,46 +740,6 @@ class Root(object):
 				return recording_time
 
 		return None
-
-
-def getExportTime(time_string, recording_start, recording_finish):
-	'''Parses the given timestring and returns it as a datetime. If it's
-	outside the given range (or invalid), then None is returned
-	NOTE: Time values within a second of the limit are treated as outside the
-		range. This is so the default export limits do not trigger subrange
-		generation.
-	'''
-
-	if time_string:
-		time = parseTimeUI(time_string)
-
-		# recording is on a single day so no need to handle overnight edge cases
-		if recording_start.date() == recording_finish.date():
-			# convert time to a datetime
-			time = datetime.datetime.combine(recording_start.date(), time)
-			# if time is inside range then return it
-			if (time - recording_start > EXPORT_LIMIT_DETECTION_THRESHOLD
-					and recording_finish - time
-					> EXPORT_LIMIT_DETECTION_THRESHOLD):
-				return time
-		# detect time after start on first day
-		elif time > recording_start.time():
-			# convert time to a datetime
-			time = datetime.datetime.combine(recording_start.date(), time)
-			# if time is inside range then return it
-			if time - recording_start > EXPORT_LIMIT_DETECTION_THRESHOLD:
-				return time
-		# detect time after start on first day
-		elif time < recording_finish.time():
-			# convert time to a datetime
-			time = datetime.datetime.combine(recording_finish.date(), time)
-			# if time is inside range then return it
-			if recording_finish - time > EXPORT_LIMIT_DETECTION_THRESHOLD:
-				return time
-
-	# if we get to here then time was not in the range so reset it to the
-	# default handling below happens
-	return None
 
 
 def loadWebConfig():

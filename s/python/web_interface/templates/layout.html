@@ -3,7 +3,9 @@
       xmlns:xi="http://www.w3.org/2001/XInclude"
       xmlns:py="http://genshi.edgewall.org/" py:strip="">
 
-<?python from urllib import quote ?>
+    <?python
+	from urllib import quote
+	?>
 
   <py:match path="head" once="true">
     <head py:attrs="select('@*')">

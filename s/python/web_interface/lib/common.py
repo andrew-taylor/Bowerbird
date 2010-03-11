@@ -44,15 +44,3 @@ def printSession():
 			SESSION_STATION_NAME_KEY, SESSION_STATION_ADDRESS_KEY):
 		if hasSession(key):
 			print '\t%s: %s' % (key, getSession(key))
-
-
-def isRecordingInQueue(recording, queue):
-	'''This function exists because the transfer queue needed to be a tuple'''
-	# this will handle queues that are None or empty
-	if not queue:
-		return False
-
-	for q_recording, q_ip in queue:
-		if q_recording.id == recording.id:
-			return True
-	return False

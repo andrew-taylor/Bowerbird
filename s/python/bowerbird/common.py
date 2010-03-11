@@ -37,6 +37,8 @@ TIME_FORMAT_UI_HMS = '%H:%M:%S'
 TIME_FORMAT_UI_HM = '%H:%M'
 TIME_FORMAT_UI_H = '%H'
 
+EXPORT_LIMIT_DETECTION_THRESHOLD = datetime.timedelta(seconds=1)
+
 
 def formatStationName(name, compact=False):
 	'''Return the name with square brackets around it, or just the initials
@@ -47,7 +49,6 @@ def formatStationName(name, compact=False):
 	if compact:
 		return '[%s]' % ''.join((char for char in name if char.isupper()))
 	return '[%s]' % name
-
 
 
 def formatDateTimeIso(my_datetime):
@@ -209,6 +210,46 @@ def convertConfig(config_obj, output_file,
 					output_file.write(key_comments + '\n')
 				output_file.write("%s%s%s=\"%s\"\n" % (section, shell_separator,
 						key, config_obj[section][key]))
+
+
+def getExportTime(time_string, recording_start, recording_finish):
+	'''Parses the given timestring and returns it as a datetime. If it's
+	outside the given range (or invalid), then None is returned
+	NOTE: Time values within a second of the limit are treated as outside the
+		range. This is so the default export limits do not trigger subrange
+		generation.
+	'''
+
+	if time_string:
+		time = parseTimeUI(time_string)
+
+		# recording is on a single day so no need to handle overnight edge cases
+		if recording_start.date() == recording_finish.date():
+			# convert time to a datetime
+			time = datetime.datetime.combine(recording_start.date(), time)
+			# if time is inside range then return it
+			if (time - recording_start > EXPORT_LIMIT_DETECTION_THRESHOLD
+					and recording_finish - time
+					> EXPORT_LIMIT_DETECTION_THRESHOLD):
+				return time
+		# detect time after start on first day
+		elif time > recording_start.time():
+			# convert time to a datetime
+			time = datetime.datetime.combine(recording_start.date(), time)
+			# if time is inside range then return it
+			if time - recording_start > EXPORT_LIMIT_DETECTION_THRESHOLD:
+				return time
+		# detect time after start on first day
+		elif time < recording_finish.time():
+			# convert time to a datetime
+			time = datetime.datetime.combine(recording_finish.date(), time)
+			# if time is inside range then return it
+			if recording_finish - time > EXPORT_LIMIT_DETECTION_THRESHOLD:
+				return time
+
+	# if we get to here then time was not in the range so reset it to the
+	# default handling below happens
+	return None
 
 
 class MissingConfigKeyError(RuntimeError):
