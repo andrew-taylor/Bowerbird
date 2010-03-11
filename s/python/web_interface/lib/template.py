@@ -38,8 +38,8 @@ def render(*args, **kwargs):
     ``@output`` decorator.
     """
     if args:
-        assert(len(args) == 1,
-            'Expected exactly one argument, but got %r' % (args,))
+        assert len(args) == 1, ('Expected exactly one argument, but got %d'
+                % args)
         template = loader.load(args[0])
     else:
         template = cherrypy.thread_data.template

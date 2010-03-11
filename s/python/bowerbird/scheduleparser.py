@@ -280,7 +280,7 @@ class ScheduleParser(object):
             may overlap the boundary between two'''
         schedules = []
         # (search 1 day either side)
-         for schedule in self.getSchedules(start
+        for schedule in self.getSchedules(start
                 - datetime.timedelta(1), (finish - start).days + 2):
             # if either start or finish of recording file is in the schedule
             if (start in schedule or finish in schedule):
