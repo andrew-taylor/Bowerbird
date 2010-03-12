@@ -151,8 +151,23 @@ input.schedule_add, input.schedule_remove {
 }
 
 
-input[type=submit] {
+input[type=submit], input[type=text], select {
 	border-style: groove
+}
+
+input.recordings_filter[type=submit] {
+	border-style: hidden;
+	background-color:#B6DCFF;
+	cursor: pointer
+}
+
+input.recordings_filter_small[type=submit] {
+	border-style: ridge;
+	background-color:#B6DCFF;
+	font-size: smallest;
+	cursor: pointer;
+	border-spacing: 0;
+	padding: 0
 }
 
 

@@ -5,13 +5,14 @@ from bowerbird.common import formatTimeUI, formatStationName
 
 class RecordingsHTMLCalendar(Calendar):
 
-    def __init__(self, year, month, today, storage=None, filter_title=None,
-            filter_start_date=None, filter_finish_date=None, selected_date=None,
-            selected_record=None, firstweekday=SUNDAY):
+    def __init__(self, year, month, today, storage=None, filter_station=None,
+            filter_title=None, filter_start_date=None, filter_finish_date=None,
+            selected_date=None, selected_record=None, firstweekday=SUNDAY):
         self.year = year
         self.month = month
         self.today = today
         self._storage = storage
+        self.filter_station = filter_station
         self.filter_title = filter_title
         self.filter_start_date = filter_start_date
         self.filter_finish_date = filter_finish_date
@@ -59,7 +60,10 @@ class RecordingsHTMLCalendar(Calendar):
                 if (self.selected_record
                         and recording.id == self.selected_record.id):
                     extra_div_class += " selected_entry"
-                if ((self.filter_title and self.filter_title != recording.title)
+                if ((self.filter_station and self.filter_station
+                        != recording.station)
+                        or (self.filter_title and self.filter_title
+                        != recording.title)
                         or (self.filter_start_date and self.filter_start_date
                         > recording.finish_time.date())
                         or (self.filter_finish_date and self.filter_finish_date

@@ -387,7 +387,7 @@ class Root(object):
         elif filter_start and filter_finish:
             # must convert generator to a list
             selected_recordings = list(self._storage.getRecordings(
-                    title=filter_title,
+                    station=filter_station, title=filter_title,
                     min_start_date=filter_start, max_finish_date=filter_finish))
 
         # if retrieve selection is requested, then add all selected recordings
@@ -482,8 +482,8 @@ class Root(object):
 
         if view == 'month':
             calendar = RecordingsHTMLCalendar(year, month, today, self._storage,
-                    filter_title, filter_start, filter_finish, selected_date,
-                    selected_recording).showMonth()
+                    filter_station, filter_title, filter_start, filter_finish,
+                    selected_date, selected_recording).showMonth()
         else:
             calendar = ('<h2>Unimplemented</h2>'
                     'That calendar format is not supported')

@@ -47,7 +47,10 @@
                 else:
                     found_unretrievable = True
             if found_retrievable:
-                mode = 'retrieve'
+                if found_unretrievable:
+                    mode = 'retrieve_available'
+                else:
+                    mode = 'retrieve'
             elif found_exportable:
                 if found_unretrievable:
                     mode = 'export_available'
@@ -61,8 +64,9 @@
         <py:choose test="mode">
             <input py:when="'export'" type="submit" name="export_selection" value="Export Selection" />
             <input py:when="'retrieve'" type="submit" name="retrieve_selection" value="Retrieve Selection" />
+            <input py:when="'retrieve_available'" type="submit" name="retrieve_selection" value="Retrieve Available from Selection" />
             <input py:when="'already_retrieving'" type="submit" value="Retrieving Selection" disabled="disabled" />
-            <input py:when="'export_available'" type="submit" name="export_selection" value="Export Available From Selection" />
+            <input py:when="'export_available'" type="submit" name="export_selection" value="Export Available from Selection" />
             <input py:otherwise="" type="submit" value="Export Selection" disabled="disabled" />
         </py:choose>
     </py:def>
@@ -183,44 +187,44 @@
         <div py:when="value_of('selected_recording')">
             <form method="POST" action="${url}">
                 <h2>Selected Recording
-                <input class="clear" type="submit" name="clear_recording_id" value="X" />
-                <input type="hidden" name="recording_id" value="${selected_recording.id}" />
-                <!--! show option to filter by station if station is defined.
-                    Station is usually only defined on the proxy. -->
-                <input py:if="value_of('is_proxy')" type="submit"
-                    name="set_filter_station"
-                    value="Show ${selected_recording.station}" />
-                <input type="submit" name="set_filter_title"
-                    value="Show ${selected_recording.title}" />
-                <input type="submit" name="set_filter_start"
-                    value="Set Start" />
-                <input type="submit" name="set_filter_finish"
-                    value="Set Finish" />
+                    <input type="hidden" name="recording_id" value="${selected_recording.id}" />
+                    <input class="clear" type="submit" name="clear_recording_id" value="X" />
                 </h2>
                 <table class="selected_recordings">
                     <tr>
                         <th py:if="value_of('is_proxy')" class="selected_recordings">Station</th>
                         <th class="selected_recordings">Title</th>
-                        <th class="selected_recordings">Date</th>
-                        <th class="selected_recordings">Time</th>
+                        <th class="selected_recordings">Date &amp; Time</th>
                         <th class="selected_recordings">Export</th>
                     </tr>
                     <tr>
                         <td py:if="value_of('is_proxy')" class="selected_recordings">
-                            ${selected_recording.station}</td>
-                        <td class="selected_recordings">${selected_recording.title}</td>
-                        <td class="selected_recordings">
-                            ${formatDateUI(selected_recording.start_date)}</td>
-                        <td class="selected_recordings">
-                            ${formatTimeUI(selected_recording.start_time, show_seconds=True)} to
-                            ${formatTimeUI(selected_recording.finish_time, show_seconds=True)}
+                            <input class="recordings_filter" type="submit"
+                                    name="set_filter_station"
+                                    value="${selected_recording.station}" />
                         </td>
                         <td class="selected_recordings">
-                            <input id="export_start" class="time" name="export_start_time"
+                            <input class="recordings_filter" type="submit"
+                                    name="set_filter_title"
+                                    value="${selected_recording.title}" />
+                        </td>
+                        <td class="selected_recordings">
+                            ${formatDateUI(selected_recording.start_date)},
+                            ${formatTimeUI(selected_recording.start_time, show_seconds=True)} to
+                            ${formatTimeUI(selected_recording.finish_time, show_seconds=True)}
+                            <input class="recordings_filter_small" type="submit"
+                                    name="set_filter_start" value="Start" />
+                            <input class="recordings_filter_small" type="submit"
+                                    name="set_filter_finish" value="Finish" />
+                        </td>
+                        <td class="selected_recordings">
+                            <input id="export_start" type="text" class="time"
+                                    name="export_start_time"
                                     value="${formatTimeUI(selected_recording.start_time, show_seconds=True)}"
                                     disabled="${not selected_recording.fileExists() or None}" />
                             to
-                            <input id="export_finish" class="time" name="export_finish_time"
+                            <input id="export_finish" type="text" class="time"
+                                    name="export_finish_time"
                                     value="${formatTimeUI(selected_recording.finish_time, show_seconds=True)}"
                                     disabled="${not selected_recording.fileExists() or None}" />
                             ${export_recording_button(selected_recording)}
@@ -245,12 +249,6 @@
                 <h2>${heading}
                     <input class="clear" type="submit"
                             name="${clear_button_name}" value="X" />
-                    <py:if test="value_of('selected_date')">
-                        <input type="submit" name="set_filter_start"
-                                value="Set Start" />
-                        <input type="submit" name="set_filter_finish"
-                                value="Set Finish" />
-                    </py:if>
                     ${export_recordings_button(selected_recordings)}
                 </h2>
             </form>
@@ -259,38 +257,33 @@
                     <th py:if="value_of('is_proxy')" class="selected_recordings">
                         Station</th>
                     <th class="selected_recordings">Title</th>
-                    <th py:if="not value_of('selected_date')"
-                            class="selected_recordings">Date</th>
-                    <th class="selected_recordings">Time</th>
+                    <th class="selected_recordings">Date &amp; Time</th>
                     <th class="selected_recordings">Actions</th>
-                    <th class="selected_recordings">Update Filter</th>
                 </tr>
                 <tr py:for="rec in selected_recordings">
                     <form method="POST" action="${url}">
                         <input type="hidden" name="recording_id" value="${rec.id}" />
                         <td py:if="value_of('is_proxy')" class="selected_recordings">
-                            ${rec.station}</td>
-                        <td class="selected_recordings">${rec.title}</td>
-                        <td py:if="not value_of('selected_date')"
-                                class="selected_recordings">${rec.start_date}</td>
+                            <input class="recordings_filter" type="submit"
+                                    name="set_filter_station"
+                                    value="${rec.station}" /></td>
                         <td class="selected_recordings">
-                            ${formatTimeUI(rec.start_time, compact=True)} to
-                            ${formatTimeUI(rec.finish_time, compact=True)}
+                            <input class="recordings_filter" type="submit"
+                                    name="set_filter_title"
+                                    value="${rec.title}" /></td>
+                        <td class="selected_recordings">
+                            ${formatDateUI(rec.start_date)},
+                            ${formatTimeUI(rec.start_time)} to
+                            ${formatTimeUI(rec.finish_time)}
+                            <input class="recordings_filter_small" type="submit"
+                                    name="set_filter_start" value="Start" />
+                            <input class="recordings_filter_small" type="submit"
+                                    name="set_filter_finish" value="Finish" />
                         </td>
                         <td class="selected_recordings">
                             <input type="submit" name="set_recording_id"
                                     value="Select" />
                             ${export_recording_button(rec)}
-                        </td>
-                        <td class="selected_recordings">
-                            <input type="submit" name="set_filter_title"
-                                    value="Show ${rec.title}" />
-                            <py:if test="not value_of('selected_date')">
-                                <input type="submit" name="set_filter_start"
-                                        value="Set Start" />
-                                <input type="submit" name="set_filter_finish"
-                                        value="Set Finish" />
-                            </py:if>
                         </td>
                     </form>
                 </tr>

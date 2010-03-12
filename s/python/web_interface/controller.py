@@ -519,8 +519,8 @@ class Root(object):
 
         if view == 'month':
             calendar = RecordingsHTMLCalendar(year, month, today, self._storage,
-                    filter_title, filter_start, filter_finish, selected_date,
-                    selected_recording).showMonth()
+                    None, filter_title, filter_start, filter_finish,
+                    selected_date, selected_recording).showMonth()
         else:
             calendar = ('<h2>Unimplemented</h2>'
                     'That calendar format is not supported')
@@ -739,8 +739,8 @@ class Root(object):
         if last:
             return '%s: %s %s to %s' % (last.title,
                     formatDateUI(last.start_date),
-                    formatTimeUI(last.start_time, compact=True),
-                    formatTimeUI(last.finish_time, compact=True))
+                    formatTimeUI(last.start_time),
+                    formatTimeUI(last.finish_time))
         return 'No previous recordings'
 
     def getNextRecording(self):
@@ -752,8 +752,8 @@ class Root(object):
             if schedule.start > now:
                 return '%s: %s %s to %s' % (schedule.title,
                         formatDateUI(schedule.start),
-                        formatTimeUI(schedule.start, compact=True),
-                        formatTimeUI(schedule.finish, compact=True))
+                        formatTimeUI(schedule.start),
+                        formatTimeUI(schedule.finish))
 
         return 'No recordings scheduled'
 
