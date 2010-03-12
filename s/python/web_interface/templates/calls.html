@@ -1,24 +1,25 @@
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml"
-      xmlns:xi="http://www.w3.org/2001/XInclude"
-      xmlns:py="http://genshi.edgewall.org/">
-  <xi:include href="layout.html" />
-  <xi:include href="common.html" />
-  <head>
-	  <title>Call Browser</title>
-  </head>
-  <body class="index">
-	  <h1>Call Browser</h1>
+        xmlns:xi="http://www.w3.org/2001/XInclude"
+        xmlns:py="http://genshi.edgewall.org/">
+    <xi:include href="layout.html" />
+    <xi:include href="common.html" />
+    <head>
+        <title>Call Browser</title>
+    </head>
+    <body class="index">
+        <h1>Call Browser</h1>
 
-	  <py:if test="calls">
-	  <!--! function defined in layout.html -->
-	  ${call_table(calls, sort, sort_order)}
-	  <p>
-	  Click on call time to go to call web page.
-	  This page contains more detailed information including example
-	  audio and sonagrams. You label or modify the call from this page.
-	  </p>
-	  </py:if>
-	  <h2 py:if="not calls" class="calls">No calls found</h2>
+        <py:if test="calls">
+            <!--! function defined in layout.html -->
+            ${call_table(calls, sort, sort_order)}
+            <p>
+                Click on call time to go to call web page.
+                This page contains more detailed information including example
+                audio and sonagrams. You label or modify the call from this page.
+            </p>
+        </py:if>
+
+        <h2 py:if="not calls" class="calls">No calls found</h2>
   </body>
 </html>

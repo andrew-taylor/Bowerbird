@@ -1,124 +1,122 @@
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml"
-      xmlns:xi="http://www.w3.org/2001/XInclude"
-      xmlns:py="http://genshi.edgewall.org/">
-<xi:include href="layout.html" />
-<head>
-	<script type="text/javascript">
-		// on document load
-		$(document).ready(function() {
-			// hide all the tables
-			$("table.config").hide();
+        xmlns:xi="http://www.w3.org/2001/XInclude"
+        xmlns:py="http://genshi.edgewall.org/">
+    <xi:include href="layout.html" />
+    <head>
+        <title>Configuration</title>
+        <script type="text/javascript">
+            // on document load
+            $(document).ready(function() {
+                // hide all the tables
+                $("table.config").hide();
 
-			// add a note explaining how to show tables
-			$("a.config_title")
-				.after("<span>&lt;-- Click to expand section</span>");
+                // add a note explaining how to show tables
+                $("a.config_title").after("<span>&lt;-- Click to expand section</span>");
 
-			// set click event on all headings to toggle visibility
-			$("a.config_title").click(function(event) {
-				// stop any anchor click handling
-				event.preventDefault();
-				// toggle visibility of note and table (show one and hide the other)
-				$(this).next("span").toggle();
-				$(this).nextAll("table.config").toggle();
-			});
-		});
-	</script>
-	<title>Configuration</title>
-</head>
+                // set click event on all headings to toggle visibility
+                $("a.config_title").click(function(event) {
+                    // stop any anchor click handling
+                    event.preventDefault();
+                    // toggle visibility of note and table (show one and hide the other)
+                    $(this).next("span").toggle();
+                    $(this).nextAll("table.config").toggle();
+                });
+            });
+        </script>
+    </head>
 
-<body>
-<h1>Configuration</h1>
+    <body>
+        <h1>Configuration</h1>
 
-<h3 py:if="error" class="error">${error}</h3>
+        <h3 py:if="error" class="error">${error}</h3>
 
-<form name="edit" action="" method="post">
-<input type="hidden" name="config_timestamp" value="${config_timestamp}" />
+        <form name="edit" action="" method="post">
+            <input type="hidden" name="config_timestamp" value="${config_timestamp}" />
 
-<py:for each="si, section in enumerate(values.keys())">
-<div py:if="section != 'scheduled_capture'">
-	<?python
-		from bowerbird.common import SECTION_META_KEY, SECTION_META_PREFIX, META_PREFIX
-		if values[section].has_key(SECTION_META_KEY):
-			(section_name, sn, section_id, v, t, u, section_description) \
-					= values[section][SECTION_META_KEY][0]
-		else:
-			(section_name, section_id, section_description) = (section, section, '')
-	?>
-	<input type="hidden" name="${SECTION_META_PREFIX}${section_id}"
-			value="${si},${section_name},${section_description}" />
-	<a class="config_title" href="#">${section_name}</a>
-<br />
-<table class="config">
-	<tbody>
-		<!--!
-			If none of the section has units, then use full width.
-			If none of the section has subnames then don't include that column.
-		-->
-		<?python
-			input_class = "config_no_units"
-			has_subnames = False
-			for name in values[section]:
-				for (n,subname,i,v,t,units,d) in values[section][name]:
-					if units:
-						input_class = "config"
-					if subname:
-						has_subnames = True
-		?>
-		<py:for each="ni, name in enumerate(values[section].keys())"
-				py:if="name != SECTION_META_KEY" >
-		<tr py:for="sni, (n, subname, input_id, value, input_type, units, description) in enumerate(values[section][name])">
-			<td py:if="sni == 0" class="config_header" rowspan="${len(values[section][name])}">
-				${name}</td>
-			<td py:if="has_subnames" class="config_subheader">${subname}</td>
-			<td class="config">
-				<input type="hidden" name="${META_PREFIX}${input_id}"
-					value="${si}, ${ni}, ${sni},${name}, ${subname}, ${input_type}, ${units}, ${description}" />
-				<input class="${input_class}" name="${input_id}"
-						type="text" value="${value}"/>${units}
-			</td>
-		</tr>
-		</py:for>
-	</tbody>
-</table>
-</div>
-</py:for>
+            <py:for each="si, section in enumerate(values.keys())">
+                <div py:if="section != 'scheduled_capture'">
+                    <?python
+                        from bowerbird.common import SECTION_META_KEY, SECTION_META_PREFIX, META_PREFIX
+                        if values[section].has_key(SECTION_META_KEY):
+                            (section_name, sn, section_id, v, t, u, section_description) \
+                                    = values[section][SECTION_META_KEY][0]
+                        else:
+                            (section_name, section_id, section_description) = (section, section, '')
+                    ?>
+                    <input type="hidden" name="${SECTION_META_PREFIX}${section_id}"
+                            value="${si},${section_name},${section_description}" />
+                    <a class="config_title" href="#">${section_name}</a>
+                    <table class="config">
+                        <tbody>
+                            <!--!
+                                If none of the section has units, then use full width.
+                                If none of the section has subnames then don't include that column.
+                            -->
+                            <?python
+                                input_class = "config_no_units"
+                                has_subnames = False
+                                for name in values[section]:
+                                    for (n,subname,i,v,t,units,d) in values[section][name]:
+                                        if units:
+                                            input_class = "config"
+                                        if subname:
+                                            has_subnames = True
+                            ?>
+                            <py:for each="ni, name in enumerate(values[section].keys())"
+                                    py:if="name != SECTION_META_KEY" >
+                                <tr py:for="sni, (n, subname, input_id, value, input_type, units, description) in enumerate(values[section][name])">
+                                    <td py:if="sni == 0" class="config_header" rowspan="${len(values[section][name])}">
+                                        ${name}</td>
+                                    <td py:if="has_subnames" class="config_subheader">${subname}</td>
+                                    <td class="config">
+                                        <input type="hidden" name="${META_PREFIX}${input_id}"
+                                            value="${si}, ${ni}, ${sni},${name}, ${subname}, ${input_type}, ${units}, ${description}" />
+                                        <input class="${input_class}" name="${input_id}"
+                                                type="text" value="${value}"/>${units}
+                                    </td>
+                                </tr>
+                            </py:for>
+                        </tbody>
+                    </table>
+                </div>
+            </py:for>
 
-<p>
-<!--! only show load defaults button if defaults file has been specified -->
-<input py:if="defaults_file" name="load_defaults" value="Load Defaults" type="submit" />
-<input name="cancel" value="Cancel" type="submit" />
-<input name="apply" value="Apply Changes" type="submit" />
-</p>
+            <p>
+                <!--! only show load defaults button if defaults file has been specified -->
+                <input py:if="defaults_file" name="load_defaults" value="Load Defaults" type="submit" />
+                <input name="cancel" value="Cancel" type="submit" />
+                <input name="apply" value="Apply Changes" type="submit" />
+            </p>
 
-<p>
-Current values are stored in "${file}".<br/>
-<py:if test="defaults_file">
-To update the defaults, change the values in "${defaults_file}".<br/>
-</py:if>
-To change the descriptions of the sections &amp; parameters, edit the
-comments in the config file (following examples &amp; descriptions
-within).
-</p>
-</form>
+            <p>
+                Current values are stored in "${file}".<br/>
+                <py:if test="defaults_file">
+                To update the defaults, change the values in "${defaults_file}".<br/>
+                </py:if>
+                To change the descriptions of the sections &amp; parameters, edit the
+                comments in the config file (following examples &amp; descriptions
+                within).
+            </p>
+        </form>
 
-<p>
-<form name="export" action="" method="post">
-To save the current configuration, click on this button.
-<br />
-<input name="export_config" value="Export Current Config" type="submit" />
-</form>
-</p>
+        <p>
+            <form name="export" action="" method="post">
+                To save the current configuration, click on this button.
+                <br />
+                <input name="export_config" value="Export Current Config" type="submit" />
+            </form>
+        </p>
 
-<p>
-<form name="import" action="" method="post" enctype="multipart/form-data">
-To upload a new configuration, choose the file below, and click the Import button.
-<br />
-<strong>Note</strong>: This will just upload the config. You need to click the
-"Apply Changes" button (on the next page) to actually save the new values.
-<input name="new_config" type="file" />
-<input name="import_config" value="Import New Config" type="submit" />
-</form>
-</p>
-</body>
+        <p>
+            <form name="import" action="" method="post" enctype="multipart/form-data">
+                To upload a new configuration, choose the file below, and click the Import button.
+                <br />
+                <strong>Note</strong>: This will just upload the config. You need to click the
+                "Apply Changes" button (on the next page) to actually save the new values.
+                <input name="new_config" type="file" />
+                <input name="import_config" value="Import New Config" type="submit" />
+            </form>
+        </p>
+    </body>
 </html>

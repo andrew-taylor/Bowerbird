@@ -1,89 +1,88 @@
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml"
-      xmlns:xi="http://www.w3.org/2001/XInclude"
-      xmlns:py="http://genshi.edgewall.org/">
-<xi:include href="layout.html" />
-<?python
-	from bowerbird.scheduleparser import ScheduleParser, TIME_PATTERN
-?>
+        xmlns:xi="http://www.w3.org/2001/XInclude"
+        xmlns:py="http://genshi.edgewall.org/">
+    <xi:include href="layout.html" />
+    <?python
+        from bowerbird.scheduleparser import ScheduleParser, TIME_PATTERN
+    ?>
 
-<py:def function="time_edit(name, value)">
-<input name="${name}" class="schedule_time required mytime" type="text" value="${value}" />
-</py:def>
-<py:def function="time_js_expression(arg)">
-/^${TIME_PATTERN}$/.test(${arg});
-</py:def>
+    <py:def function="time_edit(name, value)">
+        <input name="${name}" class="schedule_time required mytime" type="text" value="${value}" />
+    </py:def>
+    <py:def function="time_js_expression(arg)">
+        /^${TIME_PATTERN}$/.test(${arg});
+    </py:def>
 
-<head>
-	<script type="text/javascript" src="/media/jquery-validate/jquery.validate.js"></script>
-	<script type="text/javascript" src="/media/bowerbird.js"></script>
-	<script type="text/javascript">
-        // write custom validator for our time (with sunrise/set relative option)
-        // This can't be in the javascript file because we're using genshi to
-        // fill in the time format string
-        jQuery.validator.addMethod("mytime", function(value, element) {
-                return this.optional(element) || ${time_js_expression('value')}
-            }, "Please enter a valid time.");
+    <head>
+        <script type="text/javascript" src="/media/jquery-validate/jquery.validate.js"></script>
+        <script type="text/javascript" src="/media/bowerbird.js"></script>
+        <script type="text/javascript">
+            // write custom validator for our time (with sunrise/set relative option)
+            // This can't be in the javascript file because we're using genshi to
+            // fill in the time format string
+            jQuery.validator.addMethod("mytime", function(value, element) {
+                    return this.optional(element) || ${time_js_expression('value')}
+                }, "Please enter a valid time.");
+            $(onReadySchedule);
+        </script>
+        <title>Scheduled Capture</title>
+    </head>
 
-        $(onReadySchedule);
-    </script>
-	<title>Scheduled Capture</title>
-</head>
+    <body>
+        <h1>Scheduled Capture</h1>
 
-<body>
-<h1>Scheduled Capture</h1>
+        <h3 py:if="error" class="error">${error}</h3>
 
-<h3 py:if="error" class="error">${error}</h3>
+        <form id="scheduleForm" action="" method="post">
+            <table class="schedule">
+                <tr>
+                    <th class="schedule">Title</th>
+                    <th class="schedule">Start Time</th>
+                    <th class="schedule">Finish Time</th>
+                </tr>
+                <py:for each="i,spec in enumerate(recording_specs)">
+                    <tr class="schedule" id="${i}">
+                        <td class="schedule">
+                            <input name="${'%d.title' % i}"
+                                    class="schedule_title required unique_title" type="text"
+                                    value="${spec.title}" />
+                        </td>
+                        <td class="schedule">${time_edit('%d.start' % i, spec.start)}</td>
+                        <td class="schedule">${time_edit('%d.finish' % i, spec.finish)}</td>
+                        <td class="schedule_remove">
+                            <input name="${'%d.remove' % i}" class="schedule_remove"
+                                    type="submit" value="Remove" />
+                        </td>
+                    </tr>
+                </py:for>
 
-<form id="scheduleForm" action="" method="post">
-	<table class="schedule">
-		<tr>
-			<th class="schedule">Title</th>
-			<th class="schedule">Start Time</th>
-			<th class="schedule">Finish Time</th>
-		</tr>
-		<py:for each="i,spec in enumerate(recording_specs)">
-			<tr class="schedule" id="${i}">
-				<td class="schedule">
-					<input name="${'%d.title' % i}"
-							class="schedule_title required unique_title" type="text"
-							value="${spec.title}" />
-				</td>
-				<td class="schedule">${time_edit('%d.start' % i, spec.start)}</td>
-				<td class="schedule">${time_edit('%d.finish' % i, spec.finish)}</td>
-				<td class="schedule_remove">
-					<input name="${'%d.remove' % i}" class="schedule_remove"
-						type="submit" value="Remove" />
-				</td>
-			</tr>
-		</py:for>
+                <!--! button to add a new entry -->
+                <tr py:if="not add">
+                    <td class="schedule_add" colspan="4">
+                        <input name="add" class="schedule_add"
+                                type="submit" value="Add Entry" />
+                    </td>
+                </tr>
+                <!--! new entry row -->
+                <tr py:if="add" py:with="i=len(recording_specs)" name="${i}">
+                    <td class="schedule">
+                        <input name="${'%d.title'%i}" class="schedule_title required unique_title" type="text"
+                                value="new schedule" />
+                    </td>
+                    <td class="schedule">${time_edit('%d.start'%i, '')}</td>
+                    <td class="schedule">${time_edit('%d.finish'%i, '')}</td>
+                </tr>
+            </table>
+            <p>
+                <!--! The class="cancel" keeps the cancel button enabled even when the form doesn't validate -->
+                <input name="cancel" class="cancel" value="Cancel" type="submit" />
+                <input name="apply" value="Apply Changes" type="submit" />
+            </p>
+        </form>
 
-		<!--! button to add a new entry -->
-		<tr py:if="not add">
-			<td class="schedule_add" colspan="4">
-				<input name="add" class="schedule_add"
-						type="submit" value="Add Entry" />
-			</td>
-		</tr>
-		<!--! new entry row -->
-		<tr py:if="add" py:with="i=len(recording_specs)" name="${i}">
-			<td class="schedule">
-				<input name="${'%d.title'%i}" class="schedule_title required unique_title" type="text"
-						value="new schedule" />
-			</td>
-			<td class="schedule">${time_edit('%d.start'%i, '')}</td>
-			<td class="schedule">${time_edit('%d.finish'%i, '')}</td>
-		</tr>
-	</table>
-<p>
-<!--! The class="cancel" keeps the cancel button enabled even when the form doesn't validate -->
-<input name="cancel" class="cancel" value="Cancel" type="submit" />
-<input name="apply" value="Apply Changes" type="submit" />
-</p>
-</form>
-
-<p>
-Current values are stored in file "${file}".
-</p>
-</body>
+        <p>
+            Current values are stored in file "${file}".
+        </p>
+    </body>
 </html>

@@ -1,74 +1,73 @@
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml"
-      xmlns:xi="http://www.w3.org/2001/XInclude"
-      xmlns:py="http://genshi.edgewall.org/">
-  <xi:include href="layout.html" />
-  <xi:include href="common.html" />
-  <head>
-	  <title>Category Viewer</title>
-  </head>
-  <body class="category">
-	  <h1>Category Viewer</h1>
+        xmlns:xi="http://www.w3.org/2001/XInclude"
+        xmlns:py="http://genshi.edgewall.org/">
+    <xi:include href="layout.html" />
+    <xi:include href="common.html" />
+    <head>
+        <title>Category Viewer</title>
+    </head>
+    <body class="category">
+        <h1>Category Viewer</h1>
 
-	  <py:if test="category">
-	  <p>
-	  <form target="" method="post">
-		  Category Label: <input name="new_label" type="text" value="${category['label']}" />
-		  <input name="update_details" type="submit" value="Update Label" />
-	  </form>
-	  </p>
-	  <p>
-	  <table class="categories" border="1">
-		  <tr py:with="headings=('Calls', 'Length', 'Frequency',
-				  'Harm -onics', 'AM', 'FM', 'Bandwidth', 'Energy', 'Time of Day')">
-			  <th py:for="heading in headings">${heading}</th>
-		  </tr>
-	  	  <tr>
-			  <td>${category['calls']}</td>
-			  <td>${category['length']}&#177;${category['length_stddev']}s</td>
-			  <td>${category['frequency']}&#177;${category['frequency_stddev']}Hz</td>
-			  <td>${category['harmonics_min']}
-				  <py:if test="category['harmonics_min']
-					  != category['harmonics_max']">
-				  	- ${category['harmonics_max']}
-				  </py:if>
-			  </td>
-			  <td>${category['AM']}</td>
-			  <td>${category['FM']}</td>
-			  <td>${category['bandwidth']}&#177;${category['bandwidth_stddev']}Hz</td>
-			  <td>${category['energy']}&#177;${category['energy_stddev']}db</td>
-			  <td>${category['time_of_day_start']}
-				  - ${category['time_of_day_finish']}
-			  </td>
-		  </tr>
-	  </table>
-	  </p>
+        <py:if test="category">
+            <p>
+                <form target="" method="post">
+                    Category Label:
+                    <input name="new_label" type="text" value="${category['label']}" />
+                    <input name="update_details" type="submit" value="Update Label" />
+                </form>
+            </p>
+            <p>
+                <table class="categories" border="1">
+                    <tr py:with="headings=('Calls', 'Length', 'Frequency',
+                            'Harm -onics', 'AM', 'FM', 'Bandwidth', 'Energy', 'Time of Day')">
+                        <th py:for="heading in headings">${heading}</th>
+                    </tr>
+                    <tr>
+                        <td>${category['calls']}</td>
+                        <td>${category['length']}&#177;${category['length_stddev']}s</td>
+                        <td>${category['frequency']}&#177;${category['frequency_stddev']}Hz</td>
+                        <td>${category['harmonics_min']}
+                            <py:if test="category['harmonics_min'] != category['harmonics_max']">
+                                - ${category['harmonics_max']}
+                            </py:if>
+                        </td>
+                        <td>${category['AM']}</td>
+                        <td>${category['FM']}</td>
+                        <td>${category['bandwidth']}&#177;${category['bandwidth_stddev']}Hz</td>
+                        <td>${category['energy']}&#177;${category['energy_stddev']}db</td>
+                        <td>${category['time_of_day_start']}
+                            - ${category['time_of_day_finish']}</td>
+                    </tr>
+                </table>
+            </p>
 
-	  <div py:if="calls">
-	  <div py:for="call in calls" py:if="call['example']" style="float:left;width:280px;margin:10px">
-		  <a href="${url('/call/%s' % quote(call['filename']))}">
-			  <img src="${call_sonograms[call['filename']]}" style="width:100%;border:none" alt="sonogram" />
-		  </a>
-		  <div>
-			  <strong>Label</strong>: ${call['label']}<br/>
-			  <strong>Time</strong>: ${call['date_and_time']}
-			  <strong>File</strong>:
-			  <a href="${url('/media/calls/%s' % quote(call['filename']))}">${call['filename']}</a>
-		  </div>
-	  </div>
+            <div py:if="calls">
+                <div py:for="call in calls" py:if="call['example']" style="float:left;width:280px;margin:10px">
+                    <a href="${url('/call/%s' % quote(call['filename']))}">
+                        <img src="${call_sonograms[call['filename']]}" style="width:100%;border:none" alt="sonogram" />
+                    </a>
+                    <div>
+                        <strong>Label</strong>: ${call['label']}<br/>
+                        <strong>Time</strong>: ${call['date_and_time']}
+                        <strong>File</strong>:
+                        <a href="${url('/media/calls/%s' % quote(call['filename']))}">${call['filename']}</a>
+                    </div>
+                </div>
 
-	  <p style="clear:left">
-	  <div id="all_calls">
-		  <!--! function defined in layout.html -->
-		  ${call_table(calls, sort, sort_order)}
-	  </div>
-	  </p>
-	  </div>
-	  </py:if>
+                <p style="clear:left">
+                    <div id="all_calls">
+                        <!--! function defined in layout.html -->
+                        ${call_table(calls, sort, sort_order)}
+                    </div>
+                </p>
+            </div>
+        </py:if>
 
-	  <py:if test="not category">
-	  	<h2 class="category">No category specified.</h2>
-		<a href="${url('/categories')}">Go Back</a>.
-	  </py:if>
-  </body>
+        <py:if test="not category">
+            <h2 class="category">No category specified.</h2>
+            <a href="${url('/categories')}">Go Back</a>.
+        </py:if>
+    </body>
 </html>

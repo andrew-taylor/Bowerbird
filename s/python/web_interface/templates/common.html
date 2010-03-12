@@ -1,39 +1,38 @@
-  <!--! created as a template function because it's used in 2 places -->
-  <table py:def="call_table(calls, sort, sort_order)" class="calls" border="1">
-	  <thead>
-	  <!--! The keys of this dictionary should be the database column
-		  names to sort on -->
-	  <tr py:with="headings=(('date_and_time','Time'), ('label','Label'),
-			  ('category','Category'), ('length','Length'),
-			  ('frequency','Frequency'), ('harmonics','Harmonics'),
-			  ('AM','AM'), ('FM','FM'), ('bandwidth','Bandwidth'),
-			  ('energy','Energy'))">
-		  <th py:for="key,heading in headings" py:choose="">
-			  <a py:when="key == sort and sort_order=='asc'"
-				  href="?sort=${key}&amp;sort_order=desc">
-				  /\<br/>${heading}</a>
-			  <a py:when="key == sort and sort_order=='desc'"
-				  href="?sort=${key}&amp;sort_order=asc">
-				  ${heading}<br/>\/</a>
-			  <a py:otherwise=""
-				  href="?sort=${key}">
-				  ${heading}</a>
-		  </th>
-	  </tr>
-	  </thead>
-	  <tbody>
-	  <tr py:for="call in calls">
-		  <td><a href="/call/${call['filename']}">
-				  ${call['date_and_time']}</a></td>
-		  <td>${call['label']}</td>
-		  <td>${call['category']}</td>
-		  <td>${call['length']}s</td>
-		  <td>${call['frequency']}Hz</td>
-		  <td>${call['harmonics']}</td>
-		  <td>${call['AM']}</td>
-		  <td>${call['FM']}</td>
-		  <td>${call['bandwidth']}Hz</td>
-		  <td>${call['energy']}db</td>
-	  </tr>
-  </tbody>
-  </table>
+<!--! created as a template function because it's used in 2 places -->
+<table py:def="call_table(calls, sort, sort_order)" class="calls" border="1">
+    <thead>
+    <!--! The keys of this dictionary should be the database column
+            names to sort on -->
+        <tr py:with="headings=(('date_and_time','Time'), ('label','Label'),
+                ('category','Category'), ('length','Length'),
+                ('frequency','Frequency'), ('harmonics','Harmonics'),
+                ('AM','AM'), ('FM','FM'), ('bandwidth','Bandwidth'),
+                ('energy','Energy'))">
+            <th py:for="key,heading in headings" py:choose="">
+                <a py:when="key == sort and sort_order=='asc'"
+                        href="?sort=${key}&amp;sort_order=desc">
+                    /\<br/>${heading}</a>
+                <a py:when="key == sort and sort_order=='desc'"
+                        href="?sort=${key}&amp;sort_order=asc">
+                    ${heading}<br/>\/</a>
+                <a py:otherwise="" href="?sort=${key}">
+                    ${heading}</a>
+            </th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr py:for="call in calls">
+            <td><a href="/call/${call['filename']}">
+                ${call['date_and_time']}</a></td>
+            <td>${call['label']}</td>
+            <td>${call['category']}</td>
+            <td>${call['length']}s</td>
+            <td>${call['frequency']}Hz</td>
+            <td>${call['harmonics']}</td>
+            <td>${call['AM']}</td>
+            <td>${call['FM']}</td>
+            <td>${call['bandwidth']}Hz</td>
+            <td>${call['energy']}db</td>
+        </tr>
+    </tbody>
+</table>

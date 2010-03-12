@@ -1,53 +1,54 @@
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml"
-      xmlns:xi="http://www.w3.org/2001/XInclude"
-      xmlns:py="http://genshi.edgewall.org/">
-  <xi:include href="layout.html" />
-  <head>
-    <title>Connect</title>
-  </head>
-  <body>
-    <h1>Connect</h1>
+        xmlns:xi="http://www.w3.org/2001/XInclude"
+        xmlns:py="http://genshi.edgewall.org/">
+    <xi:include href="layout.html" />
+    <head>
+        <title>Connect</title>
+    </head>
+    <body>
+        <h1>Connect</h1>
 
-	<form py:if="value_of('previous_connections', False)" method="post">
-		<h3>Previous Connections</h3>
-		Choose from one of the previous connections made:<br/>
-		<select name="address">
-			<option py:for="connection in previous_connections"
-					value="${connection['address']}">
-				${connection['name']} (${connection['address']})</option>
-		</select>
-		<input type="submit" value="Connect" />
-		<input type="submit" name="remove" value="Remove" />
-	</form>
+        <form py:if="value_of('previous_connections', False)" method="post">
+            <h3>Previous Connections</h3>
+            Choose from one of the previous connections made:<br/>
+            <select name="address">
+                <option py:for="connection in previous_connections"
+                        value="${connection['address']}">
+                    ${connection['name']} (${connection['address']})</option>
+            </select>
+            <input type="submit" value="Connect" />
+            <input type="submit" name="remove" value="Remove" />
+        </form>
 
-	<form method="post">
-		<h3>Local Connections</h3>
-		<py:choose test="">
-		<py:when test="defined('local_connections') and len(local_connections)">
-			Choose from one of the Bowerbird systems detected on the local
-			network:<br/>
-			<select name="address">
-				<option py:for="connection in local_connections"
-						value="${connection['address']}">
-				${connection['name']} (${connection['address']})</option>
-			</select>
-			<input type="submit" value="Connect" />
-		</py:when>
-		<py:otherwise>
-			No local Bowerbird systems detected.
-		</py:otherwise>
-		</py:choose>
-		<!--! always show the rescan button -->
-		<input type="submit" name="rescan" value="Rescan" />
-	</form>
+        <form method="post">
+            <h3>Local Connections</h3>
+            <py:choose test="">
+                <py:when test="value_of('local_connections')">
+                    Choose from one of the Bowerbird systems detected on the
+                    local network:<br/>
+                    <select name="address">
+                        <option py:for="connection in local_connections"
+                                value="${connection['address']}">
+                            ${connection['name']} (${connection['address']})
+                        </option>
+                    </select>
+                    <input type="submit" value="Connect" />
+                </py:when>
+                <py:otherwise>
+                    No local Bowerbird systems detected.
+                </py:otherwise>
+            </py:choose>
+            <!--! always show the rescan button -->
+            <input type="submit" name="rescan" value="Rescan" />
+        </form>
 
-	<form method="post">
-		<h3>Manual Connection</h3>
-		Type in an IP address or domain name to connect to:<br/>
-		<input name="address" type="text" />
-		<input type="submit" value="Connect" />
-	</form>
+        <form method="post">
+            <h3>Manual Connection</h3>
+            Type in an IP address or domain name to connect to:<br/>
+            <input name="address" type="text" />
+            <input type="submit" value="Connect" />
+        </form>
 
-  </body>
+    </body>
 </html>

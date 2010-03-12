@@ -198,7 +198,6 @@ class Storage(object):
                 RECORDINGS_CN_START))
         response = self.runQuerySingleResponse(query)
         if response:
-            print response
             return Recording(response)
         return None
 

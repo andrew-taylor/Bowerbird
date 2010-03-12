@@ -1,35 +1,36 @@
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml"
-      xmlns:xi="http://www.w3.org/2001/XInclude"
-      xmlns:py="http://genshi.edgewall.org/">
-  <xi:include href="layout.html" />
-  <head>
-	  <!-- this is the double redirect method meta+javascript -->
-	  <meta http-equiv="refresh" content="${value_of('timeout', 10)}; 
-		  URL=${value_of('redirect', '/connect')}" />
-	  <script type="text/javascript"><!--
-		  setTimeout('Redirect()',${value_of('timeout', 10) * 1000});
-			function Redirect(){
-			  location.href = '${value_of("redirect", "/connect")}';
-			}
-		// --></script>
-    <title>Connection Failure</title>
-  </head>
-  <body>
-    <h1>Connection Failure</h1>
-	<p>
-	The connection to
-	<py:if test="station_name">
-		${value_of("station_name")},
-	</py:if>
-	the Bowerbird system
-	<py:if test="station_address">
-		at ${value_of("station_address")}
-	</py:if>
-	${error}.
-	</p>
-	<p>
-		You will be redirected shortly to the Connect screen.
-	</p>
-  </body>
+        xmlns:xi="http://www.w3.org/2001/XInclude"
+        xmlns:py="http://genshi.edgewall.org/">
+    <xi:include href="layout.html" />
+    <head>
+        <title>Connection Failure</title>
+        <!-- this is the double redirect method meta+javascript -->
+        <meta http-equiv="refresh" content="${value_of('timeout', 10)};
+                URL=${value_of('redirect', '/connect')}" />
+        <script type="text/javascript"><!--
+            setTimeout('Redirect()',${value_of('timeout', 10) * 1000});
+            function Redirect(){
+                location.href = '${value_of("redirect", "/connect")}';
+            }
+            // -->
+        </script>
+    </head>
+    <body>
+        <h1>Connection Failure</h1>
+        <p>
+            The connection to
+            <py:if test="station_name">
+                ${value_of("station_name")},
+            </py:if>
+            the Bowerbird system
+            <py:if test="station_address">
+                at ${value_of("station_address")}
+            </py:if>
+            ${error}.
+        </p>
+        <p>
+            You will be redirected shortly to the Connect screen.
+        </p>
+    </body>
 </html>
