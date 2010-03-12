@@ -190,34 +190,34 @@ class Storage(object):
                 self._recording_extension, self._recordings_dir)
 
 
-    def getRecordingBefore(self, datetime_):
-        assert isinstance(datetime_, datetime.datetime), ('datetime parameter '
-                'must be a datetime, not a "%s"' % type(datetime_))
+    def getRecordingBefore(self, my_datetime):
+        assert isinstance(my_datetime, datetime.datetime), ('datetime parameter'
+                ' must be a datetime, not a "%s"' % type(my_datetime))
         query = ('SELECT * FROM "%s" WHERE %s <= "%s" ORDER BY %s DESC LIMIT 1'
-                % (RECORDINGS_TABLE, RECORDINGS_CN_START, datetime_.isoformat(),
-                RECORDINGS_CN_START))
+                % (RECORDINGS_TABLE, RECORDINGS_CN_START,
+                my_datetime.isoformat(), RECORDINGS_CN_START))
         response = self.runQuerySingleResponse(query)
         if response:
             return Recording(response)
         return None
 
 
-    def getRecordingAfter(self, datetime_):
-        assert isinstance(time_, datetime.datetime), ('datetime parameter must '
-                'be a datetime, not a "%s"' % type(datetime_))
+    def getRecordingAfter(self, my_datetime):
+        assert isinstance(my_datetime, datetime.datetime), ('datetime parameter'
+                ' must be a datetime, not a "%s"' % type(my_datetime))
         query = ('SELECT * FROM "%s" WHERE %s >= "%s" ORDER BY %s ASC LIMIT 1'
-                % (RECORDINGS_TABLE, RECORDINGS_CN_START, datetime_.isoformat(),
-                RECORDINGS_CN_START))
+                % (RECORDINGS_TABLE, RECORDINGS_CN_START,
+                my_datetime.isoformat(), RECORDINGS_CN_START))
         response = self.runQuerySingleResponse(query)
         if response:
             return Recording(response)
         return None
 
 
-    def getRecordings(self, date_=None, station=None, title=None,
+    def getRecordings(self, date=None, station=None, title=None,
             min_start_date=None, max_finish_date=None):
-        assert date_==None or type(date_) == datetime.date, (
-                'date parameter must be a date, not a "%s"' % type(date_))
+        assert date==None or type(date) == datetime.date, (
+                'date parameter must be a date, not a "%s"' % type(date))
         assert min_start_date==None or type(min_start_date) == datetime.date, (
                 'date parameter must be a date, not a "%s"'
                 % type(min_start_date))
@@ -233,9 +233,9 @@ class Storage(object):
         if title:
             query += ' %s %s = "%s"' % (conjunction, RECORDINGS_CN_TITLE, title)
             conjunction = 'AND'
-        if date_:
+        if date:
             query += ' %s %s = "%s"' % (conjunction, RECORDINGS_CN_DATE,
-                    date_.isoformat())
+                    date.isoformat())
             conjunction = 'AND'
         if min_start_date:
             query += ' %s %s >= "%s"' % (conjunction, RECORDINGS_CN_START,
