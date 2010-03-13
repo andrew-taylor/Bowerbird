@@ -35,6 +35,7 @@ def main():
 
     # if requested, clear all recordings so they are re-constructed
     if options.force_rescan:
+        storage.clearRecordingFiles()
         storage.clearRecordings()
 
     # call the update method

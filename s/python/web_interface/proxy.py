@@ -607,15 +607,18 @@ class Root(object):
 
         # add the recordings that aren't already there
         # first build a set of hashes of existing recordings
-        recording_hashes = frozenset(recording.hash for recording
-                in self._storage.getRecordings())
+        recordings = self._storage.getRecordings()
+        hashes = frozenset(recording.hash for recording in recordings)
+        checksums = frozenset(recording.checksum for recording in recordings)
         current_station = getSession(SESSION_STATION_NAME_KEY)
         for recording in jsonpickle.decode(self.tunnelConnectionToBowerbird(
                 'recordings_json', kwargs).read()):
             # this must be set because the station doesn't store it
             recording.station = current_station
-            if recording.hash not in recording_hashes:
-                self._storage.addRecording(recording, current_station)
+            if recording.hash not in hashes:
+                self._storage.addRecording(recording)
+            elif recording.checksum not in checksums:
+                self._storage.updateRecording(recording)
 
 
 def loadWebConfig():

@@ -152,12 +152,16 @@ def formatTimeDelta(delta):
     return delta_string
 
 
-def formatSize(kilobytes):
-    sizes = [ (1024**3, "T"), (1024**2, "G"), (1024, "M"), (1, "k") ]
+def formatSize(bytes):
+    if bytes == 0:
+        return 'N/A'
+
+    sizes = [ (1024**4, "T"), (1024**3, "G"), (1024**2, "M"), (1024, "k") ]
     for size,unit in sizes:
-        if kilobytes > size:
-            return "%.1f%sB" % (float(kilobytes) / size, unit)
-    return "error formatting size for %f" % kilobytes
+        if bytes >= size:
+            return "%.1f%sB" % (float(bytes) / size, unit)
+
+    return "error formatting size for %f" % bytes
 
 
 def formatTimeLong(seconds, show_seconds=False):

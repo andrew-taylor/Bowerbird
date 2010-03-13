@@ -19,6 +19,7 @@ RECORDINGS_TABLE = 'recordings'
 RECORDINGS_CN_ID = 'id'
 RECORDINGS_CN_STATION = 'station'
 RECORDINGS_CN_TITLE = 'title'
+RECORDINGS_CN_SIZE = 'size'
 RECORDINGS_CN_DATE = 'start_date'
 RECORDINGS_CN_START = 'start_time'
 RECORDINGS_CN_FINISH = 'finish_time'
@@ -54,9 +55,9 @@ class Storage(object):
     __REQUIRED_TABLES = {
             CONFIG_TABLE: '%s TEXT, %s TEXT' % (CONFIG_CN_KEY, CONFIG_CN_VALUE),
             RECORDINGS_TABLE: '%s INTEGER PRIMARY KEY, %s TEXT, %s TEXT, '
-                    '%s TEXT, %s TEXT, %s TEXT, %s TEXT, %s TEXT'
+                    '%s INTEGER, %s TEXT, %s TEXT, %s TEXT, %s TEXT, %s TEXT'
                     % (RECORDINGS_CN_ID, RECORDINGS_CN_STATION,
-                    RECORDINGS_CN_TITLE, RECORDINGS_CN_DATE,
+                    RECORDINGS_CN_TITLE, RECORDINGS_CN_SIZE, RECORDINGS_CN_DATE,
                     RECORDINGS_CN_START, RECORDINGS_CN_FINISH,
                     RECORDINGS_CN_LIMIT_S, RECORDINGS_CN_LIMIT_F)
             }
@@ -166,15 +167,16 @@ class Storage(object):
         self.runQueryRaw(query)
 
 
-    def addRecording(self, recording, originating_station):
+    def addRecording(self, recording):
         assert isinstance(recording, Recording), ('recording must be a '
                 'Recording, not a "%s"' % type(recording))
-        query = ('INSERT INTO "%s" (%s, %s, %s, %s, %s, %s, %s) '
-                'VALUES ("%s", "%s", "%s", "%s", "%s", "%s", "%s")'
+        query = ('INSERT INTO "%s" (%s, %s, %s, %s, %s, %s, %s, %s) '
+                'VALUES ("%s", "%s", %d, "%s", "%s", "%s", "%s", "%s")'
                 % (RECORDINGS_TABLE, RECORDINGS_CN_STATION, RECORDINGS_CN_TITLE,
-                RECORDINGS_CN_DATE, RECORDINGS_CN_START, RECORDINGS_CN_FINISH,
+                RECORDINGS_CN_SIZE, RECORDINGS_CN_DATE,
+                RECORDINGS_CN_START, RECORDINGS_CN_FINISH,
                 RECORDINGS_CN_LIMIT_S, RECORDINGS_CN_LIMIT_F,
-                originating_station, recording.title,
+                recording.station, recording.title, recording.size,
                 recording.start_date.isoformat(),
                 recording.start_time.isoformat(),
                 recording.finish_time.isoformat(),
@@ -183,11 +185,32 @@ class Storage(object):
         self.runQueryRaw(query)
 
 
+    def updateRecording(self, recording):
+        print 'updating %s' % recording,
+        for prev_recording in self.getRecordings():
+            if prev_recording.hash == recording.hash:
+                print 'matched %s' % prev_recording
+                target_id = prev_recording.id
+                break
+        else:
+            raise ValueError('Recording: "%s" not in database' % recording)
+
+        # can only update size and finish time
+        query = ('UPDATE "%s" SET %s = %d, %s = "%s" WHERE %s = %d'
+                % (RECORDINGS_TABLE, RECORDINGS_CN_SIZE, recording.size,
+                RECORDINGS_CN_FINISH, recording.finish_time.isoformat(),
+                RECORDINGS_CN_ID, target_id))
+        self.runQueryRaw(query)
+
+
     def getRecording(self, record_id):
         query = 'SELECT * FROM "%s" WHERE %s=%d' % (RECORDINGS_TABLE,
                 RECORDINGS_CN_ID, record_id)
-        return Recording(self.runQuerySingleResponse(query),
-                self._recording_extension, self._recordings_dir)
+        response = self.runQuerySingleResponse(query)
+        if response:
+            return Recording(response, self._recording_extension,
+                    self._recordings_dir)
+        return None
 
 
     def getRecordingBefore(self, my_datetime):
@@ -272,8 +295,8 @@ class Storage(object):
                 'datetime, not a "%s"' % type(time))
         # check that the given time is not only overlaps the recording, but also
         # is within the limits of the recording (from the schedule)
-        query = ('SELECT * FROM %(table)s WHERE %(time)s BETWEEN %(start)s AND '
-                '%(finish)s AND %(time)s BETWEEN %(limit_s)s AND %(limit_f)s'
+        query = ('SELECT * FROM %(table)s WHERE "%(time)s" BETWEEN %(start)s AND '
+                '%(finish)s AND "%(time)s" BETWEEN %(limit_s)s AND %(limit_f)s'
                 % {'table': RECORDINGS_TABLE, 'time': time.isoformat(),
                 'start': RECORDINGS_CN_START, 'finish': RECORDINGS_CN_FINISH,
                 'limit_s': RECORDINGS_CN_LIMIT_S,
@@ -428,10 +451,15 @@ class BowerbirdStorage(Storage):
         for id in file_merges:
             recording = self.getRecording(id)
             if verbose:
-                print 'assembling', recording.path
+                print 'assembling', recording.path,
+                sys.stdout.flush()
             concatSoundFiles(recording.abspath,
                     (os.path.join(self._root_dir, path) for path in
                     file_merges[id]))
+            size = os.path.getsize(recording.abspath)
+            self.setRecordingSize(id, size)
+            if verbose:
+                print formatSize(size)
 
         for filepath in file_deletes:
             if os.path.exists(filepath):
@@ -568,6 +596,12 @@ class BowerbirdStorage(Storage):
         self.runQueryRaw(query)
 
 
+    def setRecordingSize(self, id, size):
+        query = ('UPDATE "%s" SET %s = %d WHERE %s = %d' % (RECORDINGS_TABLE,
+                RECORDINGS_CN_SIZE, size, RECORDINGS_CN_ID, id))
+        self.runQueryRaw(query)
+
+
     def getFilesForRecording(self, recording_id):
         '''Return all files (as relative paths) that are part of the given
             recording'''
@@ -615,14 +649,13 @@ class BowerbirdStorage(Storage):
 
         # extend prev to include next
         # limits and date should not need changing
-        query = ('UPDATE "%s" SET %s = "%s" WHERE %s = %d'
-                % (RECORDINGS_TABLE,
+        query = ('UPDATE "%s" SET %s = "%s" WHERE %s = %d' % (RECORDINGS_TABLE,
                 RECORDINGS_CN_FINISH, next_recording.finish_time.isoformat(),
                 RECORDINGS_CN_ID, prev_recording.id))
         self.runQueryRaw(query)
         # change all links to next recording to prev recording
-        query = ('UPDATE "%s" SET %s=%d WHERE %s=%d'
-                % (LINKS_TABLE, LINKS_CN_REC_ID, prev_recording.id,
+        query = ('UPDATE "%s" SET %s=%d WHERE %s=%d' % (LINKS_TABLE,
+                LINKS_CN_REC_ID, prev_recording.id,
                 LINKS_CN_REC_ID, next_recording.id))
         self.runQueryRaw(query)
         # delete the obsolete (next) recording
@@ -709,12 +742,14 @@ class BowerbirdStorage(Storage):
             matched_schedule = RecordingTime(UNTITLED, start, finish)
 
         # add new recording entry
-        query = ('INSERT INTO "%s" (%s, %s, %s, %s, %s, %s) VALUES '
-                '("%s", "%s", "%s", "%s", "%s", "%s")'
-                % (RECORDINGS_TABLE, RECORDINGS_CN_TITLE, RECORDINGS_CN_DATE,
+        query = ('INSERT INTO "%s" (%s, %s, %s, %s, %s, %s, %s) VALUES '
+                '("%s", %d, "%s", "%s", "%s", "%s", "%s")'
+                % (RECORDINGS_TABLE, RECORDINGS_CN_TITLE,
+                RECORDINGS_CN_SIZE, RECORDINGS_CN_DATE,
                 RECORDINGS_CN_START, RECORDINGS_CN_FINISH,
                 RECORDINGS_CN_LIMIT_S, RECORDINGS_CN_LIMIT_F,
-                matched_schedule.title, recording_file.start.date().isoformat(),
+                matched_schedule.title, 0,
+                recording_file.start.date().isoformat(),
                 recording_file.start.isoformat(),
                 recording_file.finish.isoformat(),
                 matched_schedule.start.isoformat(),
@@ -873,7 +908,6 @@ class ProxyStorage(Storage):
         # ensure configuration items are defined
 
 
-
     def addConnection(self, name, address):
         # check it's not a known address
         response = self.runQuerySingleResponse(
@@ -917,23 +951,29 @@ class Recording(object):
             self.id = int(dict[RECORDINGS_CN_ID])
             self.station = dict[RECORDINGS_CN_STATION]
             self.title = dict[RECORDINGS_CN_TITLE]
+            self.size = int(dict[RECORDINGS_CN_SIZE])
             self.start_date = parseDateIso(dict[RECORDINGS_CN_DATE])
             self.start_time = parseDateTimeIso(dict[RECORDINGS_CN_START])
             self.finish_time = parseDateTimeIso(dict[RECORDINGS_CN_FINISH])
             self.start_limit = parseDateTimeIso(dict[RECORDINGS_CN_LIMIT_S])
             self.finish_limit = parseDateTimeIso(dict[RECORDINGS_CN_LIMIT_F])
-        if extension:
-            self.extension = extension
-            date_str = formatDateIso(self.start_date)
-            self.path = '%s/%s %s %s%s' % (date_str, self.title, date_str,
-                formatTimeUI(self.start_time), extension)
-            if recordings_dir:
-                self.abspath = os.path.join(recordings_dir, self.path)
+            if extension:
+                self.extension = extension
+                date_str = formatDateIso(self.start_date)
+                self.path = '%s/%s %s %s%s' % (date_str, self.title, date_str,
+                    formatTimeUI(self.start_time), extension)
+                if recordings_dir:
+                    self.abspath = os.path.join(recordings_dir, self.path)
 
     @property
     def hash(self):
         return '%s_%s_%s' % (self.station, self.title,
                 self.start_time.isoformat())
+
+    @property
+    def checksum(self):
+        return '%s_%s_%d_%s_%s' % (self.station, self.title, self.size,
+                self.start_time.isoformat(), self.finish_time.isoformat())
 
     def isTitled(self):
         return self.title != UNTITLED
@@ -986,7 +1026,7 @@ def concatSoundFiles(dest, sources):
     # make sure destination directory exists
     ensureDirectoryExists(os.path.dirname(dest))
 
-    # escape spaces for the shell
+    # generate uncompresed file name
     uncompressed_dest = dest.replace('.wv', '.wav')
 
     # I've discovered that the quickest way to concat wavpack files
@@ -997,11 +1037,19 @@ def concatSoundFiles(dest, sources):
     if os.path.exists(uncompressed_dest):
         os.remove(uncompressed_dest)
 
-    # construct command for sox, then run it
+    # construct command for sox
     command = [SOX_PATH, '-q']
     command.extend(sources)
     command.append(uncompressed_dest)
-    subprocess.call(command)
+
+    # run sox concat command
+    try:
+        subprocess.call(command)
+    except:
+        # if something interrupts then delete uncompressed file
+        if os.path.exists(uncompressed_dest):
+            os.remove(uncompressed_dest)
+        raise
 
     # make sure the destination file doesn't exist already
     # (to prevent questions from wavpack)
@@ -1011,7 +1059,16 @@ def concatSoundFiles(dest, sources):
     # run wavpack command (not using outfile argument because wavpack treats
     # it as an input (-d used to delete raw wav file)
     command = [WAVPACK_PATH, '-q', '-d', uncompressed_dest]
-    subprocess.call(command)
+    try:
+        subprocess.call(command)
+    except:
+        # if something interrupts then delete files
+        if os.path.exists(uncompressed_dest):
+            os.remove(uncompressed_dest)
+        if os.path.exists(dest):
+            os.remove(dest)
+        raise
+
 
 
 def test():

@@ -7,8 +7,7 @@
 # sunset-relative, then have the time offset, which can be positive or 
 # negative.
 
-Bowerbirds = 9:00 - 11:00
-Gray Tree Frogs = R -3:00 - S -5:00
-Poison Dart Frogs = 17:30 - 19:00
-Cane Toads = R -4:00 - R -2:00
-Red Dwarf = 12:28 - 12:30
+Bowerbirds = 15:00 - 15:10
+Gray Tree Frogs = 15:10 - 15:20
+Poison Dart Frogs = 14:50 - 16:00
+Cane Toads = S -4:00 - S -3:30

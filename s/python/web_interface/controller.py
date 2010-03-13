@@ -248,6 +248,10 @@ class Root(object):
             self._storage.clearRecordings()
             # Clear all recording file entries
             self._storage.clearRecordingFiles()
+            # ensure no other commands are enabled
+            recording_id = None
+            export_selection = None
+
 
         if reset_filter:
             filter_title = None
@@ -414,7 +418,6 @@ class Root(object):
         recording_id = getSession(SESSION_RECORD_ID_KEY)
         if recording_id:
             selected_recording = self._storage.getRecording(recording_id)
-
             # ensure record is valid (or remove session key)
             if not selected_recording:
                 clearSession(SESSION_RECORD_ID_KEY)
@@ -716,7 +719,7 @@ class Root(object):
             return ("%s doesn't exist: Fix Config %s->%s"
                     % (root_dir, CAPTURE_SECTION_NAME, CAPTURE_ROOT_DIR_KEY))
         # split to remove title line, then split into fields
-        (_,_,_,available,percent,_) = subprocess.Popen(["df", "-k", root_dir],
+        (_,_,_,available,percent,_) = subprocess.Popen(["df", "-B1", root_dir],
                 stdout=subprocess.PIPE).communicate()[0].split('\n')[1].split()
         percent_free = 100 - int(percent[:-1])
         available = int(available)

@@ -151,7 +151,7 @@ input.schedule_add, input.schedule_remove {
 }
 
 
-input[type=submit], input[type=text], select {
+input[type=submit], input.date[type=text], input.time[type=text], select {
 	border-style: groove
 }
 
@@ -263,6 +263,10 @@ td.today {
 
 td.selected {
 	border:3px solid  black
+}
+
+td.filtered {
+	border:2px solid #0009ff
 }
 
 a.block {

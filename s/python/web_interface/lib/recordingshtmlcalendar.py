@@ -44,9 +44,14 @@ class RecordingsHTMLCalendar(Calendar):
             today_text = ''
 
         # if this is the selected date then tag it
-        if (date == self.selected_date or (self.selected_record
-                and date == self.selected_record.start_date)):
+        if date == self.selected_date or (self.selected_record
+                and date == self.selected_record.start_date):
             html += ' selected'
+        # if a filter range is set then tag it
+        elif (self.filter_start_date and self.filter_finish_date
+                and self.filter_start_date <= date
+                and date <= self.filter_finish_date):
+            html += ' filtered'
 
         html += ('" style="height: %f%%"><div class="%s_header">'
                 '<a class="block" '
@@ -55,14 +60,13 @@ class RecordingsHTMLCalendar(Calendar):
                 date.year, date.month, date.day, today_text, date.day))
 
         if self._storage:
-            for recording in self._storage.getRecordings(date):
+            for recording in self._storage.getRecordings(date,
+                    station=self.filter_station):
                 extra_div_class = ""
                 if (self.selected_record
                         and recording.id == self.selected_record.id):
                     extra_div_class += " selected_entry"
-                if ((self.filter_station and self.filter_station
-                        != recording.station)
-                        or (self.filter_title and self.filter_title
+                if ((self.filter_title and self.filter_title
                         != recording.title)
                         or (self.filter_start_date and self.filter_start_date
                         > recording.finish_time.date())
