@@ -44,3 +44,43 @@ def printSession():
             SESSION_STATION_NAME_KEY, SESSION_STATION_ADDRESS_KEY):
         if hasSession(key):
             print '\t%s: %s' % (key, getSession(key))
+
+def calculateActionForSelected(selected_recordings=None, connected_station=None,
+        transfer_queue_ids=[]):
+    if not selected_recordings:
+        return '', 0
+
+    # check if all files are available and whether the missing ones
+    # are retrievable
+    found_exportable = False
+    found_retrievable = False
+    found_retrieving = False
+    found_unretrievable = False
+    export_size = 0
+    retrieve_size = 0
+    for recording in selected_recordings:
+        if recording.fileExists():
+            export_size += recording.size
+            found_exportable = True
+        elif recording.id in transfer_queue_ids:
+            found_retrieving = True
+        elif connected_station and recording.station == connected_station:
+            retrieve_size += recording.size
+            found_retrievable = True
+        else:
+            found_unretrievable = True
+    # set an appropriate button
+    if found_retrievable:
+        if found_unretrievable:
+            return 'retrieve_available', retrieve_size
+        else:
+            return 'retrieve', retrieve_size
+    elif found_exportable:
+        if found_unretrievable:
+            return 'export_available', export_size
+        else:
+            return 'export', export_size
+    elif found_retrieving:
+        return 'already_retrieving', 0
+    else:
+        return 'disabled_export', 0

@@ -480,6 +480,12 @@ class Root(object):
         schedule_titles.extend(((title, title) for title in
                 self._storage.getRecordingTitles()))
 
+        station = getSession(SESSION_STATION_NAME_KEY)
+        transfer_queue_ids = self._transfer_manager.queue_ids
+
+        selected_action_mode, selected_action_size = calculateActionForSelected(
+                selected_recordings, station, transfer_queue_ids)
+
         if view == 'month':
             calendar = RecordingsHTMLCalendar(year, month, today, self._storage,
                     filter_station, filter_title, filter_start, filter_finish,
@@ -489,7 +495,7 @@ class Root(object):
                     'That calendar format is not supported')
 
         return template.render(is_proxy=True,
-                station=getSession(SESSION_STATION_NAME_KEY), errors=errors,
+                station=station, errors=errors,
                 station_names=station_names, schedule_titles=schedule_titles,
                 filter_station=filter_station, filter_title=filter_title,
                 filter_start=formatDateUI(filter_start),
@@ -497,7 +503,9 @@ class Root(object):
                 calendar=genshi.HTML(calendar), selected_date=selected_date,
                 selected_recording=selected_recording,
                 selected_recordings=selected_recordings,
-                transfer_queue_ids=self._transfer_manager.queue_ids)
+                selected_action_mode=selected_action_mode,
+                selected_action_size=selected_action_size,
+                transfer_queue_ids=transfer_queue_ids)
 
 
     @cherrypy.expose

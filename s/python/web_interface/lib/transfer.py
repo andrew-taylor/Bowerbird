@@ -67,7 +67,6 @@ class TransferManager(object):
     def add(self, recording, address):
         with self._lock:
             if not self.contains(recording.id):
-                #print ('adding retrieve %s from %s to pool' % (recording, address))
                 # add task to the pool
                 self._pool.apply_async(_transfer, (recording, address,
                         self._remote_port, self._transfer_chunk_size,

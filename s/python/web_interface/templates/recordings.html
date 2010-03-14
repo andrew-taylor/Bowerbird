@@ -11,63 +11,35 @@
 
     <!--! common export button generation -->
     <py:def function="export_recording_button(recording)">
-        <?python
-            if recording.fileExists():
-                mode = 'export'
-            elif recording.id in value_of('transfer_queue_ids', []):
-                mode = 'already_retrieving'
-            elif (value_of('is_proxy') and
-                    value_of('station') == recording.station):
-                mode = 'retrieve'
-            else:
-                mode = 'disabled_export'
-        ?>
-        <py:choose test="mode">
-            <input py:when="'export'" type="submit" name="export_recording" value="Export" />
-            <input py:when="'retrieve'" type="submit" name="retrieve_recording" value="Retrieve" />
-            <input py:when="'already_retrieving'" type="submit" value="Retrieving" disabled="disabled" />
-            <input py:otherwise="" type="submit" value="Export" disabled="disabled" />
+        <py:choose test="">
+            <input py:when="recording.fileExists()" type="submit"
+                    name="export_recording" value="Export" />
+            <input py:when="(value_of('is_proxy')
+                    and value_of('station') == recording.station)" type="submit"
+                    name="retrieve_recording" value="Retrieve" />
+            <input py:when="recording.id in value_of('transfer_queue_ids', [])"
+                    type="submit" value="Retrieving" disabled="disabled" />
+            <input py:otherwise="" type="submit" value="Export"
+                    disabled="disabled" />
         </py:choose>
     </py:def>
-    <py:def function="export_recordings_button(recordings)">
-        <?python
-            # check if all files are available and whether the missing ones
-            # are retrievable
-            found_exportable = False
-            found_retrievable = False
-            found_retrieving = False
-            found_unretrievable = False
-            for recording in recordings:
-                if recording.fileExists():
-                    found_exportable = True
-                elif recording.id in value_of('transfer_queue_ids', []):
-                    found_retrieving = True
-                elif recording.station == station:
-                    found_retrievable = True
-                else:
-                    found_unretrievable = True
-            if found_retrievable:
-                if found_unretrievable:
-                    mode = 'retrieve_available'
-                else:
-                    mode = 'retrieve'
-            elif found_exportable:
-                if found_unretrievable:
-                    mode = 'export_available'
-                else:
-                    mode = 'export'
-            elif found_retrieving:
-                mode = 'already_retrieving'
-            else:
-                mode = 'disabled_export'
-        ?>
+
+    <py:def function="export_recordings_button(mode, size)">
         <py:choose test="mode">
-            <input py:when="'export'" type="submit" name="export_selection" value="Export Selection" />
-            <input py:when="'retrieve'" type="submit" name="retrieve_selection" value="Retrieve Selection" />
-            <input py:when="'retrieve_available'" type="submit" name="retrieve_selection" value="Retrieve Available from Selection" />
-            <input py:when="'already_retrieving'" type="submit" value="Retrieving Selection" disabled="disabled" />
-            <input py:when="'export_available'" type="submit" name="export_selection" value="Export Available from Selection" />
-            <input py:otherwise="" type="submit" value="Export Selection" disabled="disabled" />
+            <input py:when="'export'" type="submit" name="export_selection"
+                    value="Export Selection (${formatSize(size)})" />
+            <input py:when="'retrieve'" type="submit" name="retrieve_selection"
+                    value="Retrieve Selection (${formatSize(size)})" />
+            <input py:when="'retrieve_available'" type="submit"
+                    name="retrieve_selection"
+                    value="Retrieve Available from Selection (${formatSize(size)})" />
+            <input py:when="'already_retrieving'" type="submit"
+                    value="Retrieving Selection" disabled="disabled" />
+            <input py:when="'export_available'" type="submit"
+                    name="export_selection"
+                    value="Export Available from Selection (${formatSize(size)})" />
+            <input py:otherwise="" type="submit" value="Export Selection"
+                    disabled="disabled" />
         </py:choose>
     </py:def>
 
@@ -253,7 +225,9 @@
                 <h2>${heading}
                     <input class="clear" type="submit"
                             name="${clear_button_name}" value="X" />
-                    ${export_recordings_button(selected_recordings)}
+                    ${export_recordings_button(
+                            value_of('selected_action_mode'),
+                            value_of('selected_action_size'))}
                 </h2>
             </form>
             <p>Click on recording details to update filter.</p>

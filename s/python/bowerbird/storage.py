@@ -186,10 +186,8 @@ class Storage(object):
 
 
     def updateRecording(self, recording):
-        print 'updating %s' % recording,
         for prev_recording in self.getRecordings():
             if prev_recording.hash == recording.hash:
-                print 'matched %s' % prev_recording
                 target_id = prev_recording.id
                 break
         else:

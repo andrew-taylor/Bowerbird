@@ -520,6 +520,9 @@ class Root(object):
         schedule_titles.extend(((title, title) for title in
                 self._storage.getRecordingTitles()))
 
+        selected_action_mode, selected_action_size = calculateActionForSelected(
+                selected_recordings)
+
         if view == 'month':
             calendar = RecordingsHTMLCalendar(year, month, today, self._storage,
                     None, filter_title, filter_start, filter_finish,
@@ -533,7 +536,9 @@ class Root(object):
                 filter_finish=formatDateUI(filter_finish),
                 calendar=genshi.HTML(calendar), selected_date=selected_date,
                 selected_recording=selected_recording,
-                selected_recordings=selected_recordings)
+                selected_recordings=selected_recordings,
+                selected_action_mode=selected_action_mode,
+                selected_action_size=selected_action_size)
 
 
     @cherrypy.expose
@@ -544,11 +549,9 @@ class Root(object):
     @cherrypy.expose
     def recording_by_hash(self, hash=None):
         if not hash:
-            print 'You must provide the hash of the desired recording in the POST or GET data.'
             raise cherrypy.HTTPError(404, 'You must provide the hash of the '
                     'desired recording in the POST or GET data.')
 
-        print 'searching for recording with hash "%s"' % hash
         station_name = self.getStationName()
         for recording in self._storage.getRecordings():
             # must fill in station name
@@ -561,7 +564,6 @@ class Root(object):
                         "application/x-download", "attachment",
                         os.path.basename(recording.path))
 
-        print 'The provided recording hash does not match any of the stored recordings.'
         raise cherrypy.HTTPError(404, 'The provided recording hash does not '
                 'match any of the stored recordings.')
 
