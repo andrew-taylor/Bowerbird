@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+    xmlns:xi="http://www.w3.org/2001/XInclude"
+    xmlns:py="http://genshi.edgewall.org/">
+    <xi:include href="layout.html" />
+    <?python
+        from bowerbird.common import formatTimeUI, formatDateUI, DATE_FORMAT_UI
+        from lib.common import START_TIME_TYPES
+    ?>
+    <head>
+        <title>Export Range</title>
+        <script type="text/javascript" src="/media/jscalendar/calendar.js"></script>
+        <script type="text/javascript" src="/media/jscalendar/lang/calendar-en.js"></script>
+        <script type="text/javascript" src="/media/jscalendar/calendar-setup.js"></script>
+        <link type="text/css" rel="stylesheet" href="/media/jscalendar/calendar-blue.css" />
+    </head>
+    <body>
+        <h1>Export Range</h1>
+
+        <!--! Display any errors -->
+        <div py:if="value_of('errors')" class="error">
+            <h2>Errors</h2>
+            <ol>
+                <li py:for="error in errors">${error}</li>
+            </ol>
+        </div>
+
+        <!--! display sync buttons -->
+        <div py:if="value_of('is_proxy') and value_of('station')">
+            <form method="POST">
+            <h2>
+                Connected to ${station}
+                <input type="submit" name="sync_with_station"
+                        value="Sync Recordings" />
+            </h2>
+            </form>
+        </div>
+
+        <div>
+            Use this page to export a daily subrange of the available
+            recordings. Basic exporting can also be done from the "Recordings"
+            page.
+        </div>
+        <div>
+            <form method="POST">
+                <div>
+                    Start:
+                    <input class="date" type="text" id="start"
+                        name="filter_start" value="${value_of('filter_start')}" />
+                    <input type="image" id="start_trigger" src="/media/calendar.png" />
+                    <script type="text/javascript">
+                        Calendar.setup({
+                            inputField  : "start",     // ID of the input field
+                            ifFormat    : "${DATE_FORMAT_UI}",    // the date format
+                            button      : "start_trigger",       // ID of the button
+                            date        : "${value_of('filter_start','')}",
+                            singleClick : true,
+                            weekNumbers : false,
+                            range       : [1900,2999],
+                            step        : 1
+                        });
+                    </script>
+                </div>
+                <div>
+                    Finish:
+                    <input class="date" type="text" id="finish"
+                            name="filter_finish" value="${value_of('filter_finish')}" />
+                    <input type="image" id="finish_trigger" src="/media/calendar.png" />
+                    <script type="text/javascript">
+                        Calendar.setup({
+                            inputField  : "finish",     // ID of the input field
+                            ifFormat    : "${DATE_FORMAT_UI}",    // the date format
+                            button      : "finish_trigger",       // ID of the button
+                            date        : "${value_of('filter_finish','')}",
+                            singleClick : true,
+                            weekNumbers : false,
+                            range       : [1900,2999],
+                            step        : 1
+                        });
+                    </script>
+                </div>
+                <div py:if="value_of('is_proxy') and value_of('station_names')">
+                    Station:
+                    <select name="filter_station">
+                        <option py:for="s_label,s_value in station_names"
+                                value="${s_value}"
+                                selected="${(s_value == value_of('filter_station')) or None}">
+                            ${s_label}
+                        </option>
+                    </select>
+                </div>
+                <div>
+                    Export Type:
+                    <select name="export_partial">
+                        <option value="1" selected="${not export_partial or int(export_partial) or None}">
+                            Partial</option>
+                        <option value="0" selected="${export_partial and not int(export_partial) or None}">
+                            Complete</option>
+                    </select>
+                </div>
+                <div id="time">
+                    Start Time:
+                    <select name="start_type">
+                        <option py:for="type in START_TIME_TYPES"
+                                selected="${(type == value_of('start_type')) or None}">
+                            ${type}
+                        </option>
+                    </select>
+                    <input class="time" type="text" name="start_time"
+                            value="${value_of('start_time', '1:00')}" />
+                    &nbsp; Duration:
+                    <input class="duration" type="text" name="duration"
+                            value="${value_of('duration', '5:00')}" />
+                </div>
+                <div id="title">
+                    Which Recordings:
+                    <select py:if="value_of('schedule_titles')"
+                            name="filter_title">
+                        <option py:for="t_label,t_value in schedule_titles"
+                                value="${t_value}"
+                                selected="${(t_value == value_of('filter_title')) or None}">
+                            ${t_label}
+                        </option>
+                    </select>
+                </div>
+                <input type="submit" name="export" value="Export" />
+            </form>
+        </div>
+    </body>
+</html>

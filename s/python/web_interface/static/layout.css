@@ -151,7 +151,7 @@ input.schedule_add, input.schedule_remove {
 }
 
 
-input[type=submit], input.date[type=text], input.time[type=text], select {
+input[type=submit], select {
 	border-style: groove
 }
 
@@ -319,11 +319,21 @@ div.nav_buttons, div.filter_buttons {
 }
 
 input.date {
-	width: 60pt
+	width: 60pt;
+	border-style: groove;
+	text-align: right
 }
 
 input.time {
-	width: 45pt
+	width: 45pt;
+	border-style: groove;
+	text-align: right
+}
+
+input.duration {
+	width: 45pt;
+	border-style: groove;
+	text-align: right
 }
 
 button.datetime {

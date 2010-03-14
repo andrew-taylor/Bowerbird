@@ -56,6 +56,7 @@
     </head>
     <body>
         <h1>Recordings</h1>
+
         <!--! Display any errors -->
         <div py:if="value_of('errors')" class="error">
             <h2>Errors</h2>
@@ -88,20 +89,18 @@
                 <div class="filter_buttons">
                     Show:
                     <select py:if="value_of('station_names')" name="filter_station">
-                    <py:for each="s_label,s_value in station_names" py:choose="">
-                        <option value="${s_value}"
+                        <option py:for="s_label,s_value in station_names"
+                                value="${s_value}"
                                 selected="${(s_value == filter_station) or None}">
                             ${s_label}
                         </option>
-                    </py:for>
                     </select>
                     <select py:if="value_of('schedule_titles')" name="filter_title">
-                    <py:for each="t_label,t_value in schedule_titles" py:choose="">
-                        <option value="${t_value}"
+                        <option py:for="t_label,t_value in schedule_titles"
+                                value="${t_value}"
                                 selected="${(t_value == filter_title) or None}">
                             ${t_label}
                         </option>
-                    </py:for>
                     </select>
                     &nbsp; Start:
                     <input class="date" type="text" id="start"
@@ -136,7 +135,6 @@
                     ifFormat    : "${DATE_FORMAT_UI}",    // the date format
                     button      : "start_trigger",       // ID of the button
                     date        : "${default_start}",
-                    timeFormat  : "24",
                     singleClick : true,
                     weekNumbers : false,
                     range       : [1900,2999],
@@ -147,7 +145,6 @@
                     ifFormat    : "${DATE_FORMAT_UI}",    // the date format
                     button      : "finish_trigger",       // ID of the button
                     date        : "${default_finish}",
-                    timeFormat  : "24",
                     singleClick : true,
                     weekNumbers : false,
                     range       : [1900,2999],

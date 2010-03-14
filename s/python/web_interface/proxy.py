@@ -509,6 +509,72 @@ class Root(object):
 
 
     @cherrypy.expose
+    @template.output('export.html')
+    def export(self, filter_start=None, filter_finish=None, filter_station=None,
+            export_partial=None, start_type=None, start_time=None,
+            duration=None, filter_title=None, export=None,
+            sync_with_station=False, **ignored):
+        # HACK: this helps development slightly
+        if ignored:
+            print "IGNORED",ignored
+
+        errors = []
+
+        # handle requests to sync remote bowerbird by adding any missing
+        # recording files to the transfer queue
+        if sync_with_station and hasSession(SESSION_STATION_ADDRESS_KEY):
+            station_address = getSession(SESSION_STATION_ADDRESS_KEY)
+            for recording in self._storage.getRecordings(
+                    station=getSession(SESSION_STATION_NAME_KEY)):
+                if not recording.fileExists():
+                    self._transfer_manager.add(recording, station_address)
+
+        if export:
+            try:
+                start_date_ = parseDateUI(filter_start)
+            except ValueError:
+                errors.append('invalid start date: "%s", must be DD/MM/YYYY'
+                        % filter_start)
+            try:
+                finish_date_ = parseDateUI(filter_finish)
+            except ValueError:
+                errors.append('invalid finish date: "%s", must be DD/MM/YYYY'
+                        % filter_finish)
+
+            if export_partial and int(export_partial):
+                try:
+                    start_time_ = parseTimeUI(start_time)
+                except ValueError:
+                    errors.append('invalid start time: "%s", must be HH[:MM[:SS]]'
+                            % start_time)
+                try:
+                    duration_ = parseTimeDelta(duration)
+                except ValueError:
+                    errors.append('invalid duration: "%s", must be [[HH:]MM:]SS'
+                            % duration)
+            errors.append('Sorry: export is not implemented yet')
+
+        # get the station titles for the filter, and add a "show all" option
+        station_names = [(NO_FILTER_STATION, '')]
+        station_names.extend(((title, title) for title in
+                self._storage.getRecordingStations()))
+
+        # get the recording titles for the filter, and add a "show all" option
+        schedule_titles = [(NO_FILTER_TITLE, '')]
+        schedule_titles.extend(((title, title) for title in
+                self._storage.getRecordingTitles()))
+
+        return template.render(is_proxy=True,
+                transfer_queue_ids=self._transfer_manager.queue_ids,
+                station=getSession(SESSION_STATION_NAME_KEY), errors=errors,
+                filter_start=filter_start, filter_finish=filter_finish,
+                filter_station=filter_station, station_names=station_names,
+                export_partial=export_partial, start_type=start_type,
+                start_time=start_time, duration=duration,
+                filter_title=filter_title, schedule_titles=schedule_titles)
+
+
+    @cherrypy.expose
     @template.output('queue.html')
     def queue(self, recording_id=None, cancel_transfer=None,
             cancel_all_transfers=None, **ignored):
@@ -559,17 +625,26 @@ class Root(object):
     # update the html from a remote Bowerbird to add disconnect links etc
     # NOTE: html_source should be a file-like object with a "read" method
     def updateHtmlFromBowerbird(self, html_source):
-        # create new li
-        li = lxml.html.Element('li')
-        # add new hyperlink and text to the li
-        lxml.etree.SubElement(li, 'a', href='/disconnect').text = "Disconnect"
-
         # create a dom object from the html
         dom = lxml.html.parse(html_source)
         # find the ul in the menu div
         ul = dom.find('//div[@id="menu"]/ul')
-        # add the new disconnect li to the ul
-        ul.insert(0, li)
+
+        # create disconnect li
+        d_li = lxml.html.Element('li')
+        # add new hyperlink and text to the li
+        lxml.etree.SubElement(d_li, 'a', href='/disconnect').text = "Disconnect"
+        # add the new li to the ul
+        ul.insert(0, d_li)
+
+        # add queue link if there's transfers going on
+        if self._transfer_manager.queue_ids:
+            # create queue li
+            q_li = lxml.html.Element('li')
+            # add new hyperlink and text to the li
+            lxml.etree.SubElement(q_li, 'a', href='/queue').text = "Transfers"
+            # add the new li to the ul
+            ul.append(q_li)
 
         # return the modified html
         return lxml.etree.tostring(dom, method='html', pretty_print=True)

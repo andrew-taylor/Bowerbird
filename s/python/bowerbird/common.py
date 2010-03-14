@@ -35,7 +35,9 @@ DATETIME_FORMAT_ISO_W_US = '%sT%s' % (DATE_FORMAT_ISO, TIME_FORMAT_ISO_W_US)
 DATE_FORMAT_UI = '%d/%m/%Y'
 TIME_FORMAT_UI_HMS = '%H:%M:%S'
 TIME_FORMAT_UI_HM = '%H:%M'
+TIME_FORMAT_UI_MS = '%M:%S'
 TIME_FORMAT_UI_H = '%H'
+TIME_FORMAT_UI_S = '%S'
 
 EXPORT_LIMIT_DETECTION_THRESHOLD = datetime.timedelta(seconds=1)
 
@@ -118,14 +120,14 @@ def parseTimeUI(time_string):
         hours:minutes:seconds'''
     num_colons = time_string.count(':')
     if num_colons == 2:
-        return datetime.datetime.strptime(time_string,
-                TIME_FORMAT_UI_HMS).time()
+        return (datetime.datetime.strptime(time_string,
+                TIME_FORMAT_UI_HMS).time())
     elif num_colons == 1:
         return datetime.datetime.strptime(time_string, TIME_FORMAT_UI_HM).time()
     elif num_colons == 0:
         return datetime.datetime.strptime(time_string, TIME_FORMAT_UI_H).time()
 
-    raise ValueError("time data '%s' does not match any recognised time format"
+    raise ValueError("time '%s' does not match any recognised time format"
             % time_string)
 
 
@@ -150,6 +152,24 @@ def formatTimeDelta(delta):
     if delta.microseconds:
         delta_string += '.%06d' % delta.microseconds
     return delta_string
+
+
+def parseTimeDelta(delta_string):
+    '''Flexible time parsing, accepting formats of hours, hours:minutes, and
+        hours:minutes:seconds'''
+    num_colons = delta_string.count(':')
+    if num_colons == 2:
+        return (datetime.datetime.strptime(delta_string, TIME_FORMAT_UI_HMS)
+                - datetime.datetime.strptime('0', TIME_FORMAT_UI_S))
+    elif num_colons == 1:
+        return (datetime.datetime.strptime(delta_string, TIME_FORMAT_UI_MS)
+                - datetime.datetime.strptime('0', TIME_FORMAT_UI_S))
+    elif num_colons == 0:
+        return (datetime.datetime.strptime(delta_string, TIME_FORMAT_UI_S)
+                - datetime.datetime.strptime('0', TIME_FORMAT_UI_S))
+
+    raise ValueError("timedelta '%s' does not match any recognised timedelta format"
+            % delta_string)
 
 
 def formatSize(bytes):

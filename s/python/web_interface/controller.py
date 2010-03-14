@@ -568,6 +568,55 @@ class Root(object):
                 'match any of the stored recordings.')
 
 
+    @cherrypy.expose
+    @template.output('export.html')
+    def export(self, export_partial=None, start_type=None, start_time=None,
+            duration=None,
+            filter_title=None, filter_start=None, filter_finish=None,
+            export=None, **ignored):
+        # HACK: this helps development slightly
+        if ignored:
+            print "IGNORED",ignored
+
+        errors = []
+
+        if export:
+            try:
+                start_date_ = parseDateUI(filter_start)
+            except ValueError:
+                errors.append('invalid start date: "%s", must be DD/MM/YYYY'
+                        % filter_start)
+            try:
+                finish_date_ = parseDateUI(filter_finish)
+            except ValueError:
+                errors.append('invalid finish date: "%s", must be DD/MM/YYYY'
+                        % filter_finish)
+
+            if export_partial and int(export_partial):
+                try:
+                    start_time_ = parseTimeUI(start_time)
+                except ValueError:
+                    errors.append('invalid start time: "%s", must be HH[:MM[:SS]]'
+                            % start_time)
+                try:
+                    duration_ = parseTimeDelta(duration)
+                except ValueError:
+                    errors.append('invalid duration: "%s", must be [[HH:]MM:]SS'
+                            % duration)
+            errors.append('Sorry: export is not implemented yet')
+
+        # get the recording titles for the filter, and add a "show all" option
+        schedule_titles = [(NO_FILTER_TITLE, '')]
+        schedule_titles.extend(((title, title) for title in
+                self._storage.getRecordingTitles()))
+
+        return template.render(station=self.getStationName(), errors=errors,
+                filter_start=filter_start, filter_finish=filter_finish,
+                export_partial=export_partial,
+                start_type=start_type, start_time=start_time, duration=duration,
+                filter_title=filter_title, schedule_titles=schedule_titles)
+
+
 #    @cherrypy.expose
     @template.output('categories.html')
     def categories(self, sort='label', sort_order='asc', **ignored):

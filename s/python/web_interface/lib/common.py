@@ -21,6 +21,13 @@ SESSION_STATION_ADDRESS_KEY = 'station_address'
 NO_FILTER_STATION = 'All Stations'
 NO_FILTER_TITLE = 'All Recordings'
 
+START_TIME_TYPES = [
+        'Recording Relative',
+        'Time of Day',
+        'Sunrise Relative',
+        'Sunset Relative']
+
+
 def hasSession(key):
     return key in cherrypy.session
 
