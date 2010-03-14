@@ -19,7 +19,9 @@
                     name="retrieve_recording" value="Retrieve" />
             <input py:when="recording.id in value_of('transfer_queue_ids', [])"
                     type="submit" value="Retrieving" disabled="disabled" />
-            <input py:otherwise="" type="submit" value="Export"
+            <input py:when="is_proxy" type="submit" value="Not Available"
+                    disabled="disabled" />
+            <input py:otherwise="" type="submit" value="Assembling..."
                     disabled="disabled" />
         </py:choose>
     </py:def>
@@ -38,8 +40,10 @@
             <input py:when="'export_available'" type="submit"
                     name="export_selection"
                     value="Export Available from Selection (${formatSize(size)})" />
-            <input py:otherwise="" type="submit" value="Export Selection"
-                    disabled="disabled" />
+            <input py:when="'retreive_unavailable'" type="submit"
+                    value="Selected Recordings Unavailable" disabled="disabled" />
+            <input py:otherwise="" type="submit"
+                    value="Assembling Selected Recordings" disabled="disabled" />
         </py:choose>
     </py:def>
 
@@ -276,6 +280,8 @@
         <p>
             <form method="post">
                 <input type="submit" name="delete_cache" value="Delete Cache" />
+                <em><strong>Warning:</strong> system may take up to an hour to
+                rebuild the cache.</em>
             </form>
         </p>
     </body>

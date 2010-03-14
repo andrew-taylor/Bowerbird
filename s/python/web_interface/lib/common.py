@@ -82,5 +82,7 @@ def calculateActionForSelected(selected_recordings=None, connected_station=None,
             return 'export', export_size
     elif found_retrieving:
         return 'already_retrieving', 0
+    elif found_unretrievable:
+        return 'retreive_unavailable', 0
     else:
         return 'disabled_export', 0
