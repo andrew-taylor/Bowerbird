@@ -1,0 +1,165 @@
+# configuration file for bowerbird deployment
+
+# Some formatting of comments is required to provide nice looking edit
+# pages. General explanatory comments are welcome, but the last comment 
+# line just before an item should be as described in the next
+# paragraph.
+
+# Comment just before section should be a display version of the section name
+# Comment just before key-value pairs should be 4 comma separated values:
+# 1) display name for value (this should be the for value groups such as a
+# 		min-max range pair)
+# 2) display subname for values that are part of a group
+# 3) variable type (float, string, int, time, etc) - Currently ignored
+# 4) units for value (for display)
+
+# leave this section header here to workaround 
+# a strangeness in comment parsing
+[dummy]
+
+# don't change this section name without changing the parameter in controller.py
+# Station Information
+[station_information]
+# don't change this key name without changing the parameter in controller.py
+# Location, Name, string, 
+name = Nourlangie Rock
+# Location, Timezone offset, float, hours
+tz_offset = 10
+# Location, Latitude, float, degrees
+latitude = -33.216666
+# Location, Longitude, float, degrees
+longitude = 150.83333
+
+# Spectral Analysis
+[spectral_analysis]
+# FFTW, Enable, bool,
+use_fftw = 1
+# changed appropriately when files read
+# FFTW, Sampling Rate, int, Hz
+sampling_rate = 16000
+# FFTW, Points, int,
+fft_points = 1024
+# FFTW, Window, int,
+fft_window = 128
+# FFTW, Overlap.05
+# Maximum Gap Size, , float, seconds
+max_gap_size = 0.005
+# hertz
+peak_radius = 265
+# FIXME should be DB?
+peak_min_height = 0.0001
+# hertz
+relative_relief_inside_radius = 150
+# hertz
+relative_relief_outside_radius = 265
+# minimum ratio of peak to bins between inside and outside radius
+min_relative_relief = 5
+# minimum relative power of non-peaks incorporated into tracks
+min_power_between_track_bins = 0.2
+
+[call]
+output_directory = .
+pathname_prefix = %s/unit
+index_filename = %s.html
+sound_filename = %s%05d.wav
+image_filename = %s%05d.jpg
+image_size = 4096x2048
+peaks_image_filename = %s_peaks_c%d_%02d.jpg
+peaks_image_maximum_length = 8000
+database = %s.db
+details_filename = %s%05d.details
+track_filename = %s%05d.track
+#spectrum_filename = %s%05d.spectrum
+spectrum_filename = ""
+calculate_power = 1
+calculate_phase = 0
+refine_sinusoid_parameters = 0
+spectrum_radius = 5
+max_sound_buffer_size = 2400000
+# seconds
+prefix_seconds = 0.1
+suffix_seconds = 0.1
+ignore_channel_bitmap = 2
+
+[database]
+start_cmd = create table if not exists sources (source_id INTEGER PRIMARY KEYname TEXTsampling_rate DOUBLEfft_n_bins INTEGERfft_step_size INTEGERfft_window_size INTEGER);create table if not exists units (unit_id INTEGER PRIMARY KEYsource_id INTEGERchannel INTEGERfirst_frame INTEGERn_frames INTEGERfrequency BLOBamplitude BLOBphase BLOB);create index if not exists unit_source_index on units(source_id);create index if not exists source_name_index on sources(name);begin transaction;
+source_insert = insert into sources values(NULL, ?, ?, ?, ?, ?)
+unit_insert = insert into units values(NULL, ?, ?, ?, ?, ?, ?, ?)
+finish_cmd = commit
+busy_timeout = 60000
+
+[tonal_model]
+sampling_rate = 16000
+
+[localization]
+base_dir = /raid/data/barren_grounds/
+date_dir = 2008_03_19
+station0_dir = barren_grounds0
+station1_dir = barren_grounds1
+station2_dir = barren_grounds2
+breathing_space = 0.1
+station0_position = S34 40.521250658394003 E150 42.541497945786006
+station1_position = S34 40.588880601453603 E150 42.648518085480006
+station2_position = S34 40.622232015313799 E150 42.528945207595797
+result_file = result.succinct
+click_threshold = 0.2
+compress_clicktracks = 0
+kml_file = new.kml
+kml_name = Ground Parrot Localization
+kml_desc = More information at http://bioacoustics.cse.unsw.edu.au
+
+
+# Sound Capture
+[sound_capture]
+# Buffer, Size, int,
+sound_buffer_size = 64000
+# Buffer, Frames, int,
+sound_buffer_frames = 960000
+# Storage, Root Dir, text,
+sound_file_root_dir = /var/lib/
+# Storage, File Ext., text,
+sound_file_ext = wv
+# Storage, Details File Ext., text,
+sound_details_ext = details
+# 0: raw wav, 1: use builtin wavpack, 2: use shellcmd
+# Storage, Compression Type, int,
+sound_compression_type = 2
+# Storage, Compression Shell Cmd, text,
+sound_compressor_shellcmd = /usr/bin/wavpack -q -f - >%s
+# Alsa, PCM Device Name, text,
+alsa_pcm_name = hw:1,0
+# Alsa, Channels, int,
+alsa_n_channels = 4
+# Alsa, Sampling Rate, int, Hz
+alsa_sampling_rate = 32000
+# Alsa, Period Size, int,
+alsa_periods_size = 32000
+# Alsa, Periods, int,
+alsa_n_periods = 2
+# Alsa, Buffer Size, int,
+alsa_buffer_size = 128000
+beep = false
+active_high = false
+sound_n_files = 4
+# Scheduling, Command, text,
+schedule_command = sound_capture -orecording_duration=%s
+# Scheduling, User, text,
+schedule_user = root
+# Scheduling, Days to Plan, int, days
+schedule_days = 3
+
+[scheduled_capture]
+monkeys =  9:00 -  11:00
+badgers = R -8:00 - S -5:00
+bears =  6:00 -  6:30
+frogs = R -4:00 - R -2:00
+
+[beagleboard_watchdog]
+prefix = avr://
+feed = watchdog pulse
+reboot = REALLY reset the Beagleboard
+tty = /dev/ttyS2
+files = /var/lib/bowerbird/status/network_up:100000
+feed_seconds = 300
+granularity_seconds = 60
+startup_seconds = 7200

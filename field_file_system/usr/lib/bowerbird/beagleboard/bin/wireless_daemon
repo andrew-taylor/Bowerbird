@@ -1,0 +1,78 @@
+#!/bin/sh
+trap ''  1 2 3 7 13 15
+. /etc/bowerbird/config/global_variables
+exec >>$log_dir/wireless_daemon 2>&1
+if test -n "$no_wireless" || test ! -n "$wireless_interface"
+then
+    echo wireless disabled
+    exit 0
+fi
+set -x
+ps -ef|grep 'wireless_daemon$'|sed "/$$/d;/grep/d;s/^[a-z]* *//;s/ .*//"|xargs -r kill -9
+station_hex_id=`echo "$hostname"|od -x -w256 -N16 -An -v  -|sed 's/ //g'`
+unsuccessful_power_cycles=0
+while test $unsuccessful_power_cycles -lt 10
+do
+	set_power on $sw_wireless
+	sleep 30
+	failures=0
+	lcd=''
+	while test $failures -lt 30
+	do
+		sleep_seconds=1
+		while test $sleep_seconds -gt 0
+		do
+			if ping -c 1 -q $wireless_gateway  >/dev/null
+			then
+				ppp_up&&touch $network_alive_file
+                if test "$lcd" '!=' 'up'
+                then
+                    echo 'w:up' >$status_dir/wireless.message
+                    lcd=up
+                fi
+				ping_count=60
+				while test $ping_count -gt 0
+				do
+					if ping -c 1 -q -p "$station_hex_id" 129.94.172.235 >/dev/null || ping -c 1 -q $wireless_gateway  >/dev/null
+					then
+						sleep 60
+						ping_count=`expr $ping_count - 1`
+					else
+						if test "$lcd" '!=' 'down'
+						then
+							echo 'w:down' >$status_dir/wireless.message
+							lcd=down
+						fi
+						message 'ping failed'
+                        break
+					fi
+				done
+				sleep_seconds=100
+			else
+				if test "$lcd" '!=' 'down'
+				then
+					echo 'w:down' >$status_dir/wireless.message
+					lcd=down
+				fi
+				message 'internet not connected'
+				sleep_seconds=`expr $sleep_seconds / 10`
+			fi
+			sleep $sleep_seconds
+		done
+		message 'restarting wireless'
+        ifconfig $wireless_interface down
+        sleep 5
+        iwconfig $wireless_interface $wireless_iwconfig_options
+        ifconfig $wireless_interface up $wireless_ip netmask  $wireless_netmask
+        route add default gw  $wireless_gateway $wlan0
+	done
+	unsuccessful_power_cycles=$((unsuccessful_power_cycles + 1))
+	# usb_hub becomes inaccessible if no device on
+	set_power on $sw_disk
+	set_power off $sw_wireless
+	sleep 5
+done
+message 'rebooting in 1hr to fix wireless'
+sleep 3600
+message 'rebooting to fix wireless'
+do_reboot
