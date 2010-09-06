@@ -7,8 +7,15 @@ then
     echo wireless disabled
     exit 0
 fi
+ps -ef|grep 'bin/*wireless_daemon'|sed "/$$/d;/grep/d;s/^[a-z]* *//;s/ .*//"|xargs -r kill -9
+case "$1" in
+stop|off)
+	message 'stopping wireless'
+    ifconfig $wireless_interface down
+	set_power off $sw_wireless
+	exit;;
+esac
 set -x
-ps -ef|grep 'wireless_daemon$'|sed "/$$/d;/grep/d;s/^[a-z]* *//;s/ .*//"|xargs -r kill -9
 station_hex_id=`echo "$hostname"|od -x -w256 -N16 -An -v  -|sed 's/ //g'`
 unsuccessful_power_cycles=0
 while test $unsuccessful_power_cycles -lt 10
