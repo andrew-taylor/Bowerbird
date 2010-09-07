@@ -244,11 +244,11 @@ class ScheduleParser(object):
             raise TypeError('schedule_day must be datetime or date, not "%s"'
                     % type(schedule_day))
 
-        assert type(days_to_schedule) == int, ('invalid type for '
-                'days_to_schedule "%s"' % type(days_to_schedule))
-
         if not days_to_schedule:
             days_to_schedule = self.__days_to_schedule
+
+        assert type(days_to_schedule) == int, ('invalid type for '
+                'days_to_schedule "%s"' % type(days_to_schedule))
 
         recording_times = []
         for i in range(days_to_schedule):
