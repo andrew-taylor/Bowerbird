@@ -43,7 +43,7 @@ die(char *format, ...) {
 
 //__attribute__ ((format (printf, 2, 3)))
 int
-dprintf(int level, char *format, ...) {
+debug_printf(int level, char *format, ...) {
 	va_list ap;
 	if (level > verbosity)
 		return 0;
@@ -55,7 +55,7 @@ dprintf(int level, char *format, ...) {
 
 //__attribute__ ((format (printf, 5, 6)))
 void
-dprintf_file_line_func(int level, char *file_name, int line_number, const char *function_name, char *format, ...) {
+debug_printf_file_line_func(int level, char *file_name, int line_number, const char *function_name, char *format, ...) {
 	va_list ap;
 	if (level > verbosity)
 		return;

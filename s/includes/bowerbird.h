@@ -85,7 +85,7 @@ typedef uint64_t power_t;    // for signal power
 
 #define assert(expr) ((void)((expr) ? 0 : die("%s:%d: assertion %s failed in function %s",  __FILE__ , __LINE__, #expr, __func__)))
 //#define dp(level, ...) (dprintf(level, "%s:%d: %s ", __FILE__ , __LINE__, __func__),dprintf(level,  __VA_ARGS__))
-#define dp(level, ...) (level <= verbosity ? dprintf(level, "%s:%d: %s ", __FILE__ , __LINE__, __func__),dprintf(level,  __VA_ARGS__) : 0)
+#define dp(level, ...) (level <= verbosity ? debug_printf(level, "%s:%d: %s ", __FILE__ , __LINE__, __func__),debug_printf(level,  __VA_ARGS__) : 0)
 #define approximately_zero(x) (ABS(x) < sqrt(DBL_EPSILON))
 
 typedef struct sinusoid_t {

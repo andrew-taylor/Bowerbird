@@ -385,11 +385,15 @@ class BowerbirdStorage(Storage):
         dir_list = os.listdir(self._root_dir)
         dir_list.sort()
         latest_dir_mtime = -1
+        if verbose: print 'directories to be checked: ', dir_list
+        # without this a transaction occurs for every insert at a huge time penalty
+        self.runQueryRaw('BEGIN TRANSACTION')
         for dir in dir_list:
             # only scan directories that are dates
             try:
                 parseDateIso(dir)
             except:
+                if verbose: print 'skipping non-date directory: ', dir
                 continue
 
             dir_path = os.path.join(self._root_dir, dir)
@@ -398,17 +402,18 @@ class BowerbirdStorage(Storage):
             dir_mtime = os.path.getmtime(dir_path)
             if (os.path.isdir(dir_path)
                     and (force_rescan or dir_mtime > self.dir_timestamp)):
-                if verbose:
-                    print 'scanning', dir
-                for recording_file in os.listdir(dir_path):
+                if verbose: print 'scanning', dir
+                for recording_file in sorted(os.listdir(dir_path)):
                     # ignore files with the wrong extension
                     if (os.path.splitext(recording_file)[1]
                             == self._recording_extension):
                         file_path = os.path.join(dir, recording_file)
                         if not self.hasRecordingFile(file_path):
+                            if verbose: print 'adding', file_path
                             self.addRecordingFile(file_path)
             if dir_mtime > latest_dir_mtime:
                 latest_dir_mtime = dir_mtime
+        self.runQueryRaw('COMMIT')
 
         # up the timestamp
         self.dir_timestamp = latest_dir_mtime
@@ -442,9 +447,8 @@ class BowerbirdStorage(Storage):
             # see if the recording file is in a scheduled timeslot
             matched_schedules = self._schedule.findSchedulesCovering(
                     recording_file.start, recording_file.finish)
-
             self.addFileToAppropriateRecordings(recording_file,
-                    matched_schedules, file_merges, file_deletes)
+                    matched_schedules, file_merges, file_deletes, verbose)
 
         for id in file_merges:
             recording = self.getRecording(id)
@@ -467,14 +471,14 @@ class BowerbirdStorage(Storage):
 
 
     def addFileToAppropriateRecordings(self, recording_file, matched_schedules,
-            file_merges, file_deletes):
+            file_merges, file_deletes, verbose=False):
         # see if there's any existing recordings that "overlap" the file
         # must convert generator to a list
         prev_recordings = list(self.getRecordingsAtTime(recording_file.start
                 - ADJACENT_GAP_TOLERANCE))
         next_recordings = list(self.getRecordingsAtTime(recording_file.finish
                 + ADJACENT_GAP_TOLERANCE))
-
+        if verbose: print recording_file, 'matched_schedules:', matched_schedules, 'previous:', prev_recordings, 'next:', next_recordings
         if matched_schedules:
             # search first for merges of title-matched file, prev and next
             # must iterate over a copy because we might remove a schedule

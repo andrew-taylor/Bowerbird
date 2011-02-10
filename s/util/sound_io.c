@@ -75,7 +75,7 @@ DoWriteFile (FILE *hFile, void *lpBuffer, uint32_t nNumberOfBytesToWrite, uint32
     *lpNumberOfBytesWritten = 0;
 
     while (nNumberOfBytesToWrite) {
-        bcount = fwrite ((uchar *) lpBuffer + *lpNumberOfBytesWritten, 1, nNumberOfBytesToWrite, hFile);
+        bcount = fwrite ((char *) lpBuffer + *lpNumberOfBytesWritten, 1, nNumberOfBytesToWrite, hFile);
 
         if (bcount) {
             *lpNumberOfBytesWritten += bcount;

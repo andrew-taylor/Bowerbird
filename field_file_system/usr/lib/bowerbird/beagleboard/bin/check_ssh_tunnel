@@ -1,0 +1,20 @@
+#!/bin/sh
+. /etc/bowerbird/config/global_variables
+ssh_port=1${reverse_tunnel_ssh_port}22
+telnet_port=1${reverse_tunnel_ssh_port}23
+
+for attempt in 1 2 3
+do
+    h=`ssh $remote_account ssh root@localhost:$ssh_port hostname`
+    if test "$h" = `hostname`
+    then
+        message "ssh tunnel OK"
+        exit 0
+    else
+        message "starting ssh tunnel"
+        ps -ef|grep '22:localhost:22'|sed "/$$/d;/grep/d;s/^[a-z]* *//;s/ .*//"|xargs -r kill -9
+        ssh -q -R 1${reverse_tunnel_ssh_port}22:localhost:22 -R 1${reverse_tunnel_ssh_port}23:localhost:23 -R 1${reverse_tunnel_ssh_port}80:localhost:80 -N -n $remote_account &
+        sleep 300
+    fi
+done
+exit 1

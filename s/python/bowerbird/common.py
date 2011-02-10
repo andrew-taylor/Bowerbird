@@ -59,6 +59,10 @@ def formatDateTimeIso(my_datetime):
 
 def parseDateTimeIso(iso_datetime):
     # ISO string is allowed to omit microseconds if they're zero
+    # attempt to handle  with old filename formats
+    iso_datetime = iso_datetime.replace('_', '-', 2)
+    iso_datetime = iso_datetime.replace('_', ':', 2)
+    iso_datetime = iso_datetime.replace('_', '.', 1)
     if iso_datetime.count('.'):
         return datetime.datetime.strptime(iso_datetime,
             DATETIME_FORMAT_ISO_W_US)
@@ -81,6 +85,8 @@ def formatDateIso(date):
 
 
 def parseDateIso(iso_date):
+    # attempt to handle  with old filename format
+    iso_date = iso_date.replace('_', '-', 2)
     return datetime.datetime.strptime(iso_date, DATE_FORMAT_ISO).date()
 
 
