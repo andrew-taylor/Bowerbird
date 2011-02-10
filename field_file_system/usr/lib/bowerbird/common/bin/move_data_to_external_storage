@@ -60,7 +60,7 @@ mount_point_length=0
 for mp in $(sed -n 's/^\s*[^#]\S*\s*\(\S*\).*/\1/p' /etc/fstab)
 do
 	# find mount points that are part of the external drive path
-	if echo $external_sound_file_dir | grep -q "^$mp"
+	if echo $external_storage_mount_point | grep -q "^$mp"
 	then
 		# get the longest one
 		newlen=`echo -n $mp|wc -c`
@@ -111,6 +111,7 @@ then
 fi
 
 
+external_sound_file_dir="$external_storage_mount_point/external_storage_data_dir/"`hostname`
 # make sure the backup directory exists
 if [ ! -d $external_sound_file_dir ]
 then

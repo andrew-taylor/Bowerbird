@@ -1,0 +1,27 @@
+#!/bin/sh
+. /etc/bowerbird/config/global_variables
+exec >>$log_dir/daily_cron_job 2>&1
+set -x
+touch /tmp/daily_cron_job
+umount $external_storage_mount_point
+umount -f $external_storage_mount_point
+mkdir -p $external_storage_mount_point 
+set_power on $sw_disk
+sleep 30
+move_data_to_external_storage
+umount $external_storage_mount_point
+umount -f $external_storage_mount_point
+sleep 1
+exit
+DEV_NAME=/dev/sda
+sdparm --command=sync "$DEV_NAME" >/dev/null
+sdparm --command=stop "$DEV_NAME" >/dev/null
+DEVICE=$(udevadm info --query=path --name=${DEV_NAME} --attribute-walk | \
+    egrep "looking at parent device" | head -1 | \
+    sed -e "s/.*looking at parent device '\(\/devices\/.*\)\/.*\/host.*/\1/g")
+DEV_BUS_ID=${DEVICE##*/}
+echo -n "${DEV_BUS_ID}" > /sys/bus/usb/drivers/usb/unbind
+POWER_LEVEL_FILE=/sys${DEVICE}/power/level
+echo suspend > "$POWER_LEVEL_FILE"
+sleep 1
+set_power off $sw_disk

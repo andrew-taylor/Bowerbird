@@ -1,3 +1,3 @@
 proc /proc proc defaults 0 0
 
-LABEL=Storage	/mnt/storage	ext3	defaults,noauto,noatime,user	0	0
+LABEL=bowerbird_data	/mnt/storage	ext3	defaults,noauto,noatime,user	0	0
