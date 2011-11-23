@@ -1,0 +1,5 @@
+97-bowerbird.rules
+ACTION=="add", KERNEL=="sda1", SUBSYSTEM=="block", RUN+="/usr/lib/bowerbird/common/bin/disk_autorun sda1"
+ACTION=="add", KERNEL=="sdb1", SUBSYSTEM=="block", RUN+="/usr/lib/bowerbird/common/bin/disk_autorun sdb1"
+ACTION=="add", KERNEL=="sdc1", SUBSYSTEM=="block", RUN+="/usr/lib/bowerbird/common/bin/disk_autorun sdc1"
+ACTION=="add", KERNEL=="sdd1", SUBSYSTEM=="block", RUN+="/usr/lib/bowerbird/common/bin/disk_autorun sdd1"
