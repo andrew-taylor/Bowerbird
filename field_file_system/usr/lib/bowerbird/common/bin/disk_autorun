@@ -1,0 +1,21 @@
+#!/bin/sh
+touch /tmp/autorun
+. /etc/bowerbird/config/global_variables
+partition="$1"
+if test "`e2label /dev/$partition`" = bowerbird_auto
+then
+    mkdir -p /mnt/$partition 
+    message "Mounting disk $partition"
+    mount -o noatime /dev/$partition /mnt/$partition || exit 1
+    if test -x /mnt/$partition/bowerbird.autorun
+    then
+        message "Running disk commands"
+        /mnt/$partition/bowerbird.autorun
+        message "Finished disk commands"
+    fi
+    umount /mnt/$partition
+    message "Disk $partition unmounted"
+    message "Disk can be removed"
+    rmdir /mnt/$partition
+fi
+exit 0

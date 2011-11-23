@@ -35,7 +35,7 @@ do
 				ping_count=60
 				while test $ping_count -gt 0
 				do
-					if ping -c 1 -q -p "$station_hex_id" 129.94.172.235 >/dev/null || ping -c 1 -q 203.2.75.132 >/dev/null || ping -c 1 -q 61.9.211.33 >/dev/null
+					if ping -c 1 -q -p "$station_hex_id" 129.94.172.235 >/dev/null || ping -c 1 -q 203.2.75.132 >/dev/null || ping -c 1 -q 61.9.226.33 >/dev/null
 					then
 						if test "$lcd" '!=' 'up'
 						then
@@ -55,17 +55,22 @@ do
 				done
 				sleep_seconds=100
 			else
-				if test "$lcd" '!=' 'down'
-				then
-					echo 'i:down' >$status_dir/ppp.message
-					lcd=down
-				fi
-				message 'internet not connected'
+                if test -n "$attempted_start"
+                then
+                    if test "$lcd" '!=' 'down'
+                    then
+                        echo 'i:down' >$status_dir/ppp.message
+                        lcd=down
+                    fi
+                else
+                    attempted_start=1
+                    break
+                fi
 				sleep_seconds=`expr $sleep_seconds / 10`
 			fi
 			sleep $sleep_seconds
 		done
-		message 'restarting ppp'
+		message 'starting ppp'
 		ps -ef|grep 'pppd'|sed "/$$/d;/grep/d;s/^[a-z]* *//;s/ .*//"|xargs -r kill -9
 #		message "signal strength: `sed 5q </dev/ttyUSB1|grep CSQ:|sed 's/,.*//;s/.* //' & echo AT+CSQ >/dev/ttyUSB1`"  &
 #		sleep 10
@@ -76,6 +81,10 @@ do
 			echo 'i:up' >$status_dir/ppp.message
 			failures=0
 			unsuccessful_power_cycles=0
+            /etc/init.d/ntp stop
+            ntpdate 0.debian.pool.ntp.org
+            ntpdate 211.29.132.140
+            /etc/init.d/ntp start
 			sleep 7200
 		else
 			message 'ppp not running'

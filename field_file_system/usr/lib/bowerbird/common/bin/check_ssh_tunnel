@@ -1,11 +1,14 @@
 #!/bin/sh
 . /etc/bowerbird/config/global_variables
-ssh_port=1${reverse_tunnel_ssh_port}22
-telnet_port=1${reverse_tunnel_ssh_port}23
+ssh_port=1${tunnel_port_id}22
+telnet_port=1${tunnel_port_id}23
+http_port=1${tunnel_port_id}80
+
+test -n "$no_ppp" && exit 0
 
 for attempt in 1 2 3
 do
-    h=`ssh $remote_account ssh root@localhost:$ssh_port hostname`
+    h=`ssh -x -q -o 'Batchmode yes' -o 'ConnectTimeout 120' $remote_account "ssh root@localhost -x -q -p $ssh_port -o 'Batchmode yes' -o 'ConnectTimeout 120' hostname"`
     if test "$h" = `hostname`
     then
         message "ssh tunnel OK"
@@ -13,8 +16,9 @@ do
     else
         message "starting ssh tunnel"
         ps -ef|grep '22:localhost:22'|sed "/$$/d;/grep/d;s/^[a-z]* *//;s/ .*//"|xargs -r kill -9
-        ssh -q -R 1${reverse_tunnel_ssh_port}22:localhost:22 -R 1${reverse_tunnel_ssh_port}23:localhost:23 -R 1${reverse_tunnel_ssh_port}80:localhost:80 -N -n $remote_account &
-        sleep 300
+        ssh  -o 'Batchmode yes' -o 'ConnectTimeout 180' -x -q -n $remote_account ./kill_ssh_tunnel_process 192876$tunnel_port_id
+        setsid ssh  -o 'Batchmode yes' -o 'ConnectTimeout 180' -x -q -R $ssh_port:localhost:22 -R $telnet_port:localhost:23 -R $http_port:localhost:80 -n $remote_account sleep 192876$tunnel_port_id &
+        sleep 600
     fi
 done
 exit 1

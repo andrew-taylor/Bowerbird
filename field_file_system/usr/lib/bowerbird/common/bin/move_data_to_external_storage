@@ -32,7 +32,7 @@ else
 	. $VARIABLES_FILE
 
 	MISSING_VARIABLES=false
-	for var in sound_file_dir external_sound_file_dir
+	for var in sound_file_dir external_storage_data_dir
 	do
 		if [ ! "${!var}" ]
 		then
@@ -111,13 +111,15 @@ then
 fi
 
 
-external_sound_file_dir="$external_storage_mount_point/external_storage_data_dir/"`hostname`
+external_sound_file_dir="$external_storage_data_dir/$hostname"
 # make sure the backup directory exists
 if [ ! -d $external_sound_file_dir ]
 then
 	$DPRINT making external directory $external_sound_file_dir
 	mkdir -p $external_sound_file_dir
 fi
+
+check_disk_space $external_sound_file_dir
 
 
 # move all but todays recordings to an external device

@@ -14,4 +14,4 @@ fi
 
 # send the command to the IO AVR using logger
 #logger -p local0.notice "$avr_prefix"power "$@"
-echo "${avr_prefix}power $@" >/dev/ttyS2
+echo "${avr_prefix}power $@" >$console_tty

@@ -2,8 +2,8 @@
 . /etc/bowerbird/config/global_variables
 #logger -p local0.notice "${avr_prefix}lcd `date '+%a %H:%M'` `cat $status_dir/*.message`"
 #logger -p local0.notice "${avr_prefix}lcd $*"
-echo  >/dev/ttyS2
-echo "${avr_prefix}lcd `date '+%a %H:%M'` `cat $status_dir/*.message`" >/dev/ttyS2
+echo  >$console_tty
+echo "${avr_prefix}lcd `date '+%a %H:%M'` `cat $status_dir/*.message`" >$console_tty
 sleep 1
-echo  >/dev/ttyS2
-echo "${avr_prefix}lcd $*" >/dev/ttyS2
+echo  >$console_tty
+echo "${avr_prefix}lcd $*" >$console_tty

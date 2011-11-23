@@ -125,8 +125,8 @@ sound_details_ext = details
 # Storage, Compression Type, int,
 sound_compression_type = 2
 # Storage, Compression Shell Cmd, text,
-#sound_compressor_shellcmd = /usr/bin/wavpack -q -f - >%s
-sound_compressor_shellcmd = sox -t .wav - -t .wav -c 2 - mixer 0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0|/usr/bin/wavpack -q -f - >%s 2>/dev/null
+sound_compressor_shellcmd = /usr/bin/wavpack -q -f - >%s
+#sound_compressor_shellcmd = sox -t .wav - -t .wav -c 2 - mixer 0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0|/usr/bin/wavpack -q -f - >%s 2>/dev/null
 # Alsa, PCM Device Name, text,
 alsa_pcm_name = hw:1,0
 # Alsa, Channels, int,
@@ -161,7 +161,7 @@ frogs = R -4:00 - R -2:00
 prefix = avr://
 feed = watchdog pulse
 reboot = REALLY reset the Beagleboard
-tty = /dev/ttyS2
+tty = /dev/ttyO2
 files = /var/lib/bowerbird/data:100000
 feed_seconds = 300
 granularity_seconds = 60

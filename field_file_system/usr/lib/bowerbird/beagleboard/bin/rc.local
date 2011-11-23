@@ -12,6 +12,8 @@ trap ''  1 2 3 7 13 15
 PATH=$PATH:/usr/lib/bowerbird/beagleboard/bin/:/usr/lib/bowerbird/common/bin
 
 mount -o remount,noatime /
+/etc/init.d/ntp stop # will be restarted after pp connects
+hwclock -s # not sure why this is needed
 
 # turn off the dvi chip
 disable-dvi start
@@ -19,35 +21,41 @@ disable-dvi start
 # turn off the beagleboard leds
 enable-leds stop
 
-if ifconfig usb0 up 192.168.0.2  netmask 255.255.255.0
-then
-	route add default gw  192.168.0.1
-	if ping -c 1 -q 192.168.1.254
-	then
-		mkdir -p /raid
-		mount 192.168.0.1:/raid /raid
-		mount -o rbind /raid/home /home
-	else
-		mkdir -p /mnt/assa
-		mount 192.168.0.1:/ /mnt/assa
-		mount -o rbind /mnt/assa/home /home
-	fi
-	# ntpd doesn't make large adjustment, so make coarse adjustment with ntpdate first
-	/etc/init.d/ntp stop
-	ntpdate 192.168.0.1
-	/etc/init.d/ntp start
-	exit
-fi
+#if ifconfig usb0 up 192.168.0.2  netmask 255.255.255.0
+#then
+#	route add default gw  192.168.0.1
+#	if ping -c 1 -q 192.168.1.254
+#	then
+#		mkdir -p /raid
+#		mount 192.168.0.1:/raid /raid
+#		mount -o rbind /raid/home /home
+#	else
+#		mkdir -p /mnt/assa
+#		mount 192.168.0.1:/ /mnt/assa
+#		mount -o rbind /mnt/assa/home /home
+#	fi
+#	# ntpd doesn't make large adjustment, so make coarse adjustment with ntpdate first
+#	/etc/init.d/ntp stop
+#	ntpdate 192.168.0.1
+#	/etc/init.d/ntp start
+#	exit
+#fi
 mkdir -p $log_dir  $status_dir  $data_dir
 rm -f $status_dir/*
 message 'bowerbird starting'
 
-set_power off $sw_disk
 set_power on $sw_external0
 set_power on $sw_external1
 
 setsid ppp_daemon &
 #setsid disk_space_daemon  &
 setsid run_sound_capture  &
-setsid beagle_watchdog &
+if test -n "$no_ppp"
+then
+    setsid beagle_watchdog -obeagle_watchdog:tty=/dev/ttyO2 -obeagle_watchdog:files=/var/lib/bowerbird/data:100000 &
+else
+    test -n "$leave_disk_powered_on" || set_power off $sw_disk
+    setsid beagle_watchdog -obeagle_watchdog:tty=/dev/ttyO2 &
+fi
 lsusb
+

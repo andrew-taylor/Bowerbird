@@ -2,6 +2,7 @@
 . /etc/bowerbird/config/global_variables
 exec >>$log_dir/daily_cron_job 2>&1
 set -x
+test -n "$NO_PPP" && hwclock -s
 touch /tmp/daily_cron_job
 umount $external_storage_mount_point
 umount -f $external_storage_mount_point
@@ -11,8 +12,7 @@ sleep 30
 move_data_to_external_storage
 umount $external_storage_mount_point
 umount -f $external_storage_mount_point
-sleep 1
-exit
+test -n "$leave_disk_powered_on" && exit
 DEV_NAME=/dev/sda
 sdparm --command=sync "$DEV_NAME" >/dev/null
 sdparm --command=stop "$DEV_NAME" >/dev/null
