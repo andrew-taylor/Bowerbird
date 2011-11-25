@@ -1,50 +1,60 @@
 #!/bin/sh
-
 cd $1
-while true
+threshold_percent=99
+df=`df .|sed '1d;s/%.*//;s/.* //'`
+message "Disk $df% full"
+if test "$df" -ge $threshold_percent && test "$df" -lt 105 # sanity
+then
+    message 'Cleaning disk'
+else
+    exit 0
+fi
+if test -z `find . -type f -name '*.wv'|sed 1q`
+then
+    message 'Nothing to clean up'
+    exit 1
+fi
+sorted_hours=`
+echo '00 19
+01 20
+02 21
+03 22
+04 10
+05 06
+06 04
+07 00
+08 01
+09 03
+10 08
+11 13
+12 15
+13 16
+14 17
+15 18
+16 14
+17 11
+18 07
+19 01
+20 03
+21 05
+22 09
+23 12'|
+sort -k2rn|
+sed 's/ .*//'`
+
+for hour in $sorted_hours
 do
+    count=0
+    find . -type f -name "${hour}_*.wv"|
+    while test $count -lt 1000
+    do
+    	# weird bug here
+        sed 150q|xargs -r rm
+        df=`df .|sed '1d;s/%.*//;s/.* //'`
+        test "$df" -lt $threshold_percent && break
+        count=`expr $count + 1`
+    done
     df=`df .|sed '1d;s/%.*//;s/.* //'`
-    message "Disk $df% full"
-    if test "$df" -gt 97 && test "$df" -lt 105 # sanity
-    then
-        message 'Cleaning disk'
-    else
-        exit 0
-    fi
-    if test -z `find . -type f -name '*.wv'|sed 1q`
-    then
-        message 'Nothing to clean up'
-        exit 1
-    fi
-    find . -type f -name '*.wv'|
-    sed '
-        s?\(.*/00_.*\)?19 \1?g
-        s?\(.*/01_.*\)?20 \1?g
-        s?\(.*/02_.*\)?21 \1?g
-        s?\(.*/03_.*\)?22 \1?g
-        s?\(.*/04_.*\)?10 \1?g
-        s?\(.*/05_.*\)?06 \1?g
-        s?\(.*/06_.*\)?04 \1?g
-        s?\(.*/07_.*\)?00 \1?g
-        s?\(.*/08_.*\)?01 \1?g
-        s?\(.*/09_.*\)?03 \1?g
-        s?\(.*/10_.*\)?08 \1?g
-        s?\(.*/11_.*\)?13 \1?g
-        s?\(.*/12_.*\)?15 \1?g
-        s?\(.*/13_.*\)?16 \1?g
-        s?\(.*/14_.*\)?17 \1?g
-        s?\(.*/15_.*\)?18 \1?g
-        s?\(.*/16_.*\)?14 \1?g
-        s?\(.*/17_.*\)?11 \1?g
-        s?\(.*/18_.*\)?07 \1?g
-        s?\(.*/19_.*\)?01 \1?g
-        s?\(.*/20_.*\)?03 \1?g
-        s?\(.*/21_.*\)?05 \1?g
-        s?\(.*/22_.*\)?09 \1?g
-        s?\(.*/23_.*\)?12 \1?g
-    '|
-    sort -n|
-    sed 150q|
-    sed 's/^[0-9]* //'|
-    xargs -r rm
+    test "$df" -lt $threshold_percent && break
 done
+message 'Cleaning done'

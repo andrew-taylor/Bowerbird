@@ -8,7 +8,7 @@ trap ''  1 2 3 7 13 15
 #	mount -o rbind /u/board_configs/$mac_address /etc/bowerbird/
 . /etc/bowerbird/config/global_variables
 
-
+hostname $hostname
 PATH=$PATH:/usr/lib/bowerbird/beagleboard/bin/:/usr/lib/bowerbird/common/bin
 
 mount -o remount,noatime /

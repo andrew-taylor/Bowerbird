@@ -32,18 +32,18 @@ else
 	. $VARIABLES_FILE
 
 	MISSING_VARIABLES=false
-	for var in sound_file_dir external_storage_data_dir
-	do
-		if [ ! "${!var}" ]
-		then
-			echo "`basename $0`: variable $var must be defined in $VARIABLES_FILE" > /dev/stderr
-			MISSING_VARIABLES=true
-		fi
-	done
-	if $MISSING_VARIABLES
-	then
-		exit 1
-	fi
+#	for var in sound_file_dir external_storage_data_dir
+#	do
+#		if [ ! "${!var}" ]
+#		then
+#			echo "`basename $0`: variable $var must be defined in $VARIABLES_FILE" > /dev/stderr
+#			MISSING_VARIABLES=true
+#		fi
+#	done
+#	if $MISSING_VARIABLES
+#	then
+#		exit 1
+#	fi
 
 	if [ -x $LOGGER ]
 	then
@@ -111,7 +111,7 @@ then
 fi
 
 
-external_sound_file_dir="$external_storage_data_dir/$hostname"
+external_sound_file_dir="$external_storage_data_dir/$hostname/data"
 # make sure the backup directory exists
 if [ ! -d $external_sound_file_dir ]
 then
@@ -144,15 +144,17 @@ do
 	then
 		$PRINT "Transfer failed: $rsync_out"
 
-		## if transfer failed because disk is full, then clear some space
+		# if transfer failed because disk is full, then clear some space
+		# should not be needed because check_disk_space above should clear enough space
 		if [ "$DELETE_FILES_WHEN_FULL" ]
 		then
 			df=`df $external_sound_file_dir|sed '1d;s/%.*//;s/.* //'`
 			if [ "$df" -ge "$FULL_THRESHOLD" ]
 			then
-				find $external_sound_file_dir -name '*.wv' \
-					| sort | sed ${FILES_TO_DELETE_WHEN_FULL}q \
-					| xargs -r rm
+				find $external_sound_file_dir -name '*.wv' |
+				sort -t/ -k9 -k8 -k7 -k6 -k5 -k4 -k3|
+				sed ${FILES_TO_DELETE_WHEN_FULL}q \
+				| xargs -r rm
 			fi
 		fi
 	else
