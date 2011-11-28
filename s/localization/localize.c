@@ -133,19 +133,19 @@ void load_station_positions(earthpos_t stations[])
 
 		set_earthpos(&stations[i],lat_deg,lat_min,lng_deg,lng_min);
 
-		dprintf(10,"Station %d at (Lat %f %f,Lng %f %f)\n",i,stations[i].lat_deg,stations[i].lat_min,stations[i].lng_deg,stations[i].lng_min);
+		dp(10,"Station %d at (Lat %f %f,Lng %f %f)\n",i,stations[i].lat_deg,stations[i].lat_min,stations[i].lng_deg,stations[i].lng_min);
 	}
 
-	dprintf(10,"Distance between station 0 and station 1 is %g metres\n",earth_distance(&stations[0],&stations[1]));
-	dprintf(10,"Distance between station 1 and station 2 is %g metres\n",earth_distance(&stations[1],&stations[2]));
-	dprintf(10,"Distance between station 2 and station 0 is %g metres\n",earth_distance(&stations[2],&stations[0]));
+	dp(10,"Distance between station 0 and station 1 is %g metres\n",earth_distance(&stations[0],&stations[1]));
+	dp(10,"Distance between station 1 and station 2 is %g metres\n",earth_distance(&stations[1],&stations[2]));
+	dp(10,"Distance between station 2 and station 0 is %g metres\n",earth_distance(&stations[2],&stations[0]));
 }
 
 
 /* analyzes the specified region and returns an estimated location */
 estimate_t *analyze_region(double start_in_seconds, double length_in_seconds)
 {
-	dprintf(1,
+	dp(1,
 "=========================================================\n\
  Analyzing region of length %.3lf starting at %.3lf\n\
 =========================================================\n",length_in_seconds,start_in_seconds);
@@ -162,7 +162,7 @@ estimate_t *analyze_region(double start_in_seconds, double length_in_seconds)
 	{
 		grab_station_waveforms(waveforms[i],i,start_in_seconds,length_in_seconds);
 	}
-	dprintf(5,"Successfully grabbed all waveforms.\n");
+	dp(5,"Successfully grabbed all waveforms.\n");
 
 	index_t nsamples = length_in_seconds * SAMPLING_RATE;
 
@@ -193,7 +193,7 @@ estimate_t *analyze_region(double start_in_seconds, double length_in_seconds)
 		chan->waveform = filter(chan->waveform,chan->nsamples,3000,5000);
 		filtered[i][j] = chan->waveform;
 	}
-	dprintf(5,"Filtered the waveforms.\n");
+	dp(5,"Filtered the waveforms.\n");
 
 	/* we are now done with the original waveforms */
 	for (int i=0; i<NUM_STATIONS; i++)
@@ -379,7 +379,7 @@ void load_config(void)
 	click_threshold = param_get_double(LOCALIZATION_PARAM_GROUP,"click_threshold");
 	compress_clicktracks = param_get_integer(LOCALIZATION_PARAM_GROUP,"compress_clicktracks");
 	
-	dprintf(5,"Loaded configuration.\n");
+	dp(5,"Loaded configuration.\n");
 }
 
 /* just for testing */
@@ -428,14 +428,14 @@ void process_file(char *filename)
 				double lat_deg, lat_min, lng_deg, lng_min;
 				if (sscanf(line,"#@%s =%lf %lf, %lf %lf",name,&lat_deg,&lat_min,&lng_deg, &lng_min)==5)
 				{
-					dprintf(10,"Known position: '%s'\n",name);
+					dp(10,"Known position: '%s'\n",name);
 					earthpos_t *pos = salloc(sizeof(earthpos_t));
 					set_earthpos(pos,lat_deg,lat_min,lng_deg,lng_min);
 					g_hash_table_insert(known_positions,g_strdup(name),pos);
 				}
 				else
 				{
-					dprintf(5,"Currently using known position: '%s'\n",name);
+					dp(5,"Currently using known position: '%s'\n",name);
 					current = g_hash_table_lookup(known_positions,name);
 				}
 			}
@@ -448,7 +448,7 @@ void process_file(char *filename)
 			if (current != NULL)
 			{
 				double error = earth_distance(&result->location,current);
-				dprintf(1,"Error is %.1lf metres\n",error);
+				dp(1,"Error is %.1lf metres\n",error);
 				point2d_t p;
 				p.x = result->uncertainty;
 				p.y = error;
@@ -552,7 +552,7 @@ int select(GPtrArray *array[NUM_STATIONS], int  heur_id, int query_type, int thr
 /* analyzes the specified region and returns the estimated location as `bestpoint_on_earth' */
 double analyze_regionCURRENT(double start_in_seconds, double length_in_seconds, earthpos_t *bestpoint_on_earth)
 {
-	dprintf(1,
+	dp(1,
 "======================================================\n\
  Analyzing region of length %.1lf starting at %.1lf\n\
 ======================================================\n",length_in_seconds,start_in_seconds);
@@ -567,7 +567,7 @@ double analyze_regionCURRENT(double start_in_seconds, double length_in_seconds, 
 	{
 		grab_station_waveforms(waveforms[i],i,start_in_seconds,length_in_seconds);
 	}
-	dprintf(5,"Successfully grabbed all waveforms.\n");
+	dp(5,"Successfully grabbed all waveforms.\n");
 
 	index_t nsamples = length_in_seconds * SAMPLING_RATE;
 
@@ -582,7 +582,7 @@ double analyze_regionCURRENT(double start_in_seconds, double length_in_seconds, 
 			filtered[i][j] = filter(waveforms[i][j],nsamples,3000,5000);
 		}
 	}
-	dprintf(5,"Filtered the waveforms.\n");
+	dp(5,"Filtered the waveforms.\n");
 
 	{
 	double TDOA_01[NUM_CHANNELS][NUM_CHANNELS];
@@ -641,11 +641,11 @@ double analyze_regionCURRENT(double start_in_seconds, double length_in_seconds, 
 	int bestchan[NUM_STATIONS];
 	for (int i=0; i<NUM_STATIONS; i++)
 	{
-		dprintf(0,"Heur station %d: ",i);
+		dp(0,"Heur station %d: ",i);
 		for (int j=0; j<NUM_CHANNELS; j++)
 		{
 			HEURISTICS[i][j] /= 32;
-			dprintf(0," %g ",HEURISTICS[i][j]);
+			dp(0," %g ",HEURISTICS[i][j]);
 		}
 
 		int maxheur = max(HEURISTICS[i],NUM_CHANNELS);
@@ -658,11 +658,11 @@ double analyze_regionCURRENT(double start_in_seconds, double length_in_seconds, 
 				g_array_append_val(valchan[i],j);
 			}
 		}
-		dprintf(0,"\n");
+		dp(0,"\n");
 
 		minwithindex(HEURISTICS[i],NUM_CHANNELS,&bestchan[i]);
 		
-		dprintf(0,"Station %d has %d valid channels\n",i,valchan[i]->len);	
+		dp(0,"Station %d has %d valid channels\n",i,valchan[i]->len);	
 		if (valchan[i]->len == 0)
 		{
 			g_array_append_val(valchan[i],bestchan[i]);
@@ -791,7 +791,7 @@ double analyze_regionCURRENT(double start_in_seconds, double length_in_seconds, 
 
 		g_array_append_val(bestresults,results[i]);
 	}
-	dprintf(0,"Have %d results to take the median over (min was %d)\n",bestresults->len,num_required);
+	dp(0,"Have %d results to take the median over (min was %d)\n",bestresults->len,num_required);
 
 	int M = bestresults->len;
 	double latdegs[M],latmins[M],lngdegs[M],lngmins[M];

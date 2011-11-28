@@ -43,7 +43,7 @@ static void single_test(int fft_length, sinusoid_t s) {
 		die("n_sinusoids == %d should be 1\n", n_sinusoids);
 	}
 	sinusoid_t d = subtract_sinusoids1(estimated[0], s);
-	dprintf(11, "frequency=%g estimated_frequency=%g relative error=%g\n", s.frequency, estimated[0].frequency, d.frequency);
+	dp(11, "frequency=%g estimated_frequency=%g relative error=%g\n", s.frequency, estimated[0].frequency, d.frequency);
 	dp(11, "amplitude=%g estimated_amplitude=%g relative error=%g\n", s.amplitude, estimated[0].amplitude, d.amplitude);
 	dp(10, "phase=%g estimated_phase=%g error=%g\n", s.phase,estimated[0].phase, d.phase);
 

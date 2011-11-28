@@ -145,7 +145,7 @@ void dataman_scan(void)
 		}
 		closedir(dp);
 
-		dprintf(5,"Found %d files for station %d on day %s\n",num_files[station],station,date_dir);
+		dp(5,"Found %d files for station %d on day %s\n",num_files[station],station,date_dir);
 
 		// now we sort them (by their timestamps)
 		qsort(&files[station],num_files[station],sizeof(datafile_t),file_compare);
@@ -154,10 +154,10 @@ void dataman_scan(void)
 	// now we can set the base time
 	base_epoch = floor(files[0][0].time_at_eof);
 	base_date  = localtime(&base_epoch);
-	dprintf(10,"Base epoch is %ld ",(long)base_epoch);
+	dp(10,"Base epoch is %ld ",(long)base_epoch);
 	char str[MAX_PATH_LEN];
 	strftime(str,MAX_PATH_LEN,"%c",base_date);
-	dprintf(10,"which is %s\n",str);
+	dp(10,"which is %s\n",str);
 }
 
 int sprint_filepath(char *output,datafile_t *file)
@@ -189,21 +189,21 @@ double *read_raw(char *filename,index_t *nsamples,int *nchannels,double *samplin
 
 		// wavpack always returns the data in 4 byte chunks even if the wave file isn't 32-bit
 		int32_t *buffer = salloc(4* (*nsamples) * (*nchannels));
-		dprintf(10,"Uncompressing wavpack...");
+		dp(10,"Uncompressing wavpack...");
 		WavpackUnpackSamples(wavpack,buffer,*nsamples);
-		dprintf(10,"done\n");
+		dp(10,"done\n");
 
 		index_t len = (*nsamples) * (*nchannels);
 		if (WavpackGetMode(wavpack) & MODE_FLOAT)
 		{
 			data = (double *)buffer;
-			dprintf(20,"read_raw: have 32-bit float wavpack file\n");
-			dprintf(0,"The wavpack file used floats.. it hasn't been tested that these files are unpacked correctly.\n");
+			dp(20,"read_raw: have 32-bit float wavpack file\n");
+			dp(0,"The wavpack file used floats.. it hasn't been tested that these files are unpacked correctly.\n");
 		}
 		else
 		{
 			int bits_per_sample  = WavpackGetBitsPerSample(wavpack);
-			dprintf(20,"read_raw: have %d bits per sample\n",bits_per_sample);
+			dp(20,"read_raw: have %d bits per sample\n",bits_per_sample);
 			double m = (0x1<<bits_per_sample)/2;
 			data = salloc(sizeof(double) * len );
 			for (index_t i=0; i<len; i++)
@@ -321,7 +321,7 @@ index_t read_waveform(double **output, char *filename, int channel, index_t star
 	if (start+len >= nsamples)
 	{
 		/* we just read to the end of the file instead */
-		dprintf(15,"read_waveform: wanting to read past end of file\n");
+		dp(15,"read_waveform: wanting to read past end of file\n");
 		len = nsamples - start;
 	}
 
@@ -333,7 +333,7 @@ index_t read_waveform(double **output, char *filename, int channel, index_t star
 	}
 	free(data);
 
-	dprintf(10,"Successfully read channel %d of waveform %s from %d to %d\n",channel,filename,start,start+len-1);
+	dp(10,"Successfully read channel %d of waveform %s from %d to %d\n",channel,filename,start,start+len-1);
 	return len;
 }
 
@@ -372,7 +372,7 @@ index_t find_click(double *waveform, index_t position, index_t end, double thres
 	int found_peak = 0;
 	index_t i = position;
 	int step = end > position ? 1 : -1;
-	dprintf(15,"find_click: from %u to %u step=%d\n",position,end,step);
+	dp(15,"find_click: from %u to %u step=%d\n",position,end,step);
 
 	while (i != end)
 	{
@@ -384,11 +384,11 @@ index_t find_click(double *waveform, index_t position, index_t end, double thres
 			found_peak=1;
 		i += step;
 	}
-	dprintf(10,"warning: Didn't find the click for position %u!\n",position);
+	dp(10,"warning: Didn't find the click for position %u!\n",position);
 	if ((end > position) && (end - position < 1.5*SAMPLING_RATE))
-		dprintf(10,"warning: But it's okay because we were near the end of the file\n");
+		dp(10,"warning: But it's okay because we were near the end of the file\n");
 	if ((end < position) && (position - end < 1.5*SAMPLING_RATE))
-		dprintf(10,"warning: But it's okay because we were near the start of the file\n");
+		dp(10,"warning: But it's okay because we were near the start of the file\n");
 	return end;
 }
 
@@ -396,7 +396,7 @@ index_t find_click(double *waveform, index_t position, index_t end, double thres
 
 void generate_clicktrack(datafile_t *file)
 {
-	dprintf(1,"Clicktrack file wasn't found so generating a new one...");
+	dp(1,"Clicktrack file wasn't found so generating a new one...");
 
 	int oldverbosity=verbosity; verbosity = 0;
 
@@ -416,7 +416,7 @@ void generate_clicktrack(datafile_t *file)
 	write_waveform(path,file->clicktrack,file->nsamples,compression);
 
 	verbosity = oldverbosity;
-	dprintf(1,"done\n");
+	dp(1,"done\n");
 }
 
 /* read in the click track for the file, if it hasn't already been read in.
@@ -472,8 +472,8 @@ index_t find_nearest_second(int station, int fileidx, index_t position, int *sgn
 		{
 			// we are at last file
 			// no more to look at
-			dprintf(1,"warning: You're looking at a region right at the end of available data and\n");
-		        dprintf(1,"warning: timing may be inaccurate.\n");
+			dp(1,"warning: You're looking at a region right at the end of available data and\n");
+		        dp(1,"warning: timing may be inaccurate.\n");
 			clickpos = position + 2*SAMPLING_RATE;
 		}
 		else
@@ -495,8 +495,8 @@ index_t find_nearest_second(int station, int fileidx, index_t position, int *sgn
 		// didn't find click
 		if (fileidx == 0)
 		{
-			dprintf(1,"warning: You're looking at a region right at the end of available data and\n");
-		        dprintf(1,"warning: timing may be inaccurate.\n");
+			dp(1,"warning: You're looking at a region right at the end of available data and\n");
+		        dp(1,"warning: timing may be inaccurate.\n");
 			// just take it to be the click we found to the right
 			clickneg = clickpos;
 			clickneg_distance = clickpos_distance;
@@ -542,7 +542,7 @@ index_t find_position(int station, double time_in_seconds, int *fileidx_)
 		die("Failed to find a file suitable for time %.3lf seconds for station %d (#1)",time_in_seconds,station);
 	*fileidx_ = fileidx;
 	datafile_t *file = &files[station][fileidx];
-	dprintf(6,"Time of %.3lf (for station %d) should be in %s\n",time_in_seconds,station,file->base_filename);
+	dp(6,"Time of %.3lf (for station %d) should be in %s\n",time_in_seconds,station,file->base_filename);
 	read_clicktrack(file);
 
 	// TODO: fileidx == 0
@@ -557,12 +557,12 @@ index_t find_position(int station, double time_in_seconds, int *fileidx_)
 	index_t approx_pos1 = MAX(0, time_in_seconds - time_at_sof)*SAMPLING_RATE;
 	index_t approx_pos2 = file->nsamples - MAX(0,time_at_eof - time_in_seconds)*SAMPLING_RATE;
 
-	dprintf(15,"Approx1 = %u samples (%fs)\nApprox2 = %u samples\n",approx_pos1, (time_in_seconds - time_at_sof),approx_pos2);
+	dp(15,"Approx1 = %u samples (%fs)\nApprox2 = %u samples\n",approx_pos1, (time_in_seconds - time_at_sof),approx_pos2);
 
 	int sgn, side;
 	index_t click1 = find_nearest_second(station, fileidx, approx_pos1, &sgn, &side);
 	index_t click2 = find_nearest_second(station, fileidx, approx_pos2, &sgn, &side);
-	dprintf(15,"Click1 = %u Click2 = %u sgn=%d side=%d\n",click1, click2,sgn,side);
+	dp(15,"Click1 = %u Click2 = %u sgn=%d side=%d\n",click1, click2,sgn,side);
 
 	//TODO, recheck this all in the case where sgn is negative
 	
@@ -582,13 +582,13 @@ index_t find_position(int station, double time_in_seconds, int *fileidx_)
 			// they were right on a click
 			click = (approx_pos1 + approx_pos2)/2;
 			side = 1; sgn = 1;
-			dprintf(1,"The point is right on a click, taking the click to be %u\n",click);
+			dp(1,"The point is right on a click, taking the click to be %u\n",click);
 		}
 		else
 		{
 			index_t average = (approx_pos1 + approx_pos2)/2;
 			click = find_nearest_second(station,fileidx,average,&sgn,&side);
-			dprintf(1,"The point is in the middle of a second, taking the click to be %u\n",click);
+			dp(1,"The point is in the middle of a second, taking the click to be %u\n",click);
 		}
 	}
 	else
@@ -658,8 +658,8 @@ void grab_station_waveforms(double *waveforms[], int station, double start_in_se
 
 	start_in_samples = find_position(station,start_in_seconds, &startidx);
 	end_in_samples   = find_position(station,end_in_seconds,   &endidx);
-	dprintf(23, "Start is %u\n",start_in_samples);
-	dprintf(23, "End is %u\n",end_in_samples);
+	dp(23, "Start is %u\n",start_in_samples);
+	dp(23, "End is %u\n",end_in_samples);
 
 	int numfiles = endidx - startidx + 1;
 	if (numfiles == 1)
@@ -678,7 +678,7 @@ void grab_station_waveforms(double *waveforms[], int station, double start_in_se
 	int compression = sprint_filepath(path,&files[station][startidx]);
 	nsamples = determine_nsamples(path,compression);
 	total_len = nsamples - start_in_samples;
-	dprintf(23, "start %u -> end %u (+1)\n",start_in_samples,end_in_samples);
+	dp(23, "start %u -> end %u (+1)\n",start_in_samples,end_in_samples);
 	for (int i=1; i<numfiles-1; i++)
 	{
 		//sprintf(path,"%s/%s",dir,files[station][startidx+i].base_filename);
@@ -687,7 +687,7 @@ void grab_station_waveforms(double *waveforms[], int station, double start_in_se
 		total_len += nsamples;
 	}
 	total_len += end_in_samples;
-	dprintf(23, "total_len = %u\n",total_len);
+	dp(23, "total_len = %u\n",total_len);
 	
 	// TODO: i haven't tested that it works for numfiles > 2
 	for (int i=0; i< NUM_CHANNELS; i++)

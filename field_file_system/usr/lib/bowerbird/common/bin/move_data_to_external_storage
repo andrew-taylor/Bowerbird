@@ -1,8 +1,6 @@
 #!/bin/bash
 
-DEV=0
 DEBUG=true
-
 LOGGER=/usr/bin/logger
 VARIABLES_FILE=/etc/bowerbird/config/global_variables
 RSYNC_ATTEMPTS=5 # default
@@ -13,113 +11,15 @@ EXTERNAL_POWER=true # default
 EXTERNAL_POWER=false
 EXTERNAL_POWER_SETTLE_TIME=30 # seconds
 
-if $DEBUG
-then
-	DPRINT=echo
-else
-	# this succeeds but doesn't print anything
-	DPRINT=true
-fi
-
-
-if [ ${DEV-0} -ne 0 ]
-then
-	sound_file_dir=`pwd`/bowerbird
-	external_sound_file_dir=/mnt/storage/extern
-	PRINT=echo
-	echo "WARNING: script is in development mode. Set DEV=0 to disable."
-else
-	. $VARIABLES_FILE
-
-	MISSING_VARIABLES=false
-#	for var in sound_file_dir external_storage_data_dir
-#	do
-#		if [ ! "${!var}" ]
-#		then
-#			echo "`basename $0`: variable $var must be defined in $VARIABLES_FILE" > /dev/stderr
-#			MISSING_VARIABLES=true
-#		fi
-#	done
-#	if $MISSING_VARIABLES
-#	then
-#		exit 1
-#	fi
-
-	if [ -x $LOGGER ]
-	then
-		PRINT=$LOGGER
-	else
-		PRINT=echo
-	fi
-fi
-
-# if necessary, mount the external device
-# extract mount points from /etc/fstab
-mount_point=""
-mount_point_length=0
-for mp in $(sed -n 's/^\s*[^#]\S*\s*\(\S*\).*/\1/p' /etc/fstab)
-do
-	# find mount points that are part of the external drive path
-	if echo $external_storage_mount_point | grep -q "^$mp"
-	then
-		# get the longest one
-		newlen=`echo -n $mp|wc -c`
-		if [ $newlen -gt $mount_point_length ]
-		then
-			$DPRINT biggest mount point is $mp
-			mount_point=$mp
-			mount_point_length=$newlen
-		fi
-	fi
-done
-
-# if we found a mount point, then make sure it's mounted
-if [ "$mount_point" ]
-then
-	needs_mount=true
-	# scan the mounted filesystems
-	for mp in $(mount|sed -n 's/\S*\s*on\s*\(\S*\)\s*type.*/\1/p')
-	do
-		if [ $mount_point = $mp ]
-		then
-			$DPRINT found $mount_point is already mounted
-			unset needs_mount
-			break
-		fi
-	done
-
-	if [ "$needs_mount" ]
-	then
-		# if configured, (and not already mounted) power up the external device
-		if $EXTERNAL_POWER
-		then
-			# power up the hub, and the drive
-			$DPRINT powering up the usb hub and device
-			set_power on $sw_hub
-			set_power on $sw_disk
-			# wait a while to let them settle
-			sleep $EXTERNAL_POWER_SETTLE_TIME
-		fi
-
-		$DPRINT mounting $mount_point
-		if ! mount $mount_point
-		then
-			echo "Couldn't mount external device ($mount_point)" > /dev/stderr
-			exit 1;
-		fi
-	fi
-fi
-
-
-external_sound_file_dir="$external_storage_data_dir/$hostname/data"
+external_data_dir="$external_storage_data_dir/$hostname/data"
 # make sure the backup directory exists
-if [ ! -d $external_sound_file_dir ]
+if [ ! -d $external_data_dir ]
 then
-	$DPRINT making external directory $external_sound_file_dir
-	mkdir -p $external_sound_file_dir
+	$DPRINT making external directory $external_data_dir
+	mkdir -p $external_data_dir
 fi
 
-check_disk_space $external_sound_file_dir
+check_disk_space $external_data_dir
 
 
 # move all but todays recordings to an external device
@@ -135,8 +35,8 @@ until [ $rsync_rc -eq 0 -o $attempt -ge $RSYNC_ATTEMPTS ]
 do
 	attempt=$(($attempt+1))
 	$DPRINT "transferring files (attempt $attempt)..."
-#	rsync_out=`rsync -av --partial --remove-source-files --exclude=$today $sound_file_dir/ $external_sound_file_dir/`
-	rsync_out=`rsync -av --partial --remove-source-files $sound_file_dir/ $external_sound_file_dir/`
+#	rsync_out=`rsync -av --partial --remove-source-files --exclude=$today $data_dir/ $external_data_dir/`
+	rsync_out=`rsync -av --partial --remove-source-files $data_dir/ $external_data_dir/`
 	rsync_rc=$?
 
 	# pass on output. If transfer failed, report it
@@ -148,10 +48,10 @@ do
 		# should not be needed because check_disk_space above should clear enough space
 		if [ "$DELETE_FILES_WHEN_FULL" ]
 		then
-			df=`df $external_sound_file_dir|sed '1d;s/%.*//;s/.* //'`
+			df=`df $external_data_dir|sed '1d;s/%.*//;s/.* //'`
 			if [ "$df" -ge "$FULL_THRESHOLD" ]
 			then
-				find $external_sound_file_dir -name '*.wv' |
+				find $external_data_dir -name '*.wv' |
 				sort -t/ -k9 -k8 -k7 -k6 -k5 -k4 -k3|
 				sed ${FILES_TO_DELETE_WHEN_FULL}q \
 				| xargs -r rm
@@ -165,7 +65,7 @@ done
 
 
 # clean up empty directories (rsync only removes files)
-#for dir in $sound_file_dir/data/*
+#for dir in $data_dir/*
 #do
 #	if [ `ls $dir|wc -l` -eq 0 ]
 #	then

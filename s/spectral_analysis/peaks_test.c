@@ -27,12 +27,12 @@ static void test_peaks(int n, double data[]) {
 	int correct_peaks[n];
 	int n_correct_peaks = find_peaks_simple(n, data, correct_peaks);
 	for (int i = 0; i < n_correct_peaks; i++)
-		dprintf(21, "%d(%g),", correct_peaks[i],data[correct_peaks[i]]);
-	dprintf(21, "\n");
+		dp(21, "%d(%g),", correct_peaks[i],data[correct_peaks[i]]);
+	dp(21, "\n");
 	int n_peaks = find_peaks_simple(n, data, peaks);
 	for (int i = 0; i < n_peaks; i++)
-		dprintf(21, "%d(%g),", peaks[i],data[peaks[i]]);
-	dprintf(21, "\n");
+		dp(21, "%d(%g),", peaks[i],data[peaks[i]]);
+	dp(21, "\n");
 	assert(n_correct_peaks == n_peaks);
 	for (int i = 0; i < n_correct_peaks; i++)
 		assert(correct_peaks[i] == peaks[i]);

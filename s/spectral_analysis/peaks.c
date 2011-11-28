@@ -78,8 +78,8 @@ find_peaks_radius(int length, power_t * restrict data, int * restrict peaks, int
 		heap[heap_limit++] = length - 1;
 	int heap_depth = 2;
 //	for (int i = 0; i < heap_limit; i++)
-//		dprintf(20, "%d,", m[i]);
-//	dprintf(20, "\n");
+//		dp(20, "%d,", m[i]);
+//	dp(20, "\n");
 	while (2*heap_depth <= radius + 1) {
 //		dp(20, "r=%d heap_limit=%d\n", r, heap_limit);
 		for (int i = 0; i < heap_limit/2; i++)
@@ -91,8 +91,8 @@ find_peaks_radius(int length, power_t * restrict data, int * restrict peaks, int
 			heap_limit = heap_limit/2 ;
 		}
 //		for (int i = 0; i < heap_limit; i++)
-//			dprintf(20, "%d,", m[i]);
-//		dprintf(20, "\n");
+//			dp(20, "%d,", m[i]);
+//		dp(20, "\n");
 		heap_depth *= 2;
 	}
 	int n_peaks = 0;

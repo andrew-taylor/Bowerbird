@@ -72,7 +72,7 @@ double time_difference_of_arrival(double *waveform1,double *waveform2,index_t ns
 		gnuplotf("rows=2 length=%d title='Input Waveforms' %lf ; length=%d title='bb' %lf",nsamples,waveform1,nsamples,waveform2);
 	}
 
-	dprintf(6,"Computing cross-correlation...");
+	dp(6,"Computing cross-correlation...");
 	fftw_complex *crosspower = crosspower_spectrum(waveform1,waveform2,nsamples);
 
 	switch (method)
@@ -141,7 +141,7 @@ double time_difference_of_arrival(double *waveform1,double *waveform2,index_t ns
 		result[i] = result[i]/nsamples;
 		result[i] = fabs(result[i]);
 	}
-	dprintf(6,"done\n");
+	dp(6,"done\n");
 
 	if (graphing >= 5)
 	{
@@ -175,7 +175,7 @@ double time_difference_of_arrival(double *waveform1,double *waveform2,index_t ns
 		delay = delay-nsamples; 
 
 
-	dprintf(10,"\tMaximum correlation of %lf at delay %d\n",max,delay);
+	dp(10,"\tMaximum correlation of %lf at delay %d\n",max,delay);
 
 	if (graphing >= 5)
 	{
@@ -234,9 +234,9 @@ double time_difference_of_arrival(double *waveform1,double *waveform2,index_t ns
 			}
 		}
 	}
-	dprintf(5,"Peaks = %d\n",peaks);
-	dprintf(5,"Above threshold = %d\n",count);
-	dprintf(5,"Percentage above = %lf\n",(100.0*count)/nsamples);
+	dp(5,"Peaks = %d\n",peaks);
+	dp(5,"Above threshold = %d\n",count);
+	dp(5,"Percentage above = %lf\n",(100.0*count)/nsamples);
 	*heuristic = (100.0*count)/nsamples;
 */	
 	double tdoa = ((double)delay)/SAMPLING_RATE;

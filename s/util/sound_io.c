@@ -432,7 +432,7 @@ int
 bsf_close(SNDFILE *sndfile) {
 	if (sndfile != current_snd_file)
 		die("bsf_close for different SNDFILE to bsf_open");
-	dprintf(31, "bfclose(%x) buffer=%p\n", (unsigned)sndfile,  buffer);
+	dp(31, "bfclose(%x) buffer=%p\n", (unsigned)sndfile,  buffer);
 	g_free(buffer);
 	current_snd_file = NULL;
 	return sf_close(sndfile);

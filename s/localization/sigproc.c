@@ -47,7 +47,7 @@ void plotpowerspectrum(double *inorig, index_t nsamples,int fft_size)
 	double *in = inorig;
 	if (nsamples % fft_size != 0)
 	{
-		dprintf(15,"plotpowerspectrum: Losing %d samples at end (out of %d)\n",nsamples - fft_size*num_ffts,nsamples);
+		dp(15,"plotpowerspectrum: Losing %d samples at end (out of %d)\n",nsamples - fft_size*num_ffts,nsamples);
 	}
 	
 	index_t outsize = fft_size/2+1;

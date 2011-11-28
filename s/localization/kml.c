@@ -166,7 +166,7 @@ void write_kml_file(earthpos_t *stations, GHashTable *known_positions, GPtrArray
 			return;
 		}
 	}
-	dprintf(5,"Writing kml file...\n");
+	dp(5,"Writing kml file...\n");
 	char hostname[128];
 	gethostname(hostname,128);
 	time_t t = time(NULL);
@@ -217,6 +217,6 @@ fputs_tag(--level,"</Document>",fp_kml);
 fputs_tag(--level,"</kml>",fp_kml);
 
 fclose(fp_kml);
-	dprintf(5,"Done writing kml file.\n");
+	dp(5,"Done writing kml file.\n");
 
 }

@@ -307,9 +307,9 @@ void locate_point(double TDOA_01_in_seconds,double TDOA_12_in_seconds,double TDO
 	/* and convert the other two stations to points relative to station 0 */
 	earth_to_relative_2d_position(&station_planepos[1],&station_earthpos[1],&station_earthpos[0]);
 	earth_to_relative_2d_position(&station_planepos[2],&station_earthpos[2],&station_earthpos[0]);
-	dprintf(6,"Station 1 is at (%lf,%lf) relative to station 0\n",station_planepos[1].x,station_planepos[1].y);
-	dprintf(6,"Station 2 is at (%lf,%lf) relative to station 0\n",station_planepos[2].x,station_planepos[2].y);
-	dprintf(6,"Centre is at (%lf,%lf) relative to station 0\n",(station_planepos[1].x+station_planepos[2].x)/3.0,(station_planepos[1].y+station_planepos[2].y)/3.0);
+	dp(6,"Station 1 is at (%lf,%lf) relative to station 0\n",station_planepos[1].x,station_planepos[1].y);
+	dp(6,"Station 2 is at (%lf,%lf) relative to station 0\n",station_planepos[2].x,station_planepos[2].y);
+	dp(6,"Centre is at (%lf,%lf) relative to station 0\n",(station_planepos[1].x+station_planepos[2].x)/3.0,(station_planepos[1].y+station_planepos[2].y)/3.0);
 
 
 	point2d_t location_in_plane;
@@ -317,7 +317,7 @@ void locate_point(double TDOA_01_in_seconds,double TDOA_12_in_seconds,double TDO
 
 
 	relative_2d_to_earth_position(location,&location_in_plane,&station_earthpos[0]);
-	dprintf(5,"Best point in plane at (%lf,%lf) coordinates (%.10lf, %.10lf)\n",location_in_plane.x,location_in_plane.y,deg2full(location->lng_deg,location->lng_min),deg2full(location->lat_deg,location->lat_min));
+	dp(5,"Best point in plane at (%lf,%lf) coordinates (%.10lf, %.10lf)\n",location_in_plane.x,location_in_plane.y,deg2full(location->lng_deg,location->lng_min),deg2full(location->lat_deg,location->lat_min));
 
 //	earthpos_t current3d;
 //	relative_2d_to_earth_position(&current3d,&current2d,&station_earthpos[0]);
@@ -366,7 +366,7 @@ void locate_point_in_plane(double TDOA_01,double TDOA_12,double TDOA_20,point2d_
 	del12 -= average;
 	del20 -= average;
 
-	dprintf(5,"TDOA sum = %g\n",3*average);
+	dp(5,"TDOA sum = %g\n",3*average);
 
 
 	/*=====================================================
@@ -393,7 +393,7 @@ void locate_point_in_plane(double TDOA_01,double TDOA_12,double TDOA_20,point2d_
 		 station2_nsqr*del01  )/2.0;
 
 	/* The line is Ax + By = C */
-	dprintf(10,"The line is %lf x + %lf y = %lf\n",A,B,C);
+	dp(10,"The line is %lf x + %lf y = %lf\n",A,B,C);
 
 	/*======================================================================
 	 * the equations are easier to deal with if the line of major axis
@@ -416,11 +416,11 @@ void locate_point_in_plane(double TDOA_01,double TDOA_12,double TDOA_20,point2d_
 		double temp = A;
 		A=B;
 		B=temp;
-		dprintf(10,"flipped\n");
+		dp(10,"flipped\n");
 	}
 	else
 	{
-		dprintf(10,"not flipped\n");
+		dp(10,"not flipped\n");
 	}
 
 	/* now. the slpoe should be in [-1,1] and i believe this will force that
@@ -476,7 +476,7 @@ void locate_point_in_plane(double TDOA_01,double TDOA_12,double TDOA_20,point2d_
 
 	W = -square_d(p0.y) - V*p0.x - U*square_d(p0.x);
 
-	dprintf(10,"U=%lf, V=%lf, W=%lf\n",U,V,W);
+	dp(10,"U=%lf, V=%lf, W=%lf\n",U,V,W);
 
 	double asqr, bsqr;
 
@@ -487,31 +487,31 @@ void locate_point_in_plane(double TDOA_01,double TDOA_12,double TDOA_20,point2d_
 	asqr = square_d(rotated_centre.x) - W/U;
 	bsqr = U*asqr;
 
-	dprintf(10,"asqr = %lf, bsqr = %lf\n",asqr,bsqr);
+	dp(10,"asqr = %lf, bsqr = %lf\n",asqr,bsqr);
 
 	double dist_to_focus;
 	if (bsqr < 0)
 	{
 		// we have a hyperbola
 		dist_to_focus = sqrt(asqr-bsqr);
-		dprintf(10,"Equation of hyperbola is (x- %.2f)^2/%.2f - y^2/%.2f = 1\n",rotated_centre.x,asqr,bsqr);
+		dp(10,"Equation of hyperbola is (x- %.2f)^2/%.2f - y^2/%.2f = 1\n",rotated_centre.x,asqr,bsqr);
 	}
 	else
 	{
 		// we have an ellipse
-		dprintf(10,"Equation of ellipse is (x- %.2f)^2/%.2f + y^2/%.2f = 1\n", rotated_centre.x,asqr,bsqr);
+		dp(10,"Equation of ellipse is (x- %.2f)^2/%.2f + y^2/%.2f = 1\n", rotated_centre.x,asqr,bsqr);
 		if (asqr >= bsqr)
 		{
-			dprintf(10,"Major x is true");
+			dp(10,"Major x is true");
 			dist_to_focus = sqrt(asqr-bsqr);
 		}
 		else
 		{
-			dprintf(10,"Major x is false");
+			dp(10,"Major x is false");
 			dist_to_focus = sqrt(bsqr-asqr);
 		}
 	}
-	dprintf(10,"Dist to focus = %.10lf\n",dist_to_focus);
+	dp(10,"Dist to focus = %.10lf\n",dist_to_focus);
 
 
 	point2d_t focus1;
@@ -548,8 +548,8 @@ void locate_point_in_plane(double TDOA_01,double TDOA_12,double TDOA_20,point2d_
 		flip(&focus2);
 	}
 
-	dprintf(10,"Focus 1 at (%.10lf,%.10lf)\n",focus1.x,focus1.y);
-	dprintf(10,"Focus 2 at (%.10lf,%.10lf)\n",focus2.x,focus2.y);
+	dp(10,"Focus 1 at (%.10lf,%.10lf)\n",focus1.x,focus1.y);
+	dp(10,"Focus 2 at (%.10lf,%.10lf)\n",focus2.x,focus2.y);
 
 	
 	if (graphing >= 15)
@@ -568,12 +568,12 @@ void locate_point_in_plane(double TDOA_01,double TDOA_12,double TDOA_20,point2d_
 
 //	double fitness1 = fitnessfunc(&focus1,del01,del12,del20,stations);
 //	double fitness2 = fitnessfunc(&focus2,del01,del12,del20,stations);
-	dprintf(10,"Focus 1 has fitness %lf\n",fitnessfunc(&focus1,del01,del12,del20,stations));
-	dprintf(10,"Focus 2 has fitness %lf\n",fitnessfunc(&focus2,del01,del12,del20,stations));
+	dp(10,"Focus 1 has fitness %lf\n",fitnessfunc(&focus1,del01,del12,del20,stations));
+	dp(10,"Focus 2 has fitness %lf\n",fitnessfunc(&focus2,del01,del12,del20,stations));
 	double origfitness1 = fitnessfunc(&focus1,origdel01,origdel12,origdel20,stations);
 	double origfitness2 = fitnessfunc(&focus2,origdel01,origdel12,origdel20,stations);
-	dprintf(10,"Focus 1 has orig fitness %lf\n",origfitness1);
-	dprintf(10,"Focus 2 has orig fitness %lf\n",origfitness2);
+	dp(10,"Focus 1 has orig fitness %lf\n",origfitness1);
+	dp(10,"Focus 2 has orig fitness %lf\n",origfitness2);
 
 	if (origfitness1 < origfitness2)
 	{
@@ -624,7 +624,7 @@ void locate_point_in_plane(double TDOA_01,double TDOA_12,double TDOA_20,point2d_
 
 	W = -square_d(p0.y) - V*p0.x - U*square_d(p0.x);
 
-	dprintf(10,"U=%lf, V=%lf, W=%lf\n",U,V,W);
+	dp(10,"U=%lf, V=%lf, W=%lf\n",U,V,W);
 
 
 	double asqr, bsqr;
@@ -636,7 +636,7 @@ void locate_point_in_plane(double TDOA_01,double TDOA_12,double TDOA_20,point2d_
 	asqr = square_d(rotated_centre.x) - W/U;
 	bsqr = U*asqr;
 
-	dprintf(10,"asqr = %lf, bsqr = %lf\n",asqr,bsqr);
+	dp(10,"asqr = %lf, bsqr = %lf\n",asqr,bsqr);
 
 	double dist_to_focus;
 	int majorx = 1;
@@ -645,29 +645,29 @@ void locate_point_in_plane(double TDOA_01,double TDOA_12,double TDOA_20,point2d_
 	{
 		// we have a hyperbola
 		dist_to_focus = sqrt(asqr-bsqr);
-		dprintf(10,"Equation of hyperbola is (x- %.2f)^2/%.2f - y^2/%.2f = 1\n",rotated_centre.x,asqr,bsqr);
+		dp(10,"Equation of hyperbola is (x- %.2f)^2/%.2f - y^2/%.2f = 1\n",rotated_centre.x,asqr,bsqr);
 
 	}
 	else
 	{
 		hyper = 0;
 		// we have an ellipse
-		dprintf(10,"Equation of ellipse is (x- %.2f)^2/%.2f + y^2/%.2f = 1\n", rotated_centre.x,asqr,bsqr);
+		dp(10,"Equation of ellipse is (x- %.2f)^2/%.2f + y^2/%.2f = 1\n", rotated_centre.x,asqr,bsqr);
 		if (asqr >= bsqr)
 		{
-			dprintf(10,"Major x is true");
+			dp(10,"Major x is true");
 			dist_to_focus = sqrt(asqr-bsqr);
 		}
 		else
 		{
-			dprintf(10,"Major x is false");
+			dp(10,"Major x is false");
 			dist_to_focus = sqrt(bsqr-asqr);
 			majorx=0;
 		}
 		
 
 	}
-	dprintf(10,"Dist to focus = %.10lf\n",dist_to_focus);
+	dp(10,"Dist to focus = %.10lf\n",dist_to_focus);
 
 
 	point2d_t focus1;
@@ -695,25 +695,25 @@ void locate_point_in_plane(double TDOA_01,double TDOA_12,double TDOA_20,point2d_
 		rotate2(&focus2,M,&xintercept);
 	}
 
-	dprintf(10,"Focus 1 at (%.10lf,%.10lf)\n",focus1.x,focus1.y);
-	dprintf(10,"Focus 2 at (%.10lf,%.10lf)\n",focus2.x,focus2.y);
+	dp(10,"Focus 1 at (%.10lf,%.10lf)\n",focus1.x,focus1.y);
+	dp(10,"Focus 2 at (%.10lf,%.10lf)\n",focus2.x,focus2.y);
 
-	dprintf(10,"Focus 1 has fitness %lf\n",fitnessfunc(&focus1,del01,del12,del20,stations));
-	dprintf(10,"Focus 2 has fitness %lf\n",fitnessfunc(&focus2,del01,del12,del20,stations));
+	dp(10,"Focus 1 has fitness %lf\n",fitnessfunc(&focus1,del01,del12,del20,stations));
+	dp(10,"Focus 2 has fitness %lf\n",fitnessfunc(&focus2,del01,del12,del20,stations));
 
 	if (hyper)
 	{
-	dprintf(10,"Hyper\n");
+	dp(10,"Hyper\n");
 	}
 	else if (majorx)
 	{
-		dprintf(10,"Ellip, Major\n");
+		dp(10,"Ellip, Major\n");
 	}
 	else
 	{
-		dprintf(10,"Ellip, Minor\n");
+		dp(10,"Ellip, Minor\n");
 	}
-	dprintf(10,"A/C=%lf, B/C=%lf, U=%lf, V=%lf, W=%lf\n",A/C,B/C,U,V,W);
+	dp(10,"A/C=%lf, B/C=%lf, U=%lf, V=%lf, W=%lf\n",A/C,B/C,U,V,W);
 
 	searchforit(&focus1,&focus2,500,location,del01,del12,del20,stations);
 	double bestval = fitnessfunc(bestpoint,del01,del12,del20,stations);
@@ -727,7 +727,7 @@ void locate_point_in_plane(double TDOA_01,double TDOA_12,double TDOA_20,point2d_
 		//	printf(" %lf (%lf,%lf)\n",val,hyperpoints[i].x,hyperpoints[i].y);
 		if (val < bestval)
 		{
-			dprintf(10,"Got a better one on hyperbola: %lf -> %lf\n",bestval,val);
+			dp(10,"Got a better one on hyperbola: %lf -> %lf\n",bestval,val);
 			bestval = val;
 			bestpoint->x = hyperpoints[i].x;
 			bestpoint->y = hyperpoints[i].y;
@@ -741,7 +741,7 @@ void locate_point_in_plane(double TDOA_01,double TDOA_12,double TDOA_20,point2d_
 		double val = fitnessfunc(&hyperpoints[i],del01,del12,del20,stations);
 		if (val < bestval)
 		{
-			dprintf(10,"Got a better one on hyperbola: %lf -> %lf\n",bestval,val);
+			dp(10,"Got a better one on hyperbola: %lf -> %lf\n",bestval,val);
 			bestval = val;
 			bestpoint->x = hyperpoints[i].x;
 			bestpoint->y = hyperpoints[i].y;
@@ -754,7 +754,7 @@ void locate_point_in_plane(double TDOA_01,double TDOA_12,double TDOA_20,point2d_
 		double val = fitnessfunc(&hyperpoints[i],del01,del12,del20,stations);
 		if (val < bestval)
 		{
-			dprintf(10,"Got a better one on hyperbola: %lf -> %lf\n",bestval,val);
+			dp(10,"Got a better one on hyperbola: %lf -> %lf\n",bestval,val);
 			bestval = val;
 			bestpoint->x = hyperpoints[i].x;
 			bestpoint->y = hyperpoints[i].y;
@@ -763,7 +763,7 @@ void locate_point_in_plane(double TDOA_01,double TDOA_12,double TDOA_20,point2d_
 	free(hyperpoints);
 
 
-	dprintf(10,"Best found by search is at (%lf,%lf) with badness of %lf\n",bestpoint->x,bestpoint->y,fitnessfunc(bestpoint,del01,del12,del20,stations));
+	dp(10,"Best found by search is at (%lf,%lf) with badness of %lf\n",bestpoint->x,bestpoint->y,fitnessfunc(bestpoint,del01,del12,del20,stations));
 	*badness = fitnessfunc(bestpoint,del01,del12,del20,stations);
 
 	if (graphing >= 5)
@@ -776,7 +776,7 @@ void locate_point_in_plane(double TDOA_01,double TDOA_12,double TDOA_20,point2d_
 		}
 		else
 		{
-			dprintf(10,"Ran pyplot.py\n");
+			dp(10,"Ran pyplot.py\n");
 		}
 	}
 
@@ -813,7 +813,7 @@ void pinpoint_via_tdoa(double TDOA_01,double TDOA_12,double TDOA_20,point2d_t st
 		 station2_nsqr*del01  )/2.0;
 
 	/* The line is Ax + By = C */
-	dprintf(10,"The line is %lf x + %lf y = %lf\n",A,B,C);
+	dp(10,"The line is %lf x + %lf y = %lf\n",A,B,C);
 
 	if (A == 0 || B==0)
 	{
@@ -852,7 +852,7 @@ void pinpoint_via_tdoa(double TDOA_01,double TDOA_12,double TDOA_20,point2d_t st
 
 	W = -square_d(p0.y) - V*p0.x - U*square_d(p0.x);
 
-	dprintf(10,"U=%lf, V=%lf, W=%lf\n",U,V,W);
+	dp(10,"U=%lf, V=%lf, W=%lf\n",U,V,W);
 
 
 	double asqr, bsqr;
@@ -864,7 +864,7 @@ void pinpoint_via_tdoa(double TDOA_01,double TDOA_12,double TDOA_20,point2d_t st
 	asqr = square_d(rotated_centre.x) - W/U;
 	bsqr = U*asqr;
 
-	dprintf(10,"asqr = %lf, bsqr = %lf\n",asqr,bsqr);
+	dp(10,"asqr = %lf, bsqr = %lf\n",asqr,bsqr);
 
 	double dist_to_focus;
 	int majorx = 1;
@@ -873,29 +873,29 @@ void pinpoint_via_tdoa(double TDOA_01,double TDOA_12,double TDOA_20,point2d_t st
 	{
 		// we have a hyperbola
 		dist_to_focus = sqrt(asqr-bsqr);
-		dprintf(10,"Equation of hyperbola is (x- %.2f)^2/%.2f - y^2/%.2f = 1\n",rotated_centre.x,asqr,bsqr);
+		dp(10,"Equation of hyperbola is (x- %.2f)^2/%.2f - y^2/%.2f = 1\n",rotated_centre.x,asqr,bsqr);
 
 	}
 	else
 	{
 		hyper = 0;
 		// we have an ellipse
-		dprintf(10,"Equation of ellipse is (x- %.2f)^2/%.2f + y^2/%.2f = 1\n", rotated_centre.x,asqr,bsqr);
+		dp(10,"Equation of ellipse is (x- %.2f)^2/%.2f + y^2/%.2f = 1\n", rotated_centre.x,asqr,bsqr);
 		if (asqr >= bsqr)
 		{
-			dprintf(10,"Major x is true");
+			dp(10,"Major x is true");
 			dist_to_focus = sqrt(asqr-bsqr);
 		}
 		else
 		{
-			dprintf(10,"Major x is false");
+			dp(10,"Major x is false");
 			dist_to_focus = sqrt(bsqr-asqr);
 			majorx=0;
 		}
 		
 
 	}
-	dprintf(10,"Dist to focus = %.10lf\n",dist_to_focus);
+	dp(10,"Dist to focus = %.10lf\n",dist_to_focus);
 
 
 	point2d_t focus1;
@@ -923,25 +923,25 @@ void pinpoint_via_tdoa(double TDOA_01,double TDOA_12,double TDOA_20,point2d_t st
 		rotate2(&focus2,M,&xintercept);
 	}
 
-	dprintf(10,"Focus 1 at (%.10lf,%.10lf)\n",focus1.x,focus1.y);
-	dprintf(10,"Focus 2 at (%.10lf,%.10lf)\n",focus2.x,focus2.y);
+	dp(10,"Focus 1 at (%.10lf,%.10lf)\n",focus1.x,focus1.y);
+	dp(10,"Focus 2 at (%.10lf,%.10lf)\n",focus2.x,focus2.y);
 
-	dprintf(10,"Focus 1 has fitness %lf\n",fitnessfunc(&focus1,del01,del12,del20,stations));
-	dprintf(10,"Focus 2 has fitness %lf\n",fitnessfunc(&focus2,del01,del12,del20,stations));
+	dp(10,"Focus 1 has fitness %lf\n",fitnessfunc(&focus1,del01,del12,del20,stations));
+	dp(10,"Focus 2 has fitness %lf\n",fitnessfunc(&focus2,del01,del12,del20,stations));
 
 	if (hyper)
 	{
-	dprintf(10,"Hyper\n");
+	dp(10,"Hyper\n");
 	}
 	else if (majorx)
 	{
-		dprintf(10,"Ellip, Major\n");
+		dp(10,"Ellip, Major\n");
 	}
 	else
 	{
-		dprintf(10,"Ellip, Minor\n");
+		dp(10,"Ellip, Minor\n");
 	}
-	dprintf(10,"A/C=%lf, B/C=%lf, U=%lf, V=%lf, W=%lf\n",A/C,B/C,U,V,W);
+	dp(10,"A/C=%lf, B/C=%lf, U=%lf, V=%lf, W=%lf\n",A/C,B/C,U,V,W);
 
 	searchforit(&focus1,&focus2,500,bestpoint,del01,del12,del20,stations);
 	double bestval = fitnessfunc(bestpoint,del01,del12,del20,stations);
@@ -955,7 +955,7 @@ void pinpoint_via_tdoa(double TDOA_01,double TDOA_12,double TDOA_20,point2d_t st
 		//	printf(" %lf (%lf,%lf)\n",val,hyperpoints[i].x,hyperpoints[i].y);
 		if (val < bestval)
 		{
-			dprintf(10,"Got a better one on hyperbola: %lf -> %lf\n",bestval,val);
+			dp(10,"Got a better one on hyperbola: %lf -> %lf\n",bestval,val);
 			bestval = val;
 			bestpoint->x = hyperpoints[i].x;
 			bestpoint->y = hyperpoints[i].y;
@@ -969,7 +969,7 @@ void pinpoint_via_tdoa(double TDOA_01,double TDOA_12,double TDOA_20,point2d_t st
 		double val = fitnessfunc(&hyperpoints[i],del01,del12,del20,stations);
 		if (val < bestval)
 		{
-			dprintf(10,"Got a better one on hyperbola: %lf -> %lf\n",bestval,val);
+			dp(10,"Got a better one on hyperbola: %lf -> %lf\n",bestval,val);
 			bestval = val;
 			bestpoint->x = hyperpoints[i].x;
 			bestpoint->y = hyperpoints[i].y;
@@ -982,7 +982,7 @@ void pinpoint_via_tdoa(double TDOA_01,double TDOA_12,double TDOA_20,point2d_t st
 		double val = fitnessfunc(&hyperpoints[i],del01,del12,del20,stations);
 		if (val < bestval)
 		{
-			dprintf(10,"Got a better one on hyperbola: %lf -> %lf\n",bestval,val);
+			dp(10,"Got a better one on hyperbola: %lf -> %lf\n",bestval,val);
 			bestval = val;
 			bestpoint->x = hyperpoints[i].x;
 			bestpoint->y = hyperpoints[i].y;
@@ -991,7 +991,7 @@ void pinpoint_via_tdoa(double TDOA_01,double TDOA_12,double TDOA_20,point2d_t st
 	free(hyperpoints);
 
 
-	dprintf(10,"Best found by search is at (%lf,%lf) with badness of %lf\n",bestpoint->x,bestpoint->y,fitnessfunc(bestpoint,del01,del12,del20,stations));
+	dp(10,"Best found by search is at (%lf,%lf) with badness of %lf\n",bestpoint->x,bestpoint->y,fitnessfunc(bestpoint,del01,del12,del20,stations));
 
 	if (graphing >= 5)
 	{
@@ -1003,7 +1003,7 @@ void pinpoint_via_tdoa(double TDOA_01,double TDOA_12,double TDOA_20,point2d_t st
 		}
 		else
 		{
-			dprintf(10,"Ran pyplot.py\n");
+			dp(10,"Ran pyplot.py\n");
 		}
 	}
 
@@ -1045,7 +1045,7 @@ void searchforit(point2d_t *startpoint, point2d_t *endpoint, double granularity,
 	bestpoint->x = startpoint->x;
 	bestpoint->y = startpoint->y;
 	double bestval = fitnessfunc(bestpoint,del01,del12,del20,stations);
-	dprintf(10,"Starting with %lf at (%lf,%lf)\n",bestval,bestpoint->x,bestpoint->y);
+	dp(10,"Starting with %lf at (%lf,%lf)\n",bestval,bestpoint->x,bestpoint->y);
 	point2d_t current;
 	current.x = startpoint->x;
 	current.y = startpoint->y;
@@ -1060,7 +1060,7 @@ void searchforit(point2d_t *startpoint, point2d_t *endpoint, double granularity,
 			bestpoint->x = current.x;
 			bestpoint->y = current.y;
 			bestval = fitness;
-			dprintf(15,"New best of %lf at (%lf,%lf)\n",bestval,bestpoint->x,bestpoint->y);
+			dp(15,"New best of %lf at (%lf,%lf)\n",bestval,bestpoint->x,bestpoint->y);
 		}
 	}
 

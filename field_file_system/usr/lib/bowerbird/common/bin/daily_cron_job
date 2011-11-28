@@ -9,7 +9,11 @@ umount -f $external_storage_mount_point
 mkdir -p $external_storage_mount_point 
 set_power on $sw_disk
 sleep 30
-move_data_to_external_storage
+rsync -rlt --ignore-existing  $data_dir/ $remote_account:$data_dir --exclude '*.wv'
+if mount_external_storage
+then
+	move_data_to_external_storage
+fi
 umount $external_storage_mount_point
 umount -f $external_storage_mount_point
 test -n "$leave_disk_powered_on" && exit
