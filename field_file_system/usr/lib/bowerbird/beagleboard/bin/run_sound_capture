@@ -23,7 +23,7 @@ do
     while test $failures -lt 30
     do
 		message 'Starting sound capture'
-		sound_capture -v1 -C /etc/bowerbird/bowerbird_config
+		sound_capture -v1 -C /etc/bowerbird/bowerbird_config -osound_capture:data_dir=$data_dir
 		message "Sound capture failed"
 		failure=$((failures + 1))
 	done

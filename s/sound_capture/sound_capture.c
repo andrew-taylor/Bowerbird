@@ -31,12 +31,17 @@ void run(void)
 	const char *data_dir = param_get_string(SOUND_CAPTURE_GROUP, "data_dir");
 	const char *file_ext = param_get_string(SOUND_CAPTURE_GROUP, "sound_file_ext");
 	const char *details_ext = param_get_string(SOUND_CAPTURE_GROUP, "sound_details_ext");
-
+	char *simulate_input_from_file = param_get_string(SOUND_CAPTURE_GROUP, "simulate_input_from_file");
+	soundfile_t	*simulated_input = NULL;
+	
+	if (simulate_input_from_file && strlen(simulate_input_from_file))
+		simulated_input = soundfile_open_read(simulate_input_from_file);
+	
 	// if a duration is given, then set time_limit to (current time + duration), 
 	// otherwise set time_limit to max value of time_t (signed long) so it'll never be reached
 	time_t time_limit = duration ? time(NULL) + duration : LONG_MAX;
 
-	if (ensure_directory_exists("/", data_dir, 20))
+	if (ensure_directory_exists(data_dir, ".", 20))
 			exit(1);
 
 	int16_t *buffer = salloc(n_channels*buffer_frames*sizeof *buffer); 
@@ -44,18 +49,30 @@ void run(void)
 	reapchildren.sa_flags = SA_NOCLDWAIT;
 	sigaction(SIGCHLD, &reapchildren, 0);
 
-	do_alsa_init(param_get_string(SOUND_CAPTURE_GROUP, "alsa_pcm_name"),
-			param_get_integer(SOUND_CAPTURE_GROUP, "alsa_sampling_rate"),
-    		param_get_integer(SOUND_CAPTURE_GROUP, "alsa_n_periods"),
-			param_get_integer(SOUND_CAPTURE_GROUP, "alsa_periods_size"),
-			param_get_integer(SOUND_CAPTURE_GROUP, "alsa_n_channels"),
-			param_get_integer(SOUND_CAPTURE_GROUP, "alsa_buffer_size"));
-
+	if (!simulated_input) {
+		do_alsa_init(param_get_string(SOUND_CAPTURE_GROUP, "alsa_pcm_name"),
+				param_get_integer(SOUND_CAPTURE_GROUP, "alsa_sampling_rate"),
+				param_get_integer(SOUND_CAPTURE_GROUP, "alsa_n_periods"),
+				param_get_integer(SOUND_CAPTURE_GROUP, "alsa_periods_size"),
+				param_get_integer(SOUND_CAPTURE_GROUP, "alsa_n_channels"),
+				param_get_integer(SOUND_CAPTURE_GROUP, "alsa_buffer_size"));
+	} 
+	
 //	int beep_enabled = param_get_boolean(SOUND_CAPTURE_GROUP, "beep");
 	dp(30, "starting loop\n");
 	for (int i = 0; time(NULL) < time_limit; ++i) {
 		dp(30, "loop %d\n", i);
-		const int length = alsa_readi(buffer, buffer_frames);
+		int length;
+		if (simulated_input) {
+			length = soundfile_read(simulated_input, buffer, buffer_frames);
+			dp(20, "%d frames read from %s (%d requested)\n", length, simulate_input_from_file, buffer_frames);
+			if (length <buffer_frames) {
+				dp(2, "existing because insufficient simulated input left to fill buffer\n");
+				exit(0);
+			}
+		} else {
+			length = alsa_readi(buffer, buffer_frames);
+		}
 		gettimeofday(&tv, NULL);
 		time_t t = time(NULL);
 		struct tm *local = localtime(&t);
