@@ -29,6 +29,8 @@ void run(void)
 	const int buffer_frames = param_get_integer(SOUND_CAPTURE_GROUP, "sound_buffer_frames");
 	const int sampling_rate = param_get_integer(SOUND_CAPTURE_GROUP, "alsa_sampling_rate");
 	const char *data_dir = param_get_string(SOUND_CAPTURE_GROUP, "data_dir");
+	const char *file_dir_format = param_get_string_with_default(SOUND_CAPTURE_GROUP, "file_dir_format", FILE_DIR_FORMAT);
+	const char *file_name_format = param_get_string_with_default(SOUND_CAPTURE_GROUP, "file_name_format", FILE_NAME_FORMAT);
 	const char *file_ext = param_get_string(SOUND_CAPTURE_GROUP, "sound_file_ext");
 	const char *details_ext = param_get_string(SOUND_CAPTURE_GROUP, "sound_details_ext");
 	char *simulate_input_from_file = param_get_string(SOUND_CAPTURE_GROUP, "simulate_input_from_file");
@@ -88,14 +90,14 @@ void run(void)
 //			beep(1, 3000, 1, active_high);
 //		}
 		char file_dir[PATH_MAX];
-		snprintf(file_dir, sizeof(file_dir), FILE_DIR_FORMAT, 1900 + local->tm_year, local->tm_mon, local->tm_mday);
+		snprintf(file_dir, sizeof(file_dir), file_dir_format, 1900 + local->tm_year, local->tm_mon, local->tm_mday);
 		if (ensure_directory_exists(data_dir, file_dir, 20))
 			exit(1);
 
 		char details_pathname[PATH_MAX];
 		char pathname[PATH_MAX];
-		snprintf(details_pathname, sizeof(details_pathname), FILE_NAME_FORMAT, data_dir, file_dir, local->tm_hour, local->tm_min, local->tm_sec, (uint32_t)tv.tv_usec, details_ext);
-		snprintf(pathname, sizeof(pathname), FILE_NAME_FORMAT, data_dir, file_dir, local->tm_hour, local->tm_min, local->tm_sec, (uint32_t)tv.tv_usec, file_ext);
+		snprintf(details_pathname, sizeof(details_pathname), file_name_format, data_dir, file_dir, local->tm_hour, local->tm_min, local->tm_sec, (uint32_t)tv.tv_usec, details_ext);
+		snprintf(pathname, sizeof(pathname), file_name_format, data_dir, file_dir, local->tm_hour, local->tm_min, local->tm_sec, (uint32_t)tv.tv_usec, file_ext);
 		write_data(buffer, n_channels, length, sampling_rate, pathname, details_pathname, tv.tv_sec, (uint32_t)tv.tv_usec);
         if (length < buffer_frames)
 			die("too few frames returned(%d) - %d requested", length, buffer_frames);
