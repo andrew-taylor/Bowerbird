@@ -1,8 +1,6 @@
 #include "i.h"
 
 #define SOUND_CAPTURE_GROUP "sound_capture"
-#define DATA_ROOT "bowerbird"
-#define DATA_DIR "data"
 #define VERSION "0.1.1"
 #define FILE_DIR_FORMAT "%d-%02d-%02d" // args are year, month, day
 #define FILE_NAME_FORMAT "%s/%s/%02d:%02d:%02d.%02d%s" // args are data_dir, file_dir(date), hours, minutes, seconds, microseconds, file extension
@@ -30,7 +28,7 @@ void run(void)
 	const int n_channels = param_get_integer(SOUND_CAPTURE_GROUP, "alsa_n_channels");
 	const int buffer_frames = param_get_integer(SOUND_CAPTURE_GROUP, "sound_buffer_frames");
 	const int sampling_rate = param_get_integer(SOUND_CAPTURE_GROUP, "alsa_sampling_rate");
-	const char *file_root_dir = param_get_string(SOUND_CAPTURE_GROUP, "sound_file_root_dir");
+	const char *data_dir = param_get_string(SOUND_CAPTURE_GROUP, "data_dir");
 	const char *file_ext = param_get_string(SOUND_CAPTURE_GROUP, "sound_file_ext");
 	const char *details_ext = param_get_string(SOUND_CAPTURE_GROUP, "sound_details_ext");
 
@@ -38,7 +36,8 @@ void run(void)
 	// otherwise set time_limit to max value of time_t (signed long) so it'll never be reached
 	time_t time_limit = duration ? time(NULL) + duration : LONG_MAX;
 
-	char *data_dir = initialise_data_storage(file_root_dir);
+	if (ensure_directory_exists("/", data_dir, 20))
+			exit(1);
 
 	int16_t *buffer = salloc(n_channels*buffer_frames*sizeof *buffer); 
     struct sigaction reapchildren = {{0}};
@@ -87,28 +86,6 @@ void run(void)
 	}
 }
 
-
-char *
-initialise_data_storage(const char *file_root_dir)
-{
-	char *data_path, *data_dir;
-   
-	// ensure root directory exists
-	if (ensure_directory_exists(file_root_dir, DATA_ROOT, 20))
-		exit(1);
-
-	data_path = salloc(PATH_MAX);
-	snprintf(data_path, PATH_MAX, "%s/%s", file_root_dir, DATA_ROOT);
-	
-	// ensure data directory exists
-	if (ensure_directory_exists(data_path, DATA_DIR, 20))
-		exit(1);
-
-	data_dir = salloc(PATH_MAX);
-	snprintf(data_dir, PATH_MAX, "%s/%s", data_path, DATA_DIR);
-
-	return data_dir;
-}
 
 
 /* ensure the directory exists and is writable. 
