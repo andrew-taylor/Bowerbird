@@ -52,10 +52,10 @@ setsid ppp_daemon &
 setsid run_sound_capture  &
 if test -n "$no_ppp"
 then
-    setsid beagle_watchdog -obeagle_watchdog:tty=/dev/ttyO2 -obeagle_watchdog:files=/var/lib/bowerbird/data:100000 &
+    setsid beagle_watchdog -obeagle_watchdog:tty=/dev/ttyO2 -obeagle_watchdog:files=$data_dir:100000 &
 else
     test -n "$leave_disk_powered_on" || set_power off $sw_disk
-    setsid beagle_watchdog -obeagle_watchdog:tty=/dev/ttyO2 &
+    setsid beagle_watchdog -obeagle_watchdog:tty=/dev/ttyO2  -obeagle_watchdog:files=$data_dir:100000 &
 fi
 lsusb
 

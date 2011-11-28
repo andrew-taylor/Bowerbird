@@ -2,8 +2,8 @@
 
 #define SOUND_CAPTURE_GROUP "sound_capture"
 #define VERSION "0.1.1"
-#define FILE_DIR_FORMAT "%d-%02d-%02d" // args are year, month, day
-#define FILE_NAME_FORMAT "%s/%s/%02d:%02d:%02d.%02d%s" // args are data_dir, file_dir(date), hours, minutes, seconds, microseconds, file extension
+#define FILE_DIR_FORMAT "%d_%02d_%02d" // args are year, month, day
+#define FILE_NAME_FORMAT "%s/%s/%02d_%02d_%02d.%02d.%s" // args are data_dir, file_dir(date), hours, minutes, seconds, microseconds, file extension
 
 #define PARAMETER_PARSING_VERBOSITY 20 // verbosity for parsing cmdline & file parameters
 #define PROGRAM_VERBOSITY 30

@@ -1,7 +1,5 @@
 #!/bin/bash
 LOGGER=/usr/bin/logger
-VARIABLES_FILE=
-
 DPRINT=echo
 # this succeeds but doesn't print anything
 DPRINT=true # comment out for debug
@@ -48,17 +46,6 @@ then
 
 	if [ "$needs_mount" ]
 	then
-		# if configured, (and not already mounted) power up the external device
-		if $EXTERNAL_POWER
-		then
-			# power up the hub, and the drive
-			$DPRINT powering up the usb hub and device
-			set_power on $sw_hub
-			set_power on $sw_disk
-			# wait a while to let them settle
-			sleep $EXTERNAL_POWER_SETTLE_TIME
-		fi
-
 		$DPRINT mounting $mount_point
 		if ! mount $mount_point
 		then

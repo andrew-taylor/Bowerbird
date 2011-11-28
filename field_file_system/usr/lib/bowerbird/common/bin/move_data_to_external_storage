@@ -1,15 +1,14 @@
 #!/bin/bash
 
-DEBUG=true
 LOGGER=/usr/bin/logger
-VARIABLES_FILE=/etc/bowerbird/config/global_variables
 RSYNC_ATTEMPTS=5 # default
 DELETE_FILES_WHEN_FULL=1
 FULL_THRESHOLD=99
 FILES_TO_DELETE_WHEN_FULL=150
-EXTERNAL_POWER=true # default
-EXTERNAL_POWER=false
-EXTERNAL_POWER_SETTLE_TIME=30 # seconds
+
+. /etc/bowerbird/config/global_variables
+PRINT=echo
+test -x $LOGGER && PRINT=$LOGGER
 
 external_data_dir="$external_storage_data_dir/$hostname/data"
 # make sure the backup directory exists
@@ -35,8 +34,7 @@ until [ $rsync_rc -eq 0 -o $attempt -ge $RSYNC_ATTEMPTS ]
 do
 	attempt=$(($attempt+1))
 	$DPRINT "transferring files (attempt $attempt)..."
-#	rsync_out=`rsync -av --partial --remove-source-files --exclude=$today $data_dir/ $external_data_dir/`
-	rsync_out=`rsync -av --partial --remove-source-files $data_dir/ $external_data_dir/`
+	rsync_out=`rsync -v  -rlt  --partial --remove-source-files $data_dir/ $external_data_dir/`
 	rsync_rc=$?
 
 	# pass on output. If transfer failed, report it
