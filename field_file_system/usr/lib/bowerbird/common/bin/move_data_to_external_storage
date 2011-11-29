@@ -5,20 +5,21 @@ RSYNC_ATTEMPTS=5 # default
 DELETE_FILES_WHEN_FULL=1
 FULL_THRESHOLD=99
 FILES_TO_DELETE_WHEN_FULL=150
+DPRINT=echo
+# this succeeds but doesn't print anything
+DPRINT=true # comment out for debug
 
 . /etc/bowerbird/config/global_variables
 PRINT=echo
 test -x $LOGGER && PRINT=$LOGGER
 
-external_data_dir="$external_storage_data_dir/$hostname/data"
-# make sure the backup directory exists
-if [ ! -d $external_data_dir ]
+if [ ! -d $external_storage_data_dir ]
 then
-	$DPRINT making external directory $external_data_dir
-	mkdir -p $external_data_dir
+	$DPRINT making external directory $external_storage_data_dir
+	mkdir -p $external_storage_data_dir
 fi
 
-check_disk_space $external_data_dir
+check_disk_space $external_storage_data_dir
 
 
 # move all but todays recordings to an external device
@@ -34,7 +35,7 @@ until [ $rsync_rc -eq 0 -o $attempt -ge $RSYNC_ATTEMPTS ]
 do
 	attempt=$(($attempt+1))
 	$DPRINT "transferring files (attempt $attempt)..."
-	rsync_out=`rsync -v  -rlt  --partial --remove-source-files $data_dir/ $external_data_dir/`
+	rsync_out=`rsync -v  -rlt  --partial --remove-source-files $data_dir/ $external_storage_data_dir/`
 	rsync_rc=$?
 
 	# pass on output. If transfer failed, report it
@@ -46,10 +47,10 @@ do
 		# should not be needed because check_disk_space above should clear enough space
 		if [ "$DELETE_FILES_WHEN_FULL" ]
 		then
-			df=`df $external_data_dir|sed '1d;s/%.*//;s/.* //'`
+			df=`df $external_storage_data_dir|sed '1d;s/%.*//;s/.* //'`
 			if [ "$df" -ge "$FULL_THRESHOLD" ]
 			then
-				find $external_data_dir -name '*.wv' |
+				find $external_storage_data_dir -name '*.wv' |
 				sort -t/ -k9 -k8 -k7 -k6 -k5 -k4 -k3|
 				sed ${FILES_TO_DELETE_WHEN_FULL}q \
 				| xargs -r rm

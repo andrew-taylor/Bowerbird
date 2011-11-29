@@ -3,7 +3,7 @@
 #define SOUND_CAPTURE_GROUP "sound_capture"
 #define VERSION "0.1.1"
 #define FILE_DIR_FORMAT "%d_%02d_%02d" // args are year, month, day
-#define FILE_NAME_FORMAT "%s/%s/%02d_%02d_%02d.%02d.%s" // args are data_dir, file_dir(date), hours, minutes, seconds, microseconds, file extension
+#define FILE_NAME_FORMAT "%s/%s/%02d_%02d_%02d_%02d.%s" // args are data_dir, file_dir(date), hours, minutes, seconds, microseconds, file extension
 
 #define PARAMETER_PARSING_VERBOSITY 20 // verbosity for parsing cmdline & file parameters
 #define PROGRAM_VERBOSITY 30
@@ -90,7 +90,7 @@ void run(void)
 //			beep(1, 3000, 1, active_high);
 //		}
 		char file_dir[PATH_MAX];
-		snprintf(file_dir, sizeof(file_dir), file_dir_format, 1900 + local->tm_year, local->tm_mon, local->tm_mday);
+		snprintf(file_dir, sizeof(file_dir), file_dir_format, 1900 + local->tm_year, local->tm_mon+1, local->tm_mday);
 		if (ensure_directory_exists(data_dir, file_dir, 20))
 			exit(1);
 
