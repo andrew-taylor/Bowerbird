@@ -1,0 +1,168 @@
+#!/usr/bin/perl -w
+while (@ARGV) {
+	if ($ARGV[0] eq "-skip_wv_files") {
+		shift @ARGV;
+		$skip_wv_files = 1;
+	} elsif ($ARGV[0] eq "-debug") {
+		shift @ARGV;
+		$debug = 1;
+	} else {
+		last;
+	}
+}
+
+$ARGV[0] or die
+;chdir $ARGV[0] or die "can not chdir  $ARGV[0]: $!";
+-d 'invalid' or mkdir 'invalid';
+
+$station_name_from_directory = `pwd`;
+chomp $station_name_from_directory;
+$station_name_from_directory =~ s?.*/??;
+die if $station_name_from_directory =~ /[^\w\-]/;
+print STDERR "station_name_from_directory=$station_name_from_directory\n" if $debug;
+$clean_wv_file="/home/andrewt/w/a/bowerbird/core/s/scripts/clean_wv_file";
+
+my $forked = 0;
+foreach $pathname (reverse glob "*") {
+	-d $pathname or next;
+	print STDERR "pathname=$pathname\n";
+	next if  $pathname =~ /invalid/;
+	if ($pathname =~ /status$/) {
+		print STDERR "mv '$pathname' invalid/\n";
+		system "mv '$pathname' invalid/";
+		next;
+	}
+	my @invalid;
+	foreach $sub_pathname (reverse glob "$pathname/*") {
+		print STDERR "sub_pathname=$sub_pathname\n";
+		my $basename =  $sub_pathname;
+		$basename =~ s/\.\w+$//;
+		if (-d $sub_pathname) {
+			if (glob "$pathname/*") {
+				print STDERR "invalid:  $sub_pathname\n" if $debug;
+				warn "$0: unexpected non-empty directory:\n";
+				system "ls -ld `pwd`/$sub_pathname";
+			} else {
+				print STDERR "invalid:  $sub_pathname\n";
+				push @invalid, $sub_pathname
+			}
+		} elsif (!-f $sub_pathname) {
+			warn "$0: unexpected non-file:\n";
+			system "ls -ld `pwd`/$sub_pathname";
+		} else {
+			if (-s  $sub_pathname == 0) {
+				print STDERR "invalid: zero length file $sub_pathname\n";
+				push @invalid, $sub_pathname;
+			} elsif ($sub_pathname =~ /\.details$/) {
+			} elsif ($sub_pathname =~ /\.wv$/) {
+				next if $skip_wv_files;
+				print STDERR "start forked=$forked\n" if $debug;
+				while ($forked > 3) {
+					my $pid = wait;
+					print STDERR "wait returns $pid\n" if $debug;
+					if ($pid == -1) {
+						$forked = 0;
+						last;
+					}
+					$forked--;
+				}
+				$forked++;
+				next if fork;
+				if (!system "$clean_wv_file $sub_pathname") {
+					push @invalid, $sub_pathname;
+					push @invalid, "$basename.details";
+				}
+				exit(0);
+			} elsif ($sub_pathname =~ /\.shw$/) {
+				my $date = `date`;
+				chomp $date;
+				my %tag = (station_name => $station_name_from_directory, time_utc => (stat $sub_pathname)[9], original_file_name => $sub_pathname, original_file_size => -s $sub_pathname, original_file_modify_time => (stat $sub_pathname)[9], original_file_rencoded => $date);
+				if ($sub_pathname =~ /\D(\d{10})\D/) {
+					print STDERR "taking time ($1) from filename\n" if $debug;
+					$tag{time_utc} = $1;
+				}
+				my $details = "$basename.details";
+				if (open D, $details) {
+					while (<D>) {
+						chomp;
+						if (/(.*?)=(.*)/) {
+							$tag{$1} = $2;
+							print STDERR "tag{$1} = $2\n" if $debug;
+						} elsif (/^(\d{10}[\.\d]*)/) {
+							$tag{time_utc} = $1;
+							print STDERR "tag{time_utc} = $1\n" if $debug;
+						}
+					}
+				}
+				my $wav_file = "$basename.wav";
+				my $wv_file = "$basename.wv";
+				die "$wav_file already exists" if -e  $wav_file;
+				die "$wv_file already exists" if -e  $wv_file;
+				my $tags ="";
+				$tags .= " -w '$_=$tag{$_}'" foreach keys %tag;
+				$command = "shorten -x $sub_pathname '$basename.sw'\n";
+				print STDERR $command;
+				if (system "$command") {
+					system "rm -f '$basename.sw'\n";
+					warn "$0: $sub_pathname: invalid shorten file\n";
+					push @invalid, $sub_pathname;
+					push @invalid, $details if -r $details;
+					next;
+				}
+				$command = "sox -t .sw -r 16000 -c 2  '$basename.sw' '$basename.wav'\n";
+				print STDERR $command if $debug;
+				system "$command" and die;
+				$command = "wavpack -mqdity $tags '$wav_file' -o '$wv_file.tmp' && mv  '$wv_file.tmp'  '$wv_file' && touch -r $sub_pathname $wv_file\n";
+				print STDERR $command if $debug;
+				system "$command" and die;
+				$command = "wvunpack -qtwy '$wv_file' -o -|sox -t .wav - -t .sw - >'$basename.sw.tmp1'\n";
+				print STDERR $command if $debug;
+				system "$command" and die;
+				$command = "shorten -x '$sub_pathname'  '$basename.sw.tmp2'\n";
+				print STDERR $command if $debug;
+				system "$command" and die;
+				$command = "cmp '$basename.sw.tmp1'  '$basename.sw.tmp2'\n";
+				print STDERR $command if $debug;
+				if (system "$command") {
+					print STDERR "$basename.sw.tmp1 $basename.sw.tmp2 not identical\n";
+					system "ls -l  '$basename'*";
+					system "rm -f '$basename.sw.tmp1'  '$basename.sw' '$basename.sw.tmp2' $wv_file";
+					next;
+				}
+				$command = "wvunpack -q -v $wv_file\n";
+				print STDERR $command if $debug;
+				system "$command" and die;
+				die if !-r $wv_file; # paranoia
+				$command = "rm -f '$basename.sw.tmp1'  '$basename.sw' '$basename.sw.tmp2' '$sub_pathname'\n";
+				print STDERR $command if $debug;
+				system "$command";
+			} else {
+					push @invalid, $sub_pathname;
+			}
+		}
+	}
+	if (@invalid) {
+		-d "invalid/$pathname" or mkdir  "invalid/$pathname";
+		print STDERR "mv '$_' invalid/\n" foreach @invalid;
+		system "mv '$_' 'invalid/$_'" foreach @invalid;
+	}
+	my @files = glob "$pathname/*";
+	if (!@files) {
+		print STDERR "$pathname empty directory @files\n";
+		if (-d "invalid/$pathname") {
+			system "rmdir $pathname";
+		} else{
+			system "mv '$pathname' invalid/";
+		}
+	}
+}
+while (wait != -1) {}
+
+system <<eof;
+chown -R bowerbird.bowerbird .
+find . -type d|xargs chmod 755
+find . -type f|xargs chmod 444
+#rsync -RaP `find . -empty|grep -v '^./invalid'` --remove-sent-files invalid/
+#rsync -RaP `find . -empty|grep -v '^./invalid'` invalid/
+#find -depth -type d -empty|grep -v '^./invalid'|xargs rmdir
+eof

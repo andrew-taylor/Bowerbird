@@ -1,0 +1,7 @@
+#!/bin/sh
+. /etc/bowerbird/config/global_variables
+while true
+do
+	nc   -l -p 54671 /usr/lib/bowerbird/common/bin/live_sound $data_dir
+	sleep 5
+done

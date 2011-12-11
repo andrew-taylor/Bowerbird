@@ -1,0 +1,26 @@
+#!/usr/bin/perl -w
+$| = 0;
+$debug = 1;
+die if !@ARGV;
+chdir $ARGV[0] or die "can not chdir $ARGV[0]: $!";
+@days = glob '[0-9][0-9][0-9][0-9]_[0-9][0-9]_[0-9][0-9]';
+chdir $days[$#days] or die;
+$last_played_file = "";
+$nfiles = 0;
+$sleeps = 0;
+while ($nfiles < 10 && $sleeps < 100) {
+	my @files = glob '[0-9]*.details';
+	my $file = $files[$#files];
+	$file =~ s/details$/wv/;
+	if ($file && $file ne $last_played_file) {
+        my $command = "cat $file\n";
+		print STDERR $command if $debug;
+		system $command and die;
+		$last_played_file	= $file;
+		$nfiles++;
+	} else {
+        print STDERR "sleeping\n" if $debug;
+		sleep 2;
+		$sleeps++;
+	}
+}

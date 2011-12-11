@@ -1,0 +1,8 @@
+#!/bin/sh
+ssh "root@$1.homelinux.org" /usr/lib/bowerbird/common/bin/live_sound "/var/lib/bowerbird/data/$1"|
+case "$2" in
+wav) wvunpack -q -b -w - -o -;;
+ogg) wvunpack -q -b -w - -o -|oggenc  -Q - 2>/dev/null;;
+mp3) wvunpack -q -b -w - -o -|lame -t -S - - 2>/dev/null;;
+*) exit 1
+esac

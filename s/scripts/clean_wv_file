@@ -1,0 +1,66 @@
+#!/usr/bin/perl
+foreach $sub_pathname (@ARGV) {
+	my $basename =  $sub_pathname;
+	$basename =~ s/\.\w+$//;
+	my $details = "$basename.details";
+	print STDERR "wvunpack -qv $sub_pathname 2>/dev/null\n" ;
+	system "wvunpack -qv $sub_pathname 2>/dev/null" or next;
+	my $message = `wvunpack -qv $sub_pathname 2>&1`;
+	$message =~ s/^\s*//;
+	if ($message !~ /^file is missing \d+ samples!/i) {
+		warn "$0: $sub_pathname: '$message'\n";
+		exit(1);
+	}
+	my $date = `date`;
+	chomp $date;
+	my %tag = (station_name => $station_name_from_directory, time_utc => (stat $sub_pathname)[9], original_file_name => $sub_pathname, original_file_size => -s $sub_pathname, original_file_modify_time => (stat $sub_pathname)[9]);
+	if (open D, $details) {
+		while (<D>) {
+			chomp;
+			if (/(.*?)=(.*)/) {
+				$tag{$1} = $2;
+				print STDERR "tag{$1} = $2\n" if $debug;
+			} elsif (/^(\d{10}[\.\d]*)/) {
+				$tag{time_utc} = $1;
+				print STDERR "tag{time_utc} = $1\n" if $debug;
+			}
+		}
+	}
+	print STDERR "wvunpack -qss '$sub_pathname'|\n" if $debug;
+	open D, "wvunpack -qss '$sub_pathname'|" or die;
+	while (<D>) {
+		/^APE/i && last;
+	}
+	while (<D>) {
+		chomp;
+		/(.*?):\s*(.*)/ and $tag{$1} = $2;
+	}
+	close D;
+	my $wav_file =  "$basename.wav";
+	my $tags ="";
+	$tags .= " -w '$_=$tag{$_}'" foreach sort keys %tag;
+	die "$wav_file already exists" if -e  $wav_file;
+	$command = "wvunpack -qtwy '$sub_pathname' -o '$wav_file'\n";
+	print STDERR $command if $debug;
+	system $command;
+	$command = "wavpack -qity $tags '$wav_file' -o '$basename.wv.tmp'";
+	print STDERR $command if $debug;
+	system $command and die;
+	$command = "wvunpack -qtwy '$basename.wv.tmp' -o '$wav_file.tmp'\n";
+	print STDERR $command if $debug;
+	system $command;
+	$command = "cmp '$wav_file' '$wav_file.tmp'\n";
+	print STDERR $command if $debug;
+	if (system $command) {
+		warn "$wav_file $wav_file.tmp not identical";
+		system "ls -l $wav_file $wav_file.tmp";
+		exit(1);
+	}
+	$command = "mv  '$basename.wv.tmp'  '$sub_pathname'\n";
+	print STDERR $command if $debug;
+	system $command and die;
+	$command = "rm -f '$wav_file' '$wav_file.tmp'\n";
+	print STDERR $command if $debug;
+	system "$command";
+}
+exit (0);

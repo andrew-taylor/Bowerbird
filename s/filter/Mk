@@ -1,7 +1,7 @@
 GLOBAL_FUNCTIONS = comb_filter.c
 LOCAL_FUNCTIONS = 
 APPLICATIONS = filter.c
-EXTERNAL_LIBS += 
+EXTERNAL_LIBS += -lsndfile
 
 comb_filter:$T/comb_filter $T/comb_filter-debug $T/comb_filter-profile
 	comb_filter -V30 test_sound_files/ground_parrot_calls.wav /tmp/comb.wav

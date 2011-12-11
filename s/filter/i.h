@@ -1,5 +1,3 @@
-#ifndef COMB_FILTER_H
-#define COMB_FILTER_H
 #include <time.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -19,4 +17,5 @@
 
 #include "bowerbird.h"
 #include "filter-prototypes.h"
-#endif
+
+#define FILTER_GROUP "filter"
