@@ -23,7 +23,7 @@ print STDERR "station_name_from_directory=$station_name_from_directory\n" if $de
 $clean_wv_file="/home/andrewt/w/a/bowerbird/core/s/scripts/clean_wv_file";
 
 my $forked = 0;
-foreach $pathname (reverse glob "*") {
+foreach $pathname (glob "*") {
 	-d $pathname or next;
 	print STDERR "pathname=$pathname\n";
 	next if  $pathname =~ /invalid/;
