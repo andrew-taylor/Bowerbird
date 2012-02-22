@@ -43,8 +43,7 @@ do
 							lcd=up
 						fi
 						sleep 60
-						ping_count=`expr $ping_count - 1`
-					else
+`					else
 						if test "$lcd" '!=' 'down'
 						then
 							echo 'i:down' >$status_dir/ppp.message
@@ -52,6 +51,7 @@ do
 						fi
 						message 'ping failed'
 					fi
+					ping_count=`expr $ping_count - 1`
 				done
 				sleep_seconds=100
 			else

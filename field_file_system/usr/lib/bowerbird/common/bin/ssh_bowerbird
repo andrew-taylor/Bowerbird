@@ -1,5 +1,11 @@
 #!/bin/sh
-ssh "root@$1.homelinux.org" /usr/lib/bowerbird/common/bin/live_sound "/var/lib/bowerbird/data/$1"|
+set -x
+
+SSH_ARGS="root@$1.homelinux.org"
+case "$1" in
+parry-lagoons) SSH_ARGS="bowerbird@glebe.homelinux.org ssh root@localhost -p 11022"
+esac
+ssh $SSH_ARGS /usr/lib/bowerbird/common/bin/live_sound "/var/lib/bowerbird/data/$1"|
 case "$2" in
 wav) wvunpack -q -b -w - -o -;;
 ogg) wvunpack -q -b -w - -o -|oggenc  -Q - 2>/dev/null;;

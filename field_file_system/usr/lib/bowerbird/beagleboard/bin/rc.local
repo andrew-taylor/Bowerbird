@@ -48,6 +48,7 @@ set_power on $sw_external0
 set_power on $sw_external1
 
 setsid ppp_daemon &
+setsid wireless_daemon &
 #setsid disk_space_daemon  &
 setsid run_sound_capture  &
 if test -n "$no_ppp"

@@ -7,8 +7,7 @@ then
     echo wireless disabled
     exit 0
 fi
-set -x
-ps -ef|grep 'wireless_daemon$'|sed "/$$/d;/grep/d;s/^[a-z]* *//;s/ .*//"|xargs -r kill -9
+#set -x
 station_hex_id=`echo "$hostname"|od -x -w256 -N16 -An -v  -|sed 's/ //g'`
 unsuccessful_power_cycles=0
 while test $unsuccessful_power_cycles -lt 10
@@ -22,21 +21,20 @@ do
 		sleep_seconds=1
 		while test $sleep_seconds -gt 0
 		do
-			if ping -c 1 -q $wireless_gateway  >/dev/null
+			if ppp_up
 			then
-				ppp_up&&touch $network_alive_file
-                if test "$lcd" '!=' 'up'
-                then
-                    echo 'w:up' >$status_dir/wireless.message
-                    lcd=up
-                fi
+				touch $network_alive_file
 				ping_count=60
 				while test $ping_count -gt 0
 				do
-					if ping -c 1 -q -p "$station_hex_id" 129.94.172.235 >/dev/null || ping -c 1 -q $wireless_gateway  >/dev/null
+					if ping -c 1 -q -p "$station_hex_id" 129.94.172.235 >/dev/null || ping -c 1 -q 203.2.75.132 >/dev/null || ping -c 1 -q 61.9.226.33 || ping -c 1 -q $wireless_gateway >/dev/null
 					then
+						if test "$lcd" '!=' 'up'
+						then
+							echo 'w:up' >$status_dir/wireless.message
+							lcd=up
+						fi
 						sleep 60
-						ping_count=`expr $ping_count - 1`
 					else
 						if test "$lcd" '!=' 'down'
 						then
@@ -44,17 +42,25 @@ do
 							lcd=down
 						fi
 						message 'ping failed'
-                        break
+    				    iwconfig $wireless_interface $wireless_iwconfig_options
+     				    ifconfig $wireless_interface up $wireless_ip netmask  $wireless_netmask
+     				    sleep 10
 					fi
+					ping_count=`expr $ping_count - 1`
 				done
 				sleep_seconds=100
 			else
-				if test "$lcd" '!=' 'down'
-				then
-					echo 'w:down' >$status_dir/wireless.message
-					lcd=down
-				fi
-				message 'internet not connected'
+                if test -n "$attempted_start"
+                then
+                    if test "$lcd" '!=' 'down'
+                    then
+                        echo 'w:down' >$status_dir/wireless.message
+                        lcd=down
+                    fi
+                else
+                    attempted_start=1
+                    break
+                fi
 				sleep_seconds=`expr $sleep_seconds / 10`
 			fi
 			sleep $sleep_seconds
@@ -64,7 +70,26 @@ do
         sleep 5
         iwconfig $wireless_interface $wireless_iwconfig_options
         ifconfig $wireless_interface up $wireless_ip netmask  $wireless_netmask
+        sleep 10
         route add default gw  $wireless_gateway $wlan0
+		sleep 10
+		if ppp_up
+		then
+			message 'wireless running'
+			echo 'i:up' >$status_dir/wireless.message
+			failures=0
+			unsuccessful_power_cycles=0
+            /etc/init.d/ntp stop
+            ntpdate 0.debian.pool.ntp.org
+            ntpdate 211.29.132.140
+            /etc/init.d/ntp start
+			sleep 7200
+		else
+			message 'wireless not running'
+			echo 'w:down' >$status_dir/wireless.message
+			failures=$((failures + 1))
+			sleep 5
+		fi
 	done
 	unsuccessful_power_cycles=$((unsuccessful_power_cycles + 1))
 	# usb_hub becomes inaccessible if no device on
