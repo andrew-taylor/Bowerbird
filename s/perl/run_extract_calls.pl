@@ -2,14 +2,20 @@
 use Bowerbird;
 sub process(@);
 sub process_file($);
-$debug_level = 0;
+$debug_level = 1;
 my $forked = 0;
 my $cwd = `pwd`;
 chomp $cwd;
-my $db = "$cwd/units.db";
+my $db = "units.db";
 my $config = "$cwd/bowerbird_config";
 $config = "" if !-r $config;
-$max_processes = 3;
+$max_processes = 1;
+exit(0) if !@ARGV;
+if ($ARGV[0] =~ /^-(\d+)$/) {
+	$max_processes = $1;
+	shift @ARGV;
+}
+print STDERR "max_processes=$max_processes\n" if $debug_level;
 
 process(@ARGV);
 while ($forked) {
@@ -63,11 +69,13 @@ sub process_file($) {
 		if ($sound_file =~ /\.shw$/) {
 			dsystem "shorten -x $sound_file -|sox --single-threaded -t .sw -r 16000 -c 2 - $cwd/segment_0.wav highpass 10";
 		} else {
-			dsystem "sox --single-threaded $sound_file - highpass 10|segment_audio.pl /dev/stdin >/dev/null";
+#			dsystem "sox --single-threaded $sound_file -t .wav - highpass 10|segment_audio /dev/stdin >/dev/null";
+#			dsystem "sox --single-threaded $sound_file -t .wav $cwd/segment_0.wav highpass 10";
+			dsystem "sox --single-threaded $sound_file -t .wav $cwd/segment_0.wav highpass 10";
 		}
 	}
 	system "rm -f call*.details call*.track call*.spectrum call*.jpg";
 	my $db = "$cwd/../2.db";
-	dsystem "extract_calls -V1 -C $config -ocall:database=$db $cwd/segment_0.wav || rm -f unit.html";
+	dsystem "extract_calls -v1 -C $config -ocall:database=$db $cwd/segment_0.wav || rm -f unit.html";
 	exit 0; # crucial
 }

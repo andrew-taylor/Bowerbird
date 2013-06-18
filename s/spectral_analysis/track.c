@@ -37,7 +37,8 @@ extract_calls_file(char *filename, FILE *index_file, int *call_count) {
 		char *start_cmd = param_get_string("database", "start_cmd");
 		if(sqlite3_exec(sql_db, start_cmd, 0, 0, &err) != SQLITE_OK)
 			die("SQL error from '%s' -> %s\n", start_cmd, err);
-		if (sqlite3_prepare_v2(sql_db, param_get_string("database", "source_insert"), -1, &sql_statement, NULL) != SQLITE_OK)
+		char *sql_statement_string = param_get_string("database", "source_insert");
+		if (sqlite3_prepare_v2(sql_db, sql_statement_string, -1, &sql_statement, NULL) != SQLITE_OK)
 			die("SQL error from sqlite3_prepare_v2: %s\n", sqlite3_errmsg(sql_db));
 		// FIXME replace column numbers with constants
 		sqlite3_bind_text(sql_statement, 1, filename, -1, SQLITE_STATIC);
@@ -50,8 +51,10 @@ extract_calls_file(char *filename, FILE *index_file, int *call_count) {
 		sqlite3_bind_text(sql_statement, 8, param_get_string("metadata", "time"), -1, SQLITE_STATIC);
 		sqlite3_bind_text(sql_statement, 9, param_get_string("metadata", "location_name"), -1, SQLITE_STATIC);
 		sqlite3_bind_text(sql_statement, 10, param_get_string("metadata", "lat_long"), -1, SQLITE_STATIC);
-		if (sqlite3_step(sql_statement) != SQLITE_DONE)
-			die("SQL error from sqlite3_step inserting source %s: %s\n", filename, sqlite3_errmsg(sql_db));
+		int sql_return_code;
+		if ((sql_return_code = sqlite3_step(sql_statement)) != SQLITE_DONE) {
+			die("SQL error from sqlite3_step inserting source %s: %s ('%s' -> %d)\n", filename, sqlite3_errmsg(sql_db), sql_statement_string, sql_return_code);
+		}
 		dp(20, "source '%s' inserted\n", filename);
 		if (sqlite3_prepare_v2(sql_db, param_get_string("database", "unit_insert"), -1, &sql_statement, NULL) != SQLITE_OK)
 			die("SQL error from sqlite3_prepare_v2: %s\n", sqlite3_errmsg(sql_db));
@@ -453,7 +456,6 @@ process_track(track_t *t, fft_t fft, char *source, int channel, int n_channels, 
 			fprintf(spectrum_file, "\n");
 		}
 		fclose(spectrum_file);
-		g_free(spectrum_file);
 		g_free(spectrum_filename);
 	}
 	if (index_file)

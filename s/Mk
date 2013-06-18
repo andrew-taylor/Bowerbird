@@ -12,7 +12,7 @@ LIB_DEBUG = $T/libcall_catalog-debug.a
 LIB_PROFILE = $T/libcall_catalog-profile.a
 PROTOTYPES_FILE = $T/prototypes.h
 LOCAL_PROTOTYPES_FILE = $T/$S-prototypes.h
-INCLUDES_PATH = -Iincludes -I$T -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include -I/usr/include
+INCLUDES_PATH = -Iincludes -I$T -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include -I/usr/lib/x86_64-linux-gnu/glib-2.0/include/ -I/usr/include
 COMMON_DEPENDENCIES=includes/bowerbird.h Mk
 
 COMPILER ?= gcc
