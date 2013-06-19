@@ -56,6 +56,7 @@ relative_relief_outside_radius = 265
 min_relative_relief = 5
 # minimum relative power of non-peaks incorporated into tracks
 min_power_between_track_bins = 0.2
+bandwidth_threshold = 0.5
 
 [call]
 output_directory = .
@@ -81,15 +82,21 @@ prefix_seconds = 0.1
 suffix_seconds = 0.1
 ignore_channel_bitmap = 0
 
-[database]
-start_cmd = create table if not exists sources (source_id INTEGER PRIMARY KEYname TEXTsampling_rate DOUBLEfft_n_bins INTEGERfft_step_size INTEGERfft_window_size INTEGER);create table if not exists units (unit_id INTEGER PRIMARY KEYsource_id INTEGERchannel INTEGERfirst_frame INTEGERn_frames INTEGERfrequency BLOBamplitude BLOBphase BLOB);create index if not exists unit_source_index on units(source_id);create index if not exists source_name_index on sources(name);begin transaction;
-source_insert = insert into sources values(NULL, ?, ?, ?, ?, ?)
-unit_insert = insert into units values(NULL, ?, ?, ?, ?, ?, ?, ?)
-finish_cmd = commit
-busy_timeout = 60000
+[metadata]
+time = ?
+location_name = ?
+lat_long = ?
 
-[tonal_model]
-sampling_rate = 16000
+[util]
+png_compression_level=1
+
+[database]
+# has to be match database_interface.py
+start_cmd=create table if not exists sources (source_id INTEGER PRIMARY KEY, filename TEXT, sample_rate DOUBLE, n_channels INTEGER, n_frames INTEGER, fft_size INTEGER, fft_window_size INTEGER, fft_step_size INTEGER, time TEXT, location_name TEXT, lat_long TEXT);create table if not exists units (unit_id INTEGER PRIMARY KEY, source_id INTEGER,  channel INTEGER, first_frame INTEGER, n_frames INTEGER, frequency BLOB, amplitude BLOB, phase BLOB, bandwidth BLOB, amplitude_between_channels BLOB);create index if not exists unit_source_index on units(source_id);create index if not exists source_filename_index on sources(filename);begin transaction;
+source_insert=insert into sources values(NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+unit_insert=insert into units values(NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+finish_cmd=commit
+busy_timeout=60000
 
 [localization]
 base_dir = /raid/data/barren_grounds/
